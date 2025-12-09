@@ -25,7 +25,7 @@ export interface Employee {
   department: string;
   designation: string;
   joinDate: string;
-  status: "active" | "inactive" | "onboarding";
+  status: "active" | "inactive" | "onboarding" | "offboarded";
 }
 
 interface EmployeeTableProps {

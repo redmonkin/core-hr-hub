@@ -1,118 +1,70 @@
-import { useState } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
-import { LeaveRequestCard, LeaveRequest } from "@/components/leaves/LeaveRequestCard";
+import { LeaveRequestCard } from "@/components/leaves/LeaveRequestCard";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Calendar, Plus, Clock, CheckCircle, XCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-
-const mockLeaveRequests: LeaveRequest[] = [
-  {
-    id: "1",
-    employee: {
-      name: "Sarah Miller",
-      avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&h=100&fit=crop&crop=face",
-      department: "Engineering",
-    },
-    type: "Annual",
-    startDate: "Dec 9, 2024",
-    endDate: "Dec 11, 2024",
-    days: 3,
-    reason: "Family vacation planned for the holidays",
-    status: "pending",
-  },
-  {
-    id: "2",
-    employee: {
-      name: "Mike Johnson",
-      avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop&crop=face",
-      department: "Design",
-    },
-    type: "Sick",
-    startDate: "Dec 8, 2024",
-    endDate: "Dec 8, 2024",
-    days: 1,
-    reason: "Not feeling well, need rest",
-    status: "pending",
-  },
-  {
-    id: "3",
-    employee: {
-      name: "Emily Chen",
-      avatar: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&h=100&fit=crop&crop=face",
-      department: "Marketing",
-    },
-    type: "Annual",
-    startDate: "Dec 15, 2024",
-    endDate: "Dec 20, 2024",
-    days: 6,
-    reason: "Year-end vacation",
-    status: "pending",
-  },
-  {
-    id: "4",
-    employee: {
-      name: "David Brown",
-      avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&h=100&fit=crop&crop=face",
-      department: "Engineering",
-    },
-    type: "Casual",
-    startDate: "Dec 5, 2024",
-    endDate: "Dec 5, 2024",
-    days: 1,
-    reason: "Personal appointment",
-    status: "approved",
-  },
-  {
-    id: "5",
-    employee: {
-      name: "Lisa Wang",
-      avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop&crop=face",
-      department: "HR",
-    },
-    type: "Sick",
-    startDate: "Dec 2, 2024",
-    endDate: "Dec 3, 2024",
-    days: 2,
-    reason: "Doctor appointment and recovery",
-    status: "approved",
-  },
-];
-
-const leaveStats = [
-  { label: "Pending", value: 5, icon: <Clock className="h-5 w-5" />, color: "text-amber-600" },
-  { label: "Approved", value: 12, icon: <CheckCircle className="h-5 w-5" />, color: "text-emerald-600" },
-  { label: "Rejected", value: 2, icon: <XCircle className="h-5 w-5" />, color: "text-destructive" },
-];
+import { useLeaveRequests, useLeaveStats, useUpdateLeaveStatus } from "@/hooks/useLeaves";
 
 const Leaves = () => {
-  const [requests, setRequests] = useState(mockLeaveRequests);
   const { toast } = useToast();
+  const { data: requests = [], isLoading } = useLeaveRequests();
+  const { data: stats } = useLeaveStats();
+  const updateStatus = useUpdateLeaveStatus();
 
   const handleApprove = (id: string) => {
-    setRequests((prev) =>
-      prev.map((req) => (req.id === id ? { ...req, status: "approved" as const } : req))
+    updateStatus.mutate(
+      { id, status: "approved" },
+      {
+        onSuccess: () => {
+          toast({
+            title: "Leave Approved",
+            description: "The leave request has been approved.",
+          });
+        },
+        onError: () => {
+          toast({
+            title: "Error",
+            description: "Failed to approve leave request.",
+            variant: "destructive",
+          });
+        },
+      }
     );
-    toast({
-      title: "Leave Approved",
-      description: "The leave request has been approved.",
-    });
   };
 
   const handleReject = (id: string) => {
-    setRequests((prev) =>
-      prev.map((req) => (req.id === id ? { ...req, status: "rejected" as const } : req))
+    updateStatus.mutate(
+      { id, status: "rejected" },
+      {
+        onSuccess: () => {
+          toast({
+            title: "Leave Rejected",
+            description: "The leave request has been rejected.",
+          });
+        },
+        onError: () => {
+          toast({
+            title: "Error",
+            description: "Failed to reject leave request.",
+            variant: "destructive",
+          });
+        },
+      }
     );
-    toast({
-      title: "Leave Rejected",
-      description: "The leave request has been rejected.",
-    });
   };
 
   const pendingRequests = requests.filter((r) => r.status === "pending");
   const processedRequests = requests.filter((r) => r.status !== "pending");
+
+  const leaveStats = [
+    { label: "Pending", value: stats?.pending || 0, icon: <Clock className="h-5 w-5" />, color: "text-amber-600" },
+    { label: "Approved", value: stats?.approved || 0, icon: <CheckCircle className="h-5 w-5" />, color: "text-emerald-600" },
+    { label: "Rejected", value: stats?.rejected || 0, icon: <XCircle className="h-5 w-5" />, color: "text-destructive" },
+  ];
 
   return (
     <DashboardLayout>
@@ -160,7 +112,13 @@ const Leaves = () => {
           </TabsList>
 
           <TabsContent value="pending" className="mt-6 space-y-4">
-            {pendingRequests.length === 0 ? (
+            {isLoading ? (
+              <div className="space-y-4">
+                {[1, 2, 3].map((i) => (
+                  <Skeleton key={i} className="h-32 w-full rounded-xl" />
+                ))}
+              </div>
+            ) : pendingRequests.length === 0 ? (
               <Card>
                 <CardContent className="flex flex-col items-center justify-center py-12">
                   <Calendar className="mb-4 h-12 w-12 text-muted-foreground" />
@@ -181,15 +139,31 @@ const Leaves = () => {
           </TabsContent>
 
           <TabsContent value="processed" className="mt-6 space-y-4">
-            {processedRequests.map((request) => (
-              <LeaveRequestCard key={request.id} request={request} />
-            ))}
+            {isLoading ? (
+              <div className="space-y-4">
+                {[1, 2, 3].map((i) => (
+                  <Skeleton key={i} className="h-32 w-full rounded-xl" />
+                ))}
+              </div>
+            ) : processedRequests.length === 0 ? (
+              <Card>
+                <CardContent className="flex flex-col items-center justify-center py-12">
+                  <Calendar className="mb-4 h-12 w-12 text-muted-foreground" />
+                  <h3 className="text-lg font-semibold text-foreground">No Processed Requests</h3>
+                  <p className="text-muted-foreground">Processed leave requests will appear here</p>
+                </CardContent>
+              </Card>
+            ) : (
+              processedRequests.map((request) => (
+                <LeaveRequestCard key={request.id} request={request} />
+              ))
+            )}
           </TabsContent>
 
           <TabsContent value="calendar" className="mt-6">
             <Card>
               <CardHeader>
-                <CardTitle>December 2024</CardTitle>
+                <CardTitle>Leave Calendar</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-7 gap-2 text-center">
@@ -201,23 +175,17 @@ const Leaves = () => {
                   {Array.from({ length: 35 }, (_, i) => {
                     const day = i - 0;
                     const isCurrentMonth = day >= 1 && day <= 31;
-                    const hasLeave = [9, 10, 11, 15, 16, 17, 18, 19, 20].includes(day);
-                    const isToday = day === 9;
+                    const isToday = day === new Date().getDate();
                     return (
                       <div
                         key={i}
                         className={`relative rounded-lg p-2 text-sm ${
                           isCurrentMonth
-                            ? hasLeave
-                              ? "bg-primary/10 text-primary font-medium"
-                              : "text-foreground hover:bg-muted"
+                            ? "text-foreground hover:bg-muted"
                             : "text-muted-foreground/50"
                         } ${isToday ? "ring-2 ring-primary" : ""}`}
                       >
                         {isCurrentMonth ? day : ""}
-                        {hasLeave && isCurrentMonth && (
-                          <div className="absolute bottom-1 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full bg-primary" />
-                        )}
                       </div>
                     );
                   })}

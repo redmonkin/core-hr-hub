@@ -16,7 +16,7 @@ export interface LeaveRequest {
   endDate: string;
   days: number;
   reason: string;
-  status: "pending" | "approved" | "rejected";
+  status: "pending" | "approved" | "rejected" | "cancelled";
 }
 
 interface LeaveRequestCardProps {

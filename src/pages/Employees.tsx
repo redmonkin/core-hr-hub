@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
-import { EmployeeTable, Employee } from "@/components/employees/EmployeeTable";
+import { EmployeeTable } from "@/components/employees/EmployeeTable";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -12,75 +12,18 @@ import {
 } from "@/components/ui/select";
 import { UserPlus, Search, Download } from "lucide-react";
 import { Link } from "react-router-dom";
-
-const mockEmployees: Employee[] = [
-  {
-    id: "1",
-    name: "Sarah Miller",
-    email: "sarah.miller@company.com",
-    avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&h=100&fit=crop&crop=face",
-    department: "Engineering",
-    designation: "Senior Developer",
-    joinDate: "Jan 15, 2023",
-    status: "active",
-  },
-  {
-    id: "2",
-    name: "Mike Johnson",
-    email: "mike.johnson@company.com",
-    avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop&crop=face",
-    department: "Design",
-    designation: "UI/UX Designer",
-    joinDate: "Mar 22, 2023",
-    status: "active",
-  },
-  {
-    id: "3",
-    name: "Emily Chen",
-    email: "emily.chen@company.com",
-    avatar: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&h=100&fit=crop&crop=face",
-    department: "Marketing",
-    designation: "Marketing Manager",
-    joinDate: "Feb 10, 2023",
-    status: "active",
-  },
-  {
-    id: "4",
-    name: "David Brown",
-    email: "david.brown@company.com",
-    avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&h=100&fit=crop&crop=face",
-    department: "Engineering",
-    designation: "Frontend Developer",
-    joinDate: "Dec 5, 2024",
-    status: "onboarding",
-  },
-  {
-    id: "5",
-    name: "Lisa Wang",
-    email: "lisa.wang@company.com",
-    avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop&crop=face",
-    department: "HR",
-    designation: "HR Specialist",
-    joinDate: "Apr 18, 2022",
-    status: "active",
-  },
-  {
-    id: "6",
-    name: "James Wilson",
-    email: "james.wilson@company.com",
-    avatar: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop&crop=face",
-    department: "Finance",
-    designation: "Financial Analyst",
-    joinDate: "Jul 8, 2023",
-    status: "inactive",
-  },
-];
+import { useEmployees, useDepartments } from "@/hooks/useEmployees";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Card, CardContent } from "@/components/ui/card";
 
 const Employees = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [departmentFilter, setDepartmentFilter] = useState("all");
 
-  const filteredEmployees = mockEmployees.filter((employee) => {
+  const { data: employees = [], isLoading: isLoadingEmployees } = useEmployees();
+  const { data: departments = [] } = useDepartments();
+
+  const filteredEmployees = employees.filter((employee) => {
     const matchesSearch =
       employee.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       employee.email.toLowerCase().includes(searchQuery.toLowerCase());
@@ -129,17 +72,45 @@ const Employees = () => {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Departments</SelectItem>
-              <SelectItem value="Engineering">Engineering</SelectItem>
-              <SelectItem value="Design">Design</SelectItem>
-              <SelectItem value="Marketing">Marketing</SelectItem>
-              <SelectItem value="HR">HR</SelectItem>
-              <SelectItem value="Finance">Finance</SelectItem>
+              {departments.map((dept) => (
+                <SelectItem key={dept.id} value={dept.name}>
+                  {dept.name}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
 
         {/* Table */}
-        <EmployeeTable employees={filteredEmployees} />
+        {isLoadingEmployees ? (
+          <div className="space-y-4">
+            {[1, 2, 3, 4, 5].map((i) => (
+              <Skeleton key={i} className="h-16 w-full rounded-lg" />
+            ))}
+          </div>
+        ) : filteredEmployees.length === 0 ? (
+          <Card>
+            <CardContent className="flex flex-col items-center justify-center py-12">
+              <UserPlus className="mb-4 h-12 w-12 text-muted-foreground" />
+              <h3 className="text-lg font-semibold text-foreground">No Employees Found</h3>
+              <p className="text-muted-foreground">
+                {employees.length === 0
+                  ? "Start by adding your first employee"
+                  : "No employees match your search criteria"}
+              </p>
+              {employees.length === 0 && (
+                <Link to="/onboarding" className="mt-4">
+                  <Button>
+                    <UserPlus className="mr-2 h-4 w-4" />
+                    Add Employee
+                  </Button>
+                </Link>
+              )}
+            </CardContent>
+          </Card>
+        ) : (
+          <EmployeeTable employees={filteredEmployees} />
+        )}
       </div>
     </DashboardLayout>
   );
