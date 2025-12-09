@@ -15,42 +15,62 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Switch } from "@/components/ui/switch";
 import { Upload, User, Briefcase, FileText, CheckCircle2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useDepartments, useEmployees } from "@/hooks/useEmployees";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 
-const pendingOnboarding = [
-  {
-    id: "1",
-    name: "David Brown",
-    avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&h=100&fit=crop&crop=face",
-    department: "Engineering",
-    startDate: "Dec 15, 2024",
-    progress: 60,
-    tasks: { completed: 3, total: 5 },
-  },
-  {
-    id: "2",
-    name: "Anna Smith",
-    avatar: "https://images.unsplash.com/photo-1580489944761-15a19d654956?w=100&h=100&fit=crop&crop=face",
-    department: "Marketing",
-    startDate: "Dec 18, 2024",
-    progress: 20,
-    tasks: { completed: 1, total: 5 },
-  },
-  {
-    id: "3",
-    name: "Robert Lee",
-    avatar: "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=100&h=100&fit=crop&crop=face",
-    department: "Sales",
-    startDate: "Dec 20, 2024",
-    progress: 0,
-    tasks: { completed: 0, total: 5 },
-  },
-];
+// Fetch employees who are in onboarding status
+const useOnboardingEmployees = () => {
+  return useQuery({
+    queryKey: ['onboarding-employees'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('employees')
+        .select(`
+          id,
+          first_name,
+          last_name,
+          avatar_url,
+          hire_date,
+          department_id,
+          departments (name)
+        `)
+        .eq('status', 'onboarding');
+      
+      if (error) throw error;
+      return data || [];
+    },
+  });
+};
+
+// Fetch active employees who can be managers
+const useManagers = () => {
+  return useQuery({
+    queryKey: ['managers'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('employees')
+        .select('id, first_name, last_name')
+        .eq('status', 'active')
+        .order('first_name');
+      
+      if (error) throw error;
+      return data || [];
+    },
+  });
+};
 
 const Onboarding = () => {
   const [activeTab, setActiveTab] = useState("add");
+  const [isDepartmentManager, setIsDepartmentManager] = useState(false);
   const { toast } = useToast();
+  
+  const { data: departments = [], isLoading: loadingDepartments } = useDepartments();
+  const { data: managers = [], isLoading: loadingManagers } = useManagers();
+  const { data: onboardingEmployees = [], isLoading: loadingOnboarding } = useOnboardingEmployees();
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -69,7 +89,7 @@ const Onboarding = () => {
             <TabsTrigger value="pending">
               Pending Onboarding
               <Badge variant="secondary" className="ml-2">
-                {pendingOnboarding.length}
+                {onboardingEmployees.length}
               </Badge>
             </TabsTrigger>
           </TabsList>
@@ -132,17 +152,16 @@ const Onboarding = () => {
                   <CardContent className="space-y-4">
                     <div className="space-y-2">
                       <Label htmlFor="department">Department</Label>
-                      <Select>
+                      <Select disabled={loadingDepartments}>
                         <SelectTrigger>
-                          <SelectValue placeholder="Select department" />
+                          <SelectValue placeholder={loadingDepartments ? "Loading..." : "Select department"} />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="engineering">Engineering</SelectItem>
-                          <SelectItem value="design">Design</SelectItem>
-                          <SelectItem value="marketing">Marketing</SelectItem>
-                          <SelectItem value="hr">Human Resources</SelectItem>
-                          <SelectItem value="finance">Finance</SelectItem>
-                          <SelectItem value="sales">Sales</SelectItem>
+                          {departments.map((dept) => (
+                            <SelectItem key={dept.id} value={dept.id}>
+                              {dept.name}
+                            </SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                     </div>
@@ -150,16 +169,31 @@ const Onboarding = () => {
                       <Label htmlFor="designation">Designation</Label>
                       <Input id="designation" placeholder="e.g., Senior Developer" />
                     </div>
+                    <div className="flex items-center justify-between rounded-lg border border-border p-3">
+                      <div className="space-y-0.5">
+                        <Label htmlFor="isDeptManager">Department Manager</Label>
+                        <p className="text-xs text-muted-foreground">
+                          Tag this employee as the head of their department
+                        </p>
+                      </div>
+                      <Switch
+                        id="isDeptManager"
+                        checked={isDepartmentManager}
+                        onCheckedChange={setIsDepartmentManager}
+                      />
+                    </div>
                     <div className="space-y-2">
                       <Label htmlFor="manager">Reporting Manager</Label>
-                      <Select>
+                      <Select disabled={loadingManagers}>
                         <SelectTrigger>
-                          <SelectValue placeholder="Select manager" />
+                          <SelectValue placeholder={loadingManagers ? "Loading..." : "Select manager"} />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="sarah">Sarah Miller</SelectItem>
-                          <SelectItem value="mike">Mike Johnson</SelectItem>
-                          <SelectItem value="emily">Emily Chen</SelectItem>
+                          {managers.map((manager) => (
+                            <SelectItem key={manager.id} value={manager.id}>
+                              {manager.first_name} {manager.last_name}
+                            </SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                     </div>
@@ -217,47 +251,56 @@ const Onboarding = () => {
 
           <TabsContent value="pending" className="mt-6">
             <div className="space-y-4">
-              {pendingOnboarding.map((employee) => (
-                <Card key={employee.id}>
-                  <CardContent className="p-6">
-                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                      <div className="flex items-center gap-4">
-                        <Avatar className="h-12 w-12">
-                          <AvatarImage src={employee.avatar} />
-                          <AvatarFallback>
-                            {employee.name.split(" ").map((n) => n[0]).join("")}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div>
-                          <h3 className="font-semibold text-foreground">{employee.name}</h3>
-                          <p className="text-sm text-muted-foreground">
-                            {employee.department} · Starts {employee.startDate}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-4">
-                        <div className="text-right">
-                          <div className="flex items-center gap-2 text-sm">
-                            <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-                            <span className="text-muted-foreground">
-                              {employee.tasks.completed}/{employee.tasks.total} tasks
-                            </span>
-                          </div>
-                          <div className="mt-2 h-2 w-32 overflow-hidden rounded-full bg-muted">
-                            <div
-                              className="h-full bg-primary transition-all"
-                              style={{ width: `${employee.progress}%` }}
-                            />
-                          </div>
-                        </div>
-                        <Button variant="outline" size="sm">
-                          View Details
-                        </Button>
-                      </div>
-                    </div>
+              {loadingOnboarding ? (
+                <Card>
+                  <CardContent className="p-6 text-center text-muted-foreground">
+                    Loading onboarding employees...
                   </CardContent>
                 </Card>
-              ))}
+              ) : onboardingEmployees.length === 0 ? (
+                <Card>
+                  <CardContent className="p-6 text-center text-muted-foreground">
+                    No employees currently in onboarding
+                  </CardContent>
+                </Card>
+              ) : (
+                onboardingEmployees.map((employee) => {
+                  const name = `${employee.first_name} ${employee.last_name}`;
+                  const departmentName = employee.departments?.name || 'Unassigned';
+                  const hireDate = employee.hire_date 
+                    ? new Date(employee.hire_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                    : 'TBD';
+                  
+                  return (
+                    <Card key={employee.id}>
+                      <CardContent className="p-6">
+                        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                          <div className="flex items-center gap-4">
+                            <Avatar className="h-12 w-12">
+                              <AvatarImage src={employee.avatar_url || undefined} />
+                              <AvatarFallback>
+                                {name.split(" ").map((n) => n[0]).join("")}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div>
+                              <h3 className="font-semibold text-foreground">{name}</h3>
+                              <p className="text-sm text-muted-foreground">
+                                {departmentName} · Starts {hireDate}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-4">
+                            <Badge variant="secondary">Onboarding</Badge>
+                            <Button variant="outline" size="sm">
+                              View Details
+                            </Button>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })
+              )}
             </div>
           </TabsContent>
         </Tabs>
