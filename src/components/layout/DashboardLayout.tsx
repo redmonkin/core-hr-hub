@@ -1,6 +1,7 @@
 import { ReactNode, useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   Users,
   Calendar,
@@ -38,8 +39,8 @@ interface NavItem {
 const navItems: NavItem[] = [
   { label: "Dashboard", href: "/", icon: <Home className="h-5 w-5" /> },
   { label: "Employees", href: "/employees", icon: <Users className="h-5 w-5" /> },
-  { label: "Onboarding", href: "/onboarding", icon: <UserPlus className="h-5 w-5" />, badge: 3 },
-  { label: "Leave Management", href: "/leaves", icon: <Calendar className="h-5 w-5" />, badge: 5 },
+  { label: "Onboarding", href: "/onboarding", icon: <UserPlus className="h-5 w-5" /> },
+  { label: "Leave Management", href: "/leaves", icon: <Calendar className="h-5 w-5" /> },
   { label: "Assets", href: "/assets", icon: <Package className="h-5 w-5" /> },
   { label: "Payroll", href: "/payroll", icon: <CreditCard className="h-5 w-5" /> },
   { label: "Reports", href: "/reports", icon: <ClipboardList className="h-5 w-5" /> },
@@ -52,6 +53,22 @@ interface DashboardLayoutProps {
 export function DashboardLayout({ children }: DashboardLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
+  const { user, signOut } = useAuth();
+
+  const handleSignOut = async () => {
+    await signOut();
+    navigate("/auth");
+  };
+
+  const getUserInitials = () => {
+    const name = user?.user_metadata?.full_name || user?.email || "User";
+    return name.split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2);
+  };
+
+  const getUserName = () => {
+    return user?.user_metadata?.full_name || user?.email?.split("@")[0] || "User";
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -127,12 +144,12 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           <div className="border-t border-border p-4">
             <div className="flex items-center gap-3 rounded-xl bg-muted/50 p-3">
               <Avatar className="h-10 w-10">
-                <AvatarImage src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop&crop=face" />
-                <AvatarFallback>JD</AvatarFallback>
+                <AvatarImage src={user?.user_metadata?.avatar_url} />
+                <AvatarFallback>{getUserInitials()}</AvatarFallback>
               </Avatar>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-foreground truncate">John Doe</p>
-                <p className="text-xs text-muted-foreground truncate">HR Administrator</p>
+                <p className="text-sm font-medium text-foreground truncate">{getUserName()}</p>
+                <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
               </div>
             </div>
           </div>
@@ -212,8 +229,8 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="flex items-center gap-2 pl-2 pr-3">
                   <Avatar className="h-8 w-8">
-                    <AvatarImage src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop&crop=face" />
-                    <AvatarFallback>JD</AvatarFallback>
+                    <AvatarImage src={user?.user_metadata?.avatar_url} />
+                    <AvatarFallback>{getUserInitials()}</AvatarFallback>
                   </Avatar>
                   <ChevronDown className="h-4 w-4 text-muted-foreground" />
                 </Button>
@@ -224,7 +241,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                 <DropdownMenuItem>Profile</DropdownMenuItem>
                 <DropdownMenuItem>Settings</DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem className="text-destructive">
+                <DropdownMenuItem className="text-destructive" onClick={handleSignOut}>
                   <LogOut className="mr-2 h-4 w-4" />
                   Log out
                 </DropdownMenuItem>
