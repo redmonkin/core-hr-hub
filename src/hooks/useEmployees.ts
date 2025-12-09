@@ -90,7 +90,7 @@ export function useDepartments() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("departments")
-        .select("id, name")
+        .select("id, name, description")
         .order("name");
 
       if (error) throw error;

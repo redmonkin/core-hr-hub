@@ -44,6 +44,7 @@ const navItems: NavItem[] = [
   { label: "Assets", href: "/assets", icon: <Package className="h-5 w-5" /> },
   { label: "Payroll", href: "/payroll", icon: <CreditCard className="h-5 w-5" /> },
   { label: "Reports", href: "/reports", icon: <ClipboardList className="h-5 w-5" /> },
+  { label: "Settings", href: "/settings", icon: <Settings className="h-5 w-5" /> },
 ];
 
 interface DashboardLayoutProps {
