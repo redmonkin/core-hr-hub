@@ -63,6 +63,39 @@ const useManagers = () => {
   });
 };
 
+// Fetch users without employee records (available to link)
+const useUnlinkedUsers = () => {
+  return useQuery({
+    queryKey: ['unlinked-users'],
+    queryFn: async () => {
+      // Get all user IDs that are already linked to employees
+      const { data: employees, error: empError } = await supabase
+        .from('employees')
+        .select('user_id')
+        .not('user_id', 'is', null);
+      
+      if (empError) throw empError;
+      
+      const linkedUserIds = employees?.map(e => e.user_id) || [];
+      
+      // Get profiles not linked to employees
+      let query = supabase
+        .from('profiles')
+        .select('id, email, full_name, avatar_url')
+        .order('email');
+      
+      if (linkedUserIds.length > 0) {
+        query = query.not('id', 'in', `(${linkedUserIds.join(',')})`);
+      }
+      
+      const { data, error } = await query;
+      
+      if (error) throw error;
+      return data || [];
+    },
+  });
+};
+
 // Generate unique employee code
 const generateEmployeeCode = () => {
   const prefix = 'EMP';
@@ -83,6 +116,7 @@ interface FormData {
   joinDate: string;
   salary: string;
   isDepartmentManager: boolean;
+  linkedUserId: string;
 }
 
 const initialFormData: FormData = {
@@ -97,6 +131,7 @@ const initialFormData: FormData = {
   joinDate: '',
   salary: '',
   isDepartmentManager: false,
+  linkedUserId: '',
 };
 
 const Onboarding = () => {
@@ -108,6 +143,7 @@ const Onboarding = () => {
   const { data: departments = [], isLoading: loadingDepartments } = useDepartments();
   const { data: managers = [], isLoading: loadingManagers } = useManagers();
   const { data: onboardingEmployees = [], isLoading: loadingOnboarding } = useOnboardingEmployees();
+  const { data: unlinkedUsers = [], isLoading: loadingUsers } = useUnlinkedUsers();
 
   const createEmployeeMutation = useMutation({
     mutationFn: async (data: FormData) => {
@@ -126,6 +162,7 @@ const Onboarding = () => {
           manager_id: data.managerId || null,
           hire_date: data.joinDate,
           status: 'onboarding',
+          user_id: data.linkedUserId || null,
         })
         .select()
         .single();
@@ -150,6 +187,7 @@ const Onboarding = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['onboarding-employees'] });
       queryClient.invalidateQueries({ queryKey: ['employees'] });
+      queryClient.invalidateQueries({ queryKey: ['unlinked-users'] });
       setFormData(initialFormData);
       setActiveTab('pending');
       toast({
@@ -168,6 +206,28 @@ const Onboarding = () => {
 
   const handleInputChange = (field: keyof FormData, value: string | boolean) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  // When a user is selected, auto-fill name and email
+  const handleUserSelect = (userId: string) => {
+    handleInputChange('linkedUserId', userId);
+    
+    if (userId) {
+      const selectedUser = unlinkedUsers.find(u => u.id === userId);
+      if (selectedUser) {
+        const nameParts = (selectedUser.full_name || '').split(' ');
+        const firstName = nameParts[0] || '';
+        const lastName = nameParts.slice(1).join(' ') || '';
+        
+        setFormData(prev => ({
+          ...prev,
+          linkedUserId: userId,
+          firstName: prev.firstName || firstName,
+          lastName: prev.lastName || lastName,
+          email: prev.email || selectedUser.email || '',
+        }));
+      }
+    }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -231,6 +291,30 @@ const Onboarding = () => {
                     </div>
                   </CardHeader>
                   <CardContent className="space-y-4">
+                    {/* Link User Account */}
+                    <div className="space-y-2">
+                      <Label htmlFor="linkedUser">Link to User Account</Label>
+                      <Select 
+                        disabled={loadingUsers || isSubmitting}
+                        value={formData.linkedUserId}
+                        onValueChange={handleUserSelect}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder={loadingUsers ? "Loading..." : "Select user account (optional)"} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="">No linked account</SelectItem>
+                          {unlinkedUsers.map((user) => (
+                            <SelectItem key={user.id} value={user.id}>
+                              {user.full_name || user.email} {user.full_name && `(${user.email})`}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-muted-foreground">
+                        Link this employee to an existing user account so they can log in
+                      </p>
+                    </div>
                     <div className="grid gap-4 sm:grid-cols-2">
                       <div className="space-y-2">
                         <Label htmlFor="firstName">First Name *</Label>
