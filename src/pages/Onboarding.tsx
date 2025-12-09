@@ -210,10 +210,11 @@ const Onboarding = () => {
 
   // When a user is selected, auto-fill name and email
   const handleUserSelect = (userId: string) => {
-    handleInputChange('linkedUserId', userId);
+    const actualUserId = userId === 'none' ? '' : userId;
+    handleInputChange('linkedUserId', actualUserId);
     
-    if (userId) {
-      const selectedUser = unlinkedUsers.find(u => u.id === userId);
+    if (actualUserId) {
+      const selectedUser = unlinkedUsers.find(u => u.id === actualUserId);
       if (selectedUser) {
         const nameParts = (selectedUser.full_name || '').split(' ');
         const firstName = nameParts[0] || '';
@@ -221,7 +222,7 @@ const Onboarding = () => {
         
         setFormData(prev => ({
           ...prev,
-          linkedUserId: userId,
+          linkedUserId: actualUserId,
           firstName: prev.firstName || firstName,
           lastName: prev.lastName || lastName,
           email: prev.email || selectedUser.email || '',
@@ -303,7 +304,7 @@ const Onboarding = () => {
                           <SelectValue placeholder={loadingUsers ? "Loading..." : "Select user account (optional)"} />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="">No linked account</SelectItem>
+                          <SelectItem value="none">No linked account</SelectItem>
                           {unlinkedUsers.map((user) => (
                             <SelectItem key={user.id} value={user.id}>
                               {user.full_name || user.email} {user.full_name && `(${user.email})`}
