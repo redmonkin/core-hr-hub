@@ -17,7 +17,7 @@ export interface Asset {
   serialNumber: string;
   purchaseDate: string;
   cost: number;
-  status: "available" | "assigned" | "maintenance";
+  status: "available" | "assigned" | "maintenance" | "retired";
   assignedTo?: {
     name: string;
     avatar?: string;

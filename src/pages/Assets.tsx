@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
-import { AssetCard, Asset } from "@/components/assets/AssetCard";
+import { AssetCard } from "@/components/assets/AssetCard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Select,
   SelectContent,
@@ -11,91 +12,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, Search, Package, Laptop, Monitor, Smartphone } from "lucide-react";
-
-const mockAssets: Asset[] = [
-  {
-    id: "1",
-    name: "MacBook Pro 16\"",
-    type: "laptop",
-    serialNumber: "C02XL0HPJGH7",
-    purchaseDate: "Jan 15, 2024",
-    cost: 2499,
-    status: "assigned",
-    assignedTo: {
-      name: "Sarah Miller",
-      avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&h=100&fit=crop&crop=face",
-    },
-  },
-  {
-    id: "2",
-    name: "Dell UltraSharp 27\"",
-    type: "monitor",
-    serialNumber: "CN-0G2410-2827",
-    purchaseDate: "Feb 20, 2024",
-    cost: 699,
-    status: "assigned",
-    assignedTo: {
-      name: "Mike Johnson",
-      avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop&crop=face",
-    },
-  },
-  {
-    id: "3",
-    name: "iPhone 15 Pro",
-    type: "phone",
-    serialNumber: "FFMXT4RRJPH8",
-    purchaseDate: "Mar 10, 2024",
-    cost: 1199,
-    status: "available",
-  },
-  {
-    id: "4",
-    name: "MacBook Air M2",
-    type: "laptop",
-    serialNumber: "C02ZRKPJML7H",
-    purchaseDate: "Apr 5, 2024",
-    cost: 1299,
-    status: "available",
-  },
-  {
-    id: "5",
-    name: "LG 32\" 4K Monitor",
-    type: "monitor",
-    serialNumber: "LG32UK50T-W",
-    purchaseDate: "May 12, 2024",
-    cost: 449,
-    status: "maintenance",
-  },
-  {
-    id: "6",
-    name: "Sony WH-1000XM5",
-    type: "accessory",
-    serialNumber: "SN-WH1000XM5-001",
-    purchaseDate: "Jun 1, 2024",
-    cost: 349,
-    status: "assigned",
-    assignedTo: {
-      name: "Emily Chen",
-      avatar: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&h=100&fit=crop&crop=face",
-    },
-  },
-];
-
-const assetStats = [
-  { label: "Total Assets", value: 186, icon: <Package className="h-5 w-5" /> },
-  { label: "Laptops", value: 72, icon: <Laptop className="h-5 w-5" /> },
-  { label: "Monitors", value: 68, icon: <Monitor className="h-5 w-5" /> },
-  { label: "Mobile Devices", value: 46, icon: <Smartphone className="h-5 w-5" /> },
-];
+import { useAssets, useAssetStats } from "@/hooks/useAssets";
 
 const Assets = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
 
-  const filteredAssets = mockAssets.filter((asset) => {
+  const { data: assets = [], isLoading } = useAssets();
+  const { data: stats } = useAssetStats();
+
+  const filteredAssets = assets.filter((asset) => {
     const matchesSearch =
       asset.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       asset.serialNumber.toLowerCase().includes(searchQuery.toLowerCase());
@@ -103,6 +31,13 @@ const Assets = () => {
     const matchesStatus = statusFilter === "all" || asset.status === statusFilter;
     return matchesSearch && matchesType && matchesStatus;
   });
+
+  const assetStats = [
+    { label: "Total Assets", value: stats?.total || 0, icon: <Package className="h-5 w-5" /> },
+    { label: "Laptops", value: stats?.laptops || 0, icon: <Laptop className="h-5 w-5" /> },
+    { label: "Monitors", value: stats?.monitors || 0, icon: <Monitor className="h-5 w-5" /> },
+    { label: "Mobile Devices", value: stats?.phones || 0, icon: <Smartphone className="h-5 w-5" /> },
+  ];
 
   return (
     <DashboardLayout>
@@ -171,11 +106,37 @@ const Assets = () => {
         </div>
 
         {/* Asset Grid */}
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {filteredAssets.map((asset) => (
-            <AssetCard key={asset.id} asset={asset} />
-          ))}
-        </div>
+        {isLoading ? (
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <Skeleton key={i} className="h-48 rounded-xl" />
+            ))}
+          </div>
+        ) : filteredAssets.length === 0 ? (
+          <Card>
+            <CardContent className="flex flex-col items-center justify-center py-12">
+              <Package className="mb-4 h-12 w-12 text-muted-foreground" />
+              <h3 className="text-lg font-semibold text-foreground">No Assets Found</h3>
+              <p className="text-muted-foreground">
+                {assets.length === 0
+                  ? "Start by adding your first asset"
+                  : "No assets match your search criteria"}
+              </p>
+              {assets.length === 0 && (
+                <Button className="mt-4">
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add Asset
+                </Button>
+              )}
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {filteredAssets.map((asset) => (
+              <AssetCard key={asset.id} asset={asset} />
+            ))}
+          </div>
+        )}
       </div>
     </DashboardLayout>
   );

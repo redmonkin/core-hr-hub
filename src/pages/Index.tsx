@@ -4,40 +4,60 @@ import { RecentActivity } from "@/components/dashboard/RecentActivity";
 import { LeaveCalendar } from "@/components/dashboard/LeaveCalendar";
 import { QuickActions } from "@/components/dashboard/QuickActions";
 import { Users, Calendar, Package, CreditCard } from "lucide-react";
+import { useDashboardStats } from "@/hooks/useDashboardStats";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const Index = () => {
+  const { data: stats, isLoading } = useDashboardStats();
+
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(amount);
+  };
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
         {/* Stats Grid */}
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <StatsCard
-            title="Total Employees"
-            value="248"
-            change={{ value: 12, type: "increase" }}
-            icon={<Users className="h-6 w-6" />}
-            variant="primary"
-          />
-          <StatsCard
-            title="On Leave Today"
-            value="12"
-            change={{ value: 3, type: "decrease" }}
-            icon={<Calendar className="h-6 w-6" />}
-            variant="warning"
-          />
-          <StatsCard
-            title="Assets Assigned"
-            value="186"
-            change={{ value: 8, type: "increase" }}
-            icon={<Package className="h-6 w-6" />}
-            variant="success"
-          />
-          <StatsCard
-            title="Pending Payroll"
-            value="$124,500"
-            icon={<CreditCard className="h-6 w-6" />}
-            variant="default"
-          />
+          {isLoading ? (
+            <>
+              {[1, 2, 3, 4].map((i) => (
+                <Skeleton key={i} className="h-32 rounded-xl" />
+              ))}
+            </>
+          ) : (
+            <>
+              <StatsCard
+                title="Total Employees"
+                value={String(stats?.totalEmployees || 0)}
+                icon={<Users className="h-6 w-6" />}
+                variant="primary"
+              />
+              <StatsCard
+                title="On Leave Today"
+                value={String(stats?.onLeaveToday || 0)}
+                icon={<Calendar className="h-6 w-6" />}
+                variant="warning"
+              />
+              <StatsCard
+                title="Assets Assigned"
+                value={String(stats?.assetsAssigned || 0)}
+                icon={<Package className="h-6 w-6" />}
+                variant="success"
+              />
+              <StatsCard
+                title="Pending Payroll"
+                value={formatCurrency(stats?.pendingPayroll || 0)}
+                icon={<CreditCard className="h-6 w-6" />}
+                variant="default"
+              />
+            </>
+          )}
         </div>
 
         {/* Main Content Grid */}
