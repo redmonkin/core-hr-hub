@@ -16,10 +16,10 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Switch } from "@/components/ui/switch";
-import { Upload, User, Briefcase, FileText, CheckCircle2 } from "lucide-react";
+import { Upload, User, Briefcase, FileText, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useDepartments, useEmployees } from "@/hooks/useEmployees";
-import { useQuery } from "@tanstack/react-query";
+import { useDepartments } from "@/hooks/useEmployees";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
 // Fetch employees who are in onboarding status
@@ -63,22 +63,142 @@ const useManagers = () => {
   });
 };
 
+// Generate unique employee code
+const generateEmployeeCode = () => {
+  const prefix = 'EMP';
+  const timestamp = Date.now().toString(36).toUpperCase();
+  const random = Math.random().toString(36).substring(2, 5).toUpperCase();
+  return `${prefix}-${timestamp}${random}`;
+};
+
+interface FormData {
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  address: string;
+  departmentId: string;
+  designation: string;
+  managerId: string;
+  joinDate: string;
+  salary: string;
+  isDepartmentManager: boolean;
+}
+
+const initialFormData: FormData = {
+  firstName: '',
+  lastName: '',
+  email: '',
+  phone: '',
+  address: '',
+  departmentId: '',
+  designation: '',
+  managerId: '',
+  joinDate: '',
+  salary: '',
+  isDepartmentManager: false,
+};
+
 const Onboarding = () => {
   const [activeTab, setActiveTab] = useState("add");
-  const [isDepartmentManager, setIsDepartmentManager] = useState(false);
+  const [formData, setFormData] = useState<FormData>(initialFormData);
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   
   const { data: departments = [], isLoading: loadingDepartments } = useDepartments();
   const { data: managers = [], isLoading: loadingManagers } = useManagers();
   const { data: onboardingEmployees = [], isLoading: loadingOnboarding } = useOnboardingEmployees();
 
+  const createEmployeeMutation = useMutation({
+    mutationFn: async (data: FormData) => {
+      // Create employee
+      const { data: employee, error: employeeError } = await supabase
+        .from('employees')
+        .insert({
+          employee_code: generateEmployeeCode(),
+          first_name: data.firstName.trim(),
+          last_name: data.lastName.trim(),
+          email: data.email.trim(),
+          phone: data.phone.trim() || null,
+          address: data.address.trim() || null,
+          department_id: data.departmentId || null,
+          designation: data.designation.trim(),
+          manager_id: data.managerId || null,
+          hire_date: data.joinDate,
+          status: 'onboarding',
+        })
+        .select()
+        .single();
+      
+      if (employeeError) throw employeeError;
+
+      // If salary is provided, create salary structure
+      if (data.salary && parseFloat(data.salary) > 0) {
+        const { error: salaryError } = await supabase
+          .from('salary_structures')
+          .insert({
+            employee_id: employee.id,
+            basic_salary: parseFloat(data.salary),
+            effective_from: data.joinDate,
+          });
+        
+        if (salaryError) throw salaryError;
+      }
+
+      return employee;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['onboarding-employees'] });
+      queryClient.invalidateQueries({ queryKey: ['employees'] });
+      setFormData(initialFormData);
+      setActiveTab('pending');
+      toast({
+        title: "Employee Added",
+        description: "New employee has been added to the onboarding queue.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to add employee. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleInputChange = (field: keyof FormData, value: string | boolean) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    toast({
-      title: "Employee Added",
-      description: "New employee has been added to the onboarding queue.",
-    });
+    
+    // Validation
+    if (!formData.firstName.trim()) {
+      toast({ title: "Error", description: "First name is required", variant: "destructive" });
+      return;
+    }
+    if (!formData.lastName.trim()) {
+      toast({ title: "Error", description: "Last name is required", variant: "destructive" });
+      return;
+    }
+    if (!formData.email.trim()) {
+      toast({ title: "Error", description: "Email is required", variant: "destructive" });
+      return;
+    }
+    if (!formData.designation.trim()) {
+      toast({ title: "Error", description: "Designation is required", variant: "destructive" });
+      return;
+    }
+    if (!formData.joinDate) {
+      toast({ title: "Error", description: "Join date is required", variant: "destructive" });
+      return;
+    }
+
+    createEmployeeMutation.mutate(formData);
   };
+
+  const isSubmitting = createEmployeeMutation.isPending;
 
   return (
     <DashboardLayout>
@@ -113,25 +233,57 @@ const Onboarding = () => {
                   <CardContent className="space-y-4">
                     <div className="grid gap-4 sm:grid-cols-2">
                       <div className="space-y-2">
-                        <Label htmlFor="firstName">First Name</Label>
-                        <Input id="firstName" placeholder="John" />
+                        <Label htmlFor="firstName">First Name *</Label>
+                        <Input 
+                          id="firstName" 
+                          placeholder="John" 
+                          value={formData.firstName}
+                          onChange={(e) => handleInputChange('firstName', e.target.value)}
+                          disabled={isSubmitting}
+                        />
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="lastName">Last Name</Label>
-                        <Input id="lastName" placeholder="Doe" />
+                        <Label htmlFor="lastName">Last Name *</Label>
+                        <Input 
+                          id="lastName" 
+                          placeholder="Doe" 
+                          value={formData.lastName}
+                          onChange={(e) => handleInputChange('lastName', e.target.value)}
+                          disabled={isSubmitting}
+                        />
                       </div>
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="email">Email Address</Label>
-                      <Input id="email" type="email" placeholder="john.doe@company.com" />
+                      <Label htmlFor="email">Email Address *</Label>
+                      <Input 
+                        id="email" 
+                        type="email" 
+                        placeholder="john.doe@company.com" 
+                        value={formData.email}
+                        onChange={(e) => handleInputChange('email', e.target.value)}
+                        disabled={isSubmitting}
+                      />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="phone">Phone Number</Label>
-                      <Input id="phone" placeholder="+1 (555) 000-0000" />
+                      <Input 
+                        id="phone" 
+                        placeholder="+1 (555) 000-0000" 
+                        value={formData.phone}
+                        onChange={(e) => handleInputChange('phone', e.target.value)}
+                        disabled={isSubmitting}
+                      />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="address">Address</Label>
-                      <Textarea id="address" placeholder="Enter full address" rows={3} />
+                      <Textarea 
+                        id="address" 
+                        placeholder="Enter full address" 
+                        rows={3} 
+                        value={formData.address}
+                        onChange={(e) => handleInputChange('address', e.target.value)}
+                        disabled={isSubmitting}
+                      />
                     </div>
                   </CardContent>
                 </Card>
@@ -152,7 +304,11 @@ const Onboarding = () => {
                   <CardContent className="space-y-4">
                     <div className="space-y-2">
                       <Label htmlFor="department">Department</Label>
-                      <Select disabled={loadingDepartments}>
+                      <Select 
+                        disabled={loadingDepartments || isSubmitting}
+                        value={formData.departmentId}
+                        onValueChange={(value) => handleInputChange('departmentId', value)}
+                      >
                         <SelectTrigger>
                           <SelectValue placeholder={loadingDepartments ? "Loading..." : "Select department"} />
                         </SelectTrigger>
@@ -166,8 +322,14 @@ const Onboarding = () => {
                       </Select>
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="designation">Designation</Label>
-                      <Input id="designation" placeholder="e.g., Senior Developer" />
+                      <Label htmlFor="designation">Designation *</Label>
+                      <Input 
+                        id="designation" 
+                        placeholder="e.g., Senior Developer" 
+                        value={formData.designation}
+                        onChange={(e) => handleInputChange('designation', e.target.value)}
+                        disabled={isSubmitting}
+                      />
                     </div>
                     <div className="flex items-center justify-between rounded-lg border border-border p-3">
                       <div className="space-y-0.5">
@@ -178,13 +340,18 @@ const Onboarding = () => {
                       </div>
                       <Switch
                         id="isDeptManager"
-                        checked={isDepartmentManager}
-                        onCheckedChange={setIsDepartmentManager}
+                        checked={formData.isDepartmentManager}
+                        onCheckedChange={(checked) => handleInputChange('isDepartmentManager', checked)}
+                        disabled={isSubmitting}
                       />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="manager">Reporting Manager</Label>
-                      <Select disabled={loadingManagers}>
+                      <Select 
+                        disabled={loadingManagers || isSubmitting}
+                        value={formData.managerId}
+                        onValueChange={(value) => handleInputChange('managerId', value)}
+                      >
                         <SelectTrigger>
                           <SelectValue placeholder={loadingManagers ? "Loading..." : "Select manager"} />
                         </SelectTrigger>
@@ -199,12 +366,25 @@ const Onboarding = () => {
                     </div>
                     <div className="grid gap-4 sm:grid-cols-2">
                       <div className="space-y-2">
-                        <Label htmlFor="joinDate">Join Date</Label>
-                        <Input id="joinDate" type="date" />
+                        <Label htmlFor="joinDate">Join Date *</Label>
+                        <Input 
+                          id="joinDate" 
+                          type="date" 
+                          value={formData.joinDate}
+                          onChange={(e) => handleInputChange('joinDate', e.target.value)}
+                          disabled={isSubmitting}
+                        />
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="salary">Base Salary</Label>
-                        <Input id="salary" type="number" placeholder="50000" />
+                        <Input 
+                          id="salary" 
+                          type="number" 
+                          placeholder="50000" 
+                          value={formData.salary}
+                          onChange={(e) => handleInputChange('salary', e.target.value)}
+                          disabled={isSubmitting}
+                        />
                       </div>
                     </div>
                   </CardContent>
@@ -219,7 +399,7 @@ const Onboarding = () => {
                       </div>
                       <div>
                         <CardTitle className="text-lg">Documents</CardTitle>
-                        <CardDescription>Upload required documents</CardDescription>
+                        <CardDescription>Upload required documents (coming soon)</CardDescription>
                       </div>
                     </div>
                   </CardHeader>
@@ -228,11 +408,11 @@ const Onboarding = () => {
                       {["ID Proof", "Offer Letter", "Resume"].map((doc) => (
                         <div
                           key={doc}
-                          className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-border p-6 transition-colors hover:border-primary hover:bg-primary/5"
+                          className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-border p-6 transition-colors hover:border-primary hover:bg-primary/5 opacity-50 cursor-not-allowed"
                         >
                           <Upload className="mb-2 h-8 w-8 text-muted-foreground" />
                           <p className="text-sm font-medium text-foreground">{doc}</p>
-                          <p className="text-xs text-muted-foreground">Click to upload</p>
+                          <p className="text-xs text-muted-foreground">Coming soon</p>
                         </div>
                       ))}
                     </div>
@@ -241,10 +421,18 @@ const Onboarding = () => {
               </div>
 
               <div className="flex justify-end gap-3">
-                <Button variant="outline" type="button">
-                  Save as Draft
+                <Button 
+                  variant="outline" 
+                  type="button"
+                  disabled={isSubmitting}
+                  onClick={() => setFormData(initialFormData)}
+                >
+                  Clear Form
                 </Button>
-                <Button type="submit">Add Employee</Button>
+                <Button type="submit" disabled={isSubmitting}>
+                  {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Add Employee
+                </Button>
               </div>
             </form>
           </TabsContent>
