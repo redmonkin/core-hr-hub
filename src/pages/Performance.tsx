@@ -1,13 +1,13 @@
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
-import { Target, FileText, Loader2, User } from "lucide-react";
+import { Target, FileText, Loader2, User, BarChart3 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { GoalsManager } from "@/components/performance/GoalsManager";
 import { PerformanceReviews } from "@/components/performance/PerformanceReviews";
-
+import { PerformanceAnalytics } from "@/components/performance/PerformanceAnalytics";
 const Performance = () => {
   const { user } = useAuth();
 
@@ -79,6 +79,10 @@ const Performance = () => {
               <FileText className="h-4 w-4" />
               Reviews
             </TabsTrigger>
+            <TabsTrigger value="analytics" className="gap-2">
+              <BarChart3 className="h-4 w-4" />
+              Analytics
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="goals">
@@ -87,6 +91,10 @@ const Performance = () => {
 
           <TabsContent value="reviews">
             <PerformanceReviews employeeId={employee.id} />
+          </TabsContent>
+
+          <TabsContent value="analytics">
+            <PerformanceAnalytics employeeId={employee.id} />
           </TabsContent>
         </Tabs>
       </div>
