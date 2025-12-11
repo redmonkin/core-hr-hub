@@ -18,6 +18,7 @@ import {
   ClipboardList,
   ChevronDown,
   Target,
+  BarChart3,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -46,6 +47,7 @@ const navItems: NavItem[] = [
   { label: "Leave Management", href: "/leaves", icon: <Calendar className="h-5 w-5" /> },
   { label: "Leave Approvals", href: "/leave-approvals", icon: <ClipboardList className="h-5 w-5" /> },
   { label: "Performance", href: "/performance", icon: <Target className="h-5 w-5" /> },
+  { label: "Team Analytics", href: "/team-analytics", icon: <BarChart3 className="h-5 w-5" /> },
   { label: "Reviews", href: "/reviews-management", icon: <ClipboardList className="h-5 w-5" />, adminOnly: true },
   { label: "Assets", href: "/assets", icon: <Package className="h-5 w-5" /> },
   { label: "Payroll", href: "/payroll", icon: <CreditCard className="h-5 w-5" />, adminOnly: true },

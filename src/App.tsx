@@ -17,6 +17,7 @@ import Settings from "./pages/Settings";
 import Profile from "./pages/Profile";
 import Performance from "./pages/Performance";
 import ReviewsManagement from "./pages/ReviewsManagement";
+import TeamAnalytics from "./pages/TeamAnalytics";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 
@@ -43,6 +44,7 @@ const App = () => (
             <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
             <Route path="/performance" element={<ProtectedRoute><Performance /></ProtectedRoute>} />
             <Route path="/reviews-management" element={<ProtectedRoute><ReviewsManagement /></ProtectedRoute>} />
+            <Route path="/team-analytics" element={<ProtectedRoute><TeamAnalytics /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>
