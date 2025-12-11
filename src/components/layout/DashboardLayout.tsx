@@ -225,10 +225,14 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               </DropdownMenuContent>
             </DropdownMenu>
 
-            {/* Settings */}
-            <Button variant="ghost" size="icon">
-              <Settings className="h-5 w-5" />
-            </Button>
+            {/* Settings - only show for admin/HR */}
+            {isAdminOrHR && (
+              <Button variant="ghost" size="icon" asChild>
+                <Link to="/settings">
+                  <Settings className="h-5 w-5" />
+                </Link>
+              </Button>
+            )}
 
             {/* User menu */}
             <DropdownMenu>
@@ -244,8 +248,14 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               <DropdownMenuContent align="end">
                 <DropdownMenuLabel>My Account</DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem>Profile</DropdownMenuItem>
-                <DropdownMenuItem>Settings</DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link to="/profile">Profile</Link>
+                </DropdownMenuItem>
+                {isAdminOrHR && (
+                  <DropdownMenuItem asChild>
+                    <Link to="/settings">Settings</Link>
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem className="text-destructive" onClick={handleSignOut}>
                   <LogOut className="mr-2 h-4 w-4" />
