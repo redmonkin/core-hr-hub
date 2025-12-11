@@ -15,6 +15,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { EmployeeDocuments } from "@/components/documents/EmployeeDocuments";
 import { LeaveBalanceCard } from "@/components/profile/LeaveBalanceCard";
 import { LeaveRequestForm } from "@/components/profile/LeaveRequestForm";
+import { LeaveRequestHistory } from "@/components/profile/LeaveRequestHistory";
 
 interface EmployeeProfile {
   id: string;
@@ -346,7 +347,10 @@ const Profile = () => {
 
             {/* Leave Balance & Request Section */}
             <div className="md:col-span-2">
-              <LeaveBalanceCard employeeId={employee.id} />
+              <div className="space-y-6">
+                <LeaveBalanceCard employeeId={employee.id} />
+                <LeaveRequestHistory employeeId={employee.id} />
+              </div>
             </div>
             <div className="md:col-span-1">
               <LeaveRequestForm employeeId={employee.id} />
