@@ -7,11 +7,20 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { CalendarIcon, Loader2 } from "lucide-react";
+import { CalendarIcon, Download, FileText, Loader2, Table } from "lucide-react";
 import { format, subMonths, isWithinInterval, startOfDay, endOfDay } from "date-fns";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 import {
   LineChart,
   Line,
@@ -158,69 +167,193 @@ export function PerformanceAnalytics({ employeeId }: PerformanceAnalyticsProps) 
   const hasGoalData = filteredGoals.length > 0;
   const hasReviewData = filteredReviews.length > 0;
 
+  // Export to CSV
+  const exportToCSV = () => {
+    const dateRange = `${startDate ? format(startDate, "yyyy-MM-dd") : "all"}_to_${endDate ? format(endDate, "yyyy-MM-dd") : "all"}`;
+    
+    // Goals CSV
+    let csvContent = "Performance Analytics Report\n";
+    csvContent += `Date Range: ${startDate ? format(startDate, "PPP") : "All"} to ${endDate ? format(endDate, "PPP") : "All"}\n\n`;
+    
+    csvContent += "SUMMARY\n";
+    csvContent += `Total Goals,${filteredGoals.length}\n`;
+    csvContent += `Average Progress,${avgProgress}%\n`;
+    csvContent += `Total Reviews,${filteredReviews.length}\n`;
+    csvContent += `Average Rating,${avgRating}\n\n`;
+    
+    csvContent += "GOALS\n";
+    csvContent += "Title,Status,Progress,Priority,Due Date,Created At\n";
+    filteredGoals.forEach((goal) => {
+      csvContent += `"${goal.title}",${goal.status},${goal.progress || 0}%,${goal.priority || "N/A"},${goal.due_date || "N/A"},${goal.created_at ? format(new Date(goal.created_at), "yyyy-MM-dd") : "N/A"}\n`;
+    });
+    
+    csvContent += "\nPERFORMANCE REVIEWS\n";
+    csvContent += "Review Period,Date,Rating,Status\n";
+    filteredReviews.forEach((review) => {
+      csvContent += `"${review.review_period}",${review.review_date},${review.overall_rating || "N/A"},${review.status}\n`;
+    });
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = `performance_analytics_${dateRange}.csv`;
+    link.click();
+    toast.success("CSV exported successfully");
+  };
+
+  // Export to PDF
+  const exportToPDF = () => {
+    const doc = new jsPDF();
+    const dateRange = `${startDate ? format(startDate, "MMM d, yyyy") : "All"} to ${endDate ? format(endDate, "MMM d, yyyy") : "All"}`;
+    
+    doc.setFontSize(18);
+    doc.text("Performance Analytics Report", 14, 22);
+    
+    doc.setFontSize(11);
+    doc.text(`Date Range: ${dateRange}`, 14, 32);
+    
+    // Summary section
+    doc.setFontSize(14);
+    doc.text("Summary", 14, 45);
+    
+    autoTable(doc, {
+      startY: 50,
+      head: [["Metric", "Value"]],
+      body: [
+        ["Total Goals", filteredGoals.length.toString()],
+        ["Average Progress", `${avgProgress}%`],
+        ["Total Reviews", filteredReviews.length.toString()],
+        ["Average Rating", avgRating.toString()],
+      ],
+      theme: "striped",
+    });
+
+    // Goals section
+    const goalsStartY = (doc as any).lastAutoTable.finalY + 15;
+    doc.setFontSize(14);
+    doc.text("Goals", 14, goalsStartY);
+    
+    if (filteredGoals.length > 0) {
+      autoTable(doc, {
+        startY: goalsStartY + 5,
+        head: [["Title", "Status", "Progress", "Priority", "Due Date"]],
+        body: filteredGoals.map((goal) => [
+          goal.title,
+          statusLabels[goal.status] || goal.status,
+          `${goal.progress || 0}%`,
+          goal.priority || "N/A",
+          goal.due_date || "N/A",
+        ]),
+        theme: "striped",
+      });
+    }
+
+    // Reviews section
+    const reviewsStartY = (doc as any).lastAutoTable.finalY + 15;
+    doc.setFontSize(14);
+    doc.text("Performance Reviews", 14, reviewsStartY);
+    
+    if (filteredReviews.length > 0) {
+      autoTable(doc, {
+        startY: reviewsStartY + 5,
+        head: [["Review Period", "Date", "Rating", "Status"]],
+        body: filteredReviews.map((review) => [
+          review.review_period,
+          review.review_date,
+          review.overall_rating?.toString() || "N/A",
+          review.status,
+        ]),
+        theme: "striped",
+      });
+    }
+
+    doc.save(`performance_analytics_${startDate ? format(startDate, "yyyy-MM-dd") : "all"}_to_${endDate ? format(endDate, "yyyy-MM-dd") : "all"}.pdf`);
+    toast.success("PDF exported successfully");
+  };
+
   return (
     <div className="space-y-6">
       {/* Date Range Filter */}
       <Card>
-        <CardContent className="flex flex-wrap items-center gap-4 pt-6">
-          <span className="text-sm font-medium">Date Range:</span>
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button
-                variant="outline"
-                className={cn(
-                  "w-[180px] justify-start text-left font-normal",
-                  !startDate && "text-muted-foreground"
-                )}
-              >
-                <CalendarIcon className="mr-2 h-4 w-4" />
-                {startDate ? format(startDate, "PPP") : "Start date"}
+        <CardContent className="flex flex-wrap items-center justify-between gap-4 pt-6">
+          <div className="flex flex-wrap items-center gap-4">
+            <span className="text-sm font-medium">Date Range:</span>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className={cn(
+                    "w-[180px] justify-start text-left font-normal",
+                    !startDate && "text-muted-foreground"
+                  )}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {startDate ? format(startDate, "PPP") : "Start date"}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={startDate}
+                  onSelect={setStartDate}
+                  initialFocus
+                  className="pointer-events-auto"
+                />
+              </PopoverContent>
+            </Popover>
+            <span className="text-muted-foreground">to</span>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className={cn(
+                    "w-[180px] justify-start text-left font-normal",
+                    !endDate && "text-muted-foreground"
+                  )}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {endDate ? format(endDate, "PPP") : "End date"}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={endDate}
+                  onSelect={setEndDate}
+                  initialFocus
+                  className="pointer-events-auto"
+                />
+              </PopoverContent>
+            </Popover>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setStartDate(subMonths(new Date(), 6));
+                setEndDate(new Date());
+              }}
+            >
+              Reset
+            </Button>
+          </div>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm">
+                <Download className="mr-2 h-4 w-4" />
+                Export
               </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="start">
-              <Calendar
-                mode="single"
-                selected={startDate}
-                onSelect={setStartDate}
-                initialFocus
-                className="pointer-events-auto"
-              />
-            </PopoverContent>
-          </Popover>
-          <span className="text-muted-foreground">to</span>
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button
-                variant="outline"
-                className={cn(
-                  "w-[180px] justify-start text-left font-normal",
-                  !endDate && "text-muted-foreground"
-                )}
-              >
-                <CalendarIcon className="mr-2 h-4 w-4" />
-                {endDate ? format(endDate, "PPP") : "End date"}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="start">
-              <Calendar
-                mode="single"
-                selected={endDate}
-                onSelect={setEndDate}
-                initialFocus
-                className="pointer-events-auto"
-              />
-            </PopoverContent>
-          </Popover>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => {
-              setStartDate(subMonths(new Date(), 6));
-              setEndDate(new Date());
-            }}
-          >
-            Reset
-          </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={exportToCSV}>
+                <Table className="mr-2 h-4 w-4" />
+                Export as CSV
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={exportToPDF}>
+                <FileText className="mr-2 h-4 w-4" />
+                Export as PDF
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </CardContent>
       </Card>
 
