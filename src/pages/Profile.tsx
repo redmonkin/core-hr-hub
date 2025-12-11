@@ -13,6 +13,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { EmployeeDocuments } from "@/components/documents/EmployeeDocuments";
+import { LeaveBalanceCard } from "@/components/profile/LeaveBalanceCard";
 
 interface EmployeeProfile {
   id: string;
@@ -341,6 +342,11 @@ const Profile = () => {
                 </div>
               </CardContent>
             </Card>
+
+            {/* Leave Balance Section */}
+            <div className="md:col-span-3">
+              <LeaveBalanceCard employeeId={employee.id} />
+            </div>
 
             {/* Documents Section */}
             <div className="md:col-span-3">
