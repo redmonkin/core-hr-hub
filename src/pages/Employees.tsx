@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
-import { EmployeeTable } from "@/components/employees/EmployeeTable";
+import { EmployeeTable, Employee } from "@/components/employees/EmployeeTable";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -10,15 +10,23 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { UserPlus, Search, Download } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useEmployees, useDepartments } from "@/hooks/useEmployees";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent } from "@/components/ui/card";
+import { EmployeeDocuments } from "@/components/documents/EmployeeDocuments";
 
 const Employees = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [departmentFilter, setDepartmentFilter] = useState("all");
+  const [documentsEmployee, setDocumentsEmployee] = useState<Employee | null>(null);
 
   const { data: employees = [], isLoading: isLoadingEmployees } = useEmployees();
   const { data: departments = [] } = useDepartments();
@@ -109,8 +117,23 @@ const Employees = () => {
             </CardContent>
           </Card>
         ) : (
-          <EmployeeTable employees={filteredEmployees} />
+          <EmployeeTable 
+            employees={filteredEmployees} 
+            onManageDocuments={(employee) => setDocumentsEmployee(employee)}
+          />
         )}
+
+        {/* Documents Dialog */}
+        <Dialog open={!!documentsEmployee} onOpenChange={(open) => !open && setDocumentsEmployee(null)}>
+          <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Documents - {documentsEmployee?.name}</DialogTitle>
+            </DialogHeader>
+            {documentsEmployee && (
+              <EmployeeDocuments employeeId={documentsEmployee.id} />
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
     </DashboardLayout>
   );

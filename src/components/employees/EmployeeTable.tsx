@@ -15,7 +15,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MoreHorizontal, Eye, Edit, Trash2 } from "lucide-react";
+import { MoreHorizontal, Eye, Edit, Trash2, FileText } from "lucide-react";
 
 export interface Employee {
   id: string;
@@ -33,6 +33,7 @@ interface EmployeeTableProps {
   onView?: (employee: Employee) => void;
   onEdit?: (employee: Employee) => void;
   onDelete?: (employee: Employee) => void;
+  onManageDocuments?: (employee: Employee) => void;
 }
 
 const statusStyles = {
@@ -41,7 +42,7 @@ const statusStyles = {
   onboarding: "bg-primary/10 text-primary border-primary/20",
 };
 
-export function EmployeeTable({ employees, onView, onEdit, onDelete }: EmployeeTableProps) {
+export function EmployeeTable({ employees, onView, onEdit, onDelete, onManageDocuments }: EmployeeTableProps) {
   return (
     <div className="rounded-xl border border-border bg-card">
       <Table>
@@ -95,6 +96,10 @@ export function EmployeeTable({ employees, onView, onEdit, onDelete }: EmployeeT
                     <DropdownMenuItem onClick={() => onEdit?.(employee)}>
                       <Edit className="mr-2 h-4 w-4" />
                       Edit
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => onManageDocuments?.(employee)}>
+                      <FileText className="mr-2 h-4 w-4" />
+                      Documents
                     </DropdownMenuItem>
                     <DropdownMenuItem
                       onClick={() => onDelete?.(employee)}
