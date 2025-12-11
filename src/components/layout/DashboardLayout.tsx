@@ -46,6 +46,7 @@ const navItems: NavItem[] = [
   { label: "Leave Management", href: "/leaves", icon: <Calendar className="h-5 w-5" /> },
   { label: "Leave Approvals", href: "/leave-approvals", icon: <ClipboardList className="h-5 w-5" /> },
   { label: "Performance", href: "/performance", icon: <Target className="h-5 w-5" /> },
+  { label: "Reviews", href: "/reviews-management", icon: <ClipboardList className="h-5 w-5" />, adminOnly: true },
   { label: "Assets", href: "/assets", icon: <Package className="h-5 w-5" /> },
   { label: "Payroll", href: "/payroll", icon: <CreditCard className="h-5 w-5" />, adminOnly: true },
   { label: "Reports", href: "/reports", icon: <ClipboardList className="h-5 w-5" /> },

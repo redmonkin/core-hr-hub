@@ -146,3 +146,57 @@ export function usePerformanceReviews(employeeId: string | undefined) {
     enabled: !!employeeId,
   });
 }
+
+export function useAllPerformanceReviews() {
+  return useQuery({
+    queryKey: ["all-performance-reviews"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("performance_reviews")
+        .select(`
+          *,
+          reviewer:employees!performance_reviews_reviewer_id_fkey (first_name, last_name),
+          employee:employees!performance_reviews_employee_id_fkey (id, first_name, last_name, designation)
+        `)
+        .order("review_date", { ascending: false });
+
+      if (error) throw error;
+      return data;
+    },
+  });
+}
+
+export function useCreateReview() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (review: {
+      employee_id: string;
+      reviewer_id: string | null;
+      review_period: string;
+      review_date: string;
+      overall_rating: number | null;
+      strengths?: string;
+      areas_for_improvement?: string;
+      comments?: string;
+      status?: string;
+    }) => {
+      const { data, error } = await supabase
+        .from("performance_reviews")
+        .insert(review)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["performance-reviews"] });
+      queryClient.invalidateQueries({ queryKey: ["all-performance-reviews"] });
+      toast.success("Performance review created successfully");
+    },
+    onError: (error) => {
+      toast.error("Failed to create review: " + error.message);
+    },
+  });
+}
