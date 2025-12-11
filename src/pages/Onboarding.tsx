@@ -16,11 +16,12 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Switch } from "@/components/ui/switch";
-import { Upload, User, Briefcase, FileText, Loader2 } from "lucide-react";
+import { Upload, User, Briefcase, FileText, Loader2, ShieldAlert } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useDepartments } from "@/hooks/useEmployees";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useIsAdminOrHR } from "@/hooks/useUserRole";
 
 // Fetch employees who are in onboarding status
 const useOnboardingEmployees = () => {
@@ -139,11 +140,37 @@ const Onboarding = () => {
   const [formData, setFormData] = useState<FormData>(initialFormData);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { isAdminOrHR, isLoading: roleLoading } = useIsAdminOrHR();
   
   const { data: departments = [], isLoading: loadingDepartments } = useDepartments();
   const { data: managers = [], isLoading: loadingManagers } = useManagers();
   const { data: onboardingEmployees = [], isLoading: loadingOnboarding } = useOnboardingEmployees();
   const { data: unlinkedUsers = [], isLoading: loadingUsers } = useUnlinkedUsers();
+
+  // Show loading while checking role
+  if (roleLoading) {
+    return (
+      <DashboardLayout>
+        <div className="flex min-h-[400px] items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  // Redirect non-admin/HR users
+  if (!isAdminOrHR) {
+    return (
+      <DashboardLayout>
+        <div className="flex min-h-[400px] flex-col items-center justify-center space-y-4">
+          <ShieldAlert className="h-16 w-16 text-destructive" />
+          <h2 className="text-2xl font-bold text-foreground">Access Denied</h2>
+          <p className="text-muted-foreground">You don't have permission to access this page.</p>
+          <p className="text-sm text-muted-foreground">Only administrators and HR personnel can manage onboarding.</p>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   const createEmployeeMutation = useMutation({
     mutationFn: async (data: FormData) => {

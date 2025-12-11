@@ -13,14 +13,16 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, FileText, DollarSign, TrendingUp, Users } from "lucide-react";
+import { Search, FileText, DollarSign, TrendingUp, Users, Loader2, ShieldAlert } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { usePayrollRecords, usePayrollStats } from "@/hooks/usePayroll";
+import { useIsAdminOrHR } from "@/hooks/useUserRole";
 
 const Payroll = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [monthFilter, setMonthFilter] = useState("current");
   const { toast } = useToast();
+  const { isAdminOrHR, isLoading: roleLoading } = useIsAdminOrHR();
 
   const currentDate = new Date();
   const currentMonth = currentDate.getMonth() + 1;
@@ -31,6 +33,31 @@ const Payroll = () => {
     monthFilter === "current" ? currentYear : undefined
   );
   const { data: stats } = usePayrollStats();
+
+  // Show loading while checking role
+  if (roleLoading) {
+    return (
+      <DashboardLayout>
+        <div className="flex min-h-[400px] items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  // Redirect non-admin/HR users
+  if (!isAdminOrHR) {
+    return (
+      <DashboardLayout>
+        <div className="flex min-h-[400px] flex-col items-center justify-center space-y-4">
+          <ShieldAlert className="h-16 w-16 text-destructive" />
+          <h2 className="text-2xl font-bold text-foreground">Access Denied</h2>
+          <p className="text-muted-foreground">You don't have permission to access this page.</p>
+          <p className="text-sm text-muted-foreground">Only administrators and HR personnel can manage payroll.</p>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   const handleDownload = (record: { employee: { name: string } }) => {
     toast({
