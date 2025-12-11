@@ -12,6 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { EmployeeDocuments } from "@/components/documents/EmployeeDocuments";
 
 interface EmployeeProfile {
   id: string;
@@ -340,6 +341,11 @@ const Profile = () => {
                 </div>
               </CardContent>
             </Card>
+
+            {/* Documents Section */}
+            <div className="md:col-span-3">
+              <EmployeeDocuments employeeId={employee.id} />
+            </div>
           </div>
         )}
       </div>
