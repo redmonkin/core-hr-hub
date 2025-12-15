@@ -18,6 +18,7 @@ import {
   ChevronDown,
   Target,
   BarChart3,
+  Clock,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -44,6 +45,7 @@ const navItems: NavItem[] = [
   { label: "Dashboard", href: "/", icon: <Home className="h-5 w-5" /> },
   { label: "Employees", href: "/employees", icon: <Users className="h-5 w-5" /> },
   { label: "Onboarding", href: "/onboarding", icon: <UserPlus className="h-5 w-5" />, adminOnly: true },
+  { label: "Attendance", href: "/attendance", icon: <Clock className="h-5 w-5" /> },
   { label: "Leave Management", href: "/leaves", icon: <Calendar className="h-5 w-5" /> },
   { label: "Leave Approvals", href: "/leave-approvals", icon: <ClipboardList className="h-5 w-5" /> },
   { label: "Performance", href: "/performance", icon: <Target className="h-5 w-5" /> },
