@@ -174,6 +174,9 @@ const Onboarding = () => {
 
   const createEmployeeMutation = useMutation({
     mutationFn: async (data: FormData) => {
+      // Get department name for notification
+      const selectedDept = departments.find(d => d.id === data.departmentId);
+
       // Create employee
       const { data: employee, error: employeeError } = await supabase
         .from('employees')
@@ -208,6 +211,21 @@ const Onboarding = () => {
         
         if (salaryError) throw salaryError;
       }
+
+      // Send onboarding notification (fire and forget)
+      supabase.functions.invoke("onboarding-notification", {
+        body: {
+          employee_id: employee.id,
+          employee_name: `${data.firstName.trim()} ${data.lastName.trim()}`,
+          employee_email: data.email.trim(),
+          designation: data.designation.trim(),
+          department_name: selectedDept?.name,
+          join_date: data.joinDate,
+          manager_id: data.managerId || undefined,
+        }
+      }).catch(err => {
+        console.error("Failed to send onboarding notification:", err);
+      });
 
       return employee;
     },
