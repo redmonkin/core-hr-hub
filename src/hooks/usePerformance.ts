@@ -225,7 +225,17 @@ export function useAcknowledgeReview() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ reviewId, userId }: { reviewId: string; userId: string }) => {
+    mutationFn: async ({ 
+      reviewId, 
+      userId, 
+      employeeName, 
+      reviewPeriod 
+    }: { 
+      reviewId: string; 
+      userId: string; 
+      employeeName: string; 
+      reviewPeriod: string;
+    }) => {
       const { error } = await supabase
         .from("performance_reviews")
         .update({
@@ -236,6 +246,17 @@ export function useAcknowledgeReview() {
         .eq("id", reviewId);
 
       if (error) throw error;
+
+      // Send notification to reviewer (fire and forget)
+      supabase.functions.invoke("review-acknowledgment-notification", {
+        body: {
+          review_id: reviewId,
+          employee_name: employeeName,
+          review_period: reviewPeriod,
+        }
+      }).catch(err => {
+        console.error("Failed to send acknowledgment notification:", err);
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["performance-reviews"] });

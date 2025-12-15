@@ -11,7 +11,7 @@ import { PerformanceAnalytics } from "@/components/performance/PerformanceAnalyt
 const Performance = () => {
   const { user } = useAuth();
 
-  // Get current employee ID
+  // Get current employee ID and name
   const { data: employee, isLoading } = useQuery({
     queryKey: ["my-employee", user?.id],
     queryFn: async () => {
@@ -19,7 +19,7 @@ const Performance = () => {
 
       const { data, error } = await supabase
         .from("employees")
-        .select("id")
+        .select("id, first_name, last_name")
         .eq("user_id", user.id)
         .maybeSingle();
 
@@ -90,7 +90,10 @@ const Performance = () => {
           </TabsContent>
 
           <TabsContent value="reviews">
-            <PerformanceReviews employeeId={employee.id} />
+            <PerformanceReviews 
+              employeeId={employee.id} 
+              employeeName={`${employee.first_name} ${employee.last_name}`} 
+            />
           </TabsContent>
 
           <TabsContent value="analytics">
