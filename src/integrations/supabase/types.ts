@@ -567,6 +567,45 @@ export type Database = {
         }
         Relationships: []
       }
+      notification_preferences: {
+        Row: {
+          created_at: string
+          event_notifications: boolean
+          goal_reminder_notifications: boolean
+          holiday_notifications: boolean
+          id: string
+          leave_status_notifications: boolean
+          onboarding_notifications: boolean
+          review_notifications: boolean
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          event_notifications?: boolean
+          goal_reminder_notifications?: boolean
+          holiday_notifications?: boolean
+          id?: string
+          leave_status_notifications?: boolean
+          onboarding_notifications?: boolean
+          review_notifications?: boolean
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          event_notifications?: boolean
+          goal_reminder_notifications?: boolean
+          holiday_notifications?: boolean
+          id?: string
+          leave_status_notifications?: boolean
+          onboarding_notifications?: boolean
+          review_notifications?: boolean
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       notifications: {
         Row: {
           created_at: string

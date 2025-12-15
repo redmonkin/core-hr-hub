@@ -21,6 +21,7 @@ import {
   Clock,
   Building2,
   CalendarDays,
+  Bell,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -231,6 +232,12 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                 <DropdownMenuSeparator />
                 <DropdownMenuItem asChild>
                   <Link to="/profile">Profile</Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link to="/notification-preferences">
+                    <Bell className="mr-2 h-4 w-4" />
+                    Notification Preferences
+                  </Link>
                 </DropdownMenuItem>
                 {isAdminOrHR && (
                   <DropdownMenuItem asChild>
