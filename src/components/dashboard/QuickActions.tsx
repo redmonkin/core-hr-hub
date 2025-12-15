@@ -36,7 +36,7 @@ export function QuickActions() {
       <CardHeader className="pb-3">
         <CardTitle className="text-lg font-semibold">Quick Actions</CardTitle>
       </CardHeader>
-      <CardContent className="space-y-2">
+      <CardContent className="space-y-3">
         {actions.map((action) => (
           <Link key={action.label} to={action.href}>
             <Button
