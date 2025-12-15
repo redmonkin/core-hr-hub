@@ -1,9 +1,34 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useEffect } from "react";
 
 export function useDashboardStats() {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
+
+  // Subscribe to real-time changes on leave_requests
+  useEffect(() => {
+    const channel = supabase
+      .channel("dashboard-leave-requests")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "leave_requests",
+        },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
+          queryClient.invalidateQueries({ queryKey: ["pending-approvals"] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
 
   return useQuery({
     queryKey: ["dashboard-stats", user?.id],
