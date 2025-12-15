@@ -292,6 +292,7 @@ export type Database = {
           due_date: string | null
           employee_id: string
           id: string
+          last_reminder_sent: string | null
           priority: string | null
           progress: number | null
           status: string
@@ -306,6 +307,7 @@ export type Database = {
           due_date?: string | null
           employee_id: string
           id?: string
+          last_reminder_sent?: string | null
           priority?: string | null
           progress?: number | null
           status?: string
@@ -320,6 +322,7 @@ export type Database = {
           due_date?: string | null
           employee_id?: string
           id?: string
+          last_reminder_sent?: string | null
           priority?: string | null
           progress?: number | null
           status?: string
@@ -472,6 +475,39 @@ export type Database = {
           id?: string
           is_paid?: boolean | null
           name?: string
+        }
+        Relationships: []
+      }
+      notifications: {
+        Row: {
+          created_at: string
+          id: string
+          link: string | null
+          message: string
+          read: boolean
+          title: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          link?: string | null
+          message: string
+          read?: boolean
+          title: string
+          type?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          link?: string | null
+          message?: string
+          read?: boolean
+          title?: string
+          type?: string
+          user_id?: string
         }
         Relationships: []
       }
