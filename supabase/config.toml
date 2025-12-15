@@ -11,3 +11,6 @@ verify_jwt = false
 
 [functions.leave-status-notification]
 verify_jwt = false
+
+[functions.leave-submission-notification]
+verify_jwt = false
