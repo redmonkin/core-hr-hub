@@ -5,3 +5,6 @@ verify_jwt = false
 
 [functions.review-notification]
 verify_jwt = false
+
+[functions.review-acknowledgment-notification]
+verify_jwt = false

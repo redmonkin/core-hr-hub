@@ -8,6 +8,7 @@ import { format } from "date-fns";
 
 interface PerformanceReviewsProps {
   employeeId: string;
+  employeeName?: string;
 }
 
 const statusColors: Record<string, string> = {
@@ -16,7 +17,7 @@ const statusColors: Record<string, string> = {
   acknowledged: "bg-emerald-500/10 text-emerald-600 border-emerald-500/20",
 };
 
-export function PerformanceReviews({ employeeId }: PerformanceReviewsProps) {
+export function PerformanceReviews({ employeeId, employeeName = "Employee" }: PerformanceReviewsProps) {
   const { user } = useAuth();
   const { data: reviews, isLoading } = usePerformanceReviews(employeeId);
   const acknowledgeMutation = useAcknowledgeReview();
@@ -108,7 +109,12 @@ export function PerformanceReviews({ employeeId }: PerformanceReviewsProps) {
                   <div className="pt-2 border-t">
                     <Button
                       size="sm"
-                      onClick={() => acknowledgeMutation.mutate({ reviewId: review.id, userId: user.id })}
+                      onClick={() => acknowledgeMutation.mutate({ 
+                        reviewId: review.id, 
+                        userId: user.id,
+                        employeeName,
+                        reviewPeriod: review.review_period
+                      })}
                       disabled={acknowledgeMutation.isPending}
                     >
                       <CheckCircle className="h-4 w-4 mr-2" />
