@@ -1,0 +1,241 @@
+import { useState } from "react";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Download, Calendar, Loader2 } from "lucide-react";
+import { useLeaveBalanceReport } from "@/hooks/useLeaveBalanceReport";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+
+const currentYear = new Date().getFullYear();
+const YEARS = Array.from({ length: 5 }, (_, i) => ({
+  value: String(currentYear - i),
+  label: String(currentYear - i),
+}));
+
+export function LeaveBalanceReport() {
+  const [selectedYear, setSelectedYear] = useState(String(currentYear));
+  const [isExporting, setIsExporting] = useState(false);
+
+  const { data: report, isLoading } = useLeaveBalanceReport(parseInt(selectedYear));
+
+  const exportToPDF = async () => {
+    if (!report || report.records.length === 0) return;
+
+    setIsExporting(true);
+
+    try {
+      const doc = new jsPDF({ orientation: "landscape" });
+      const pageWidth = doc.internal.pageSize.getWidth();
+
+      // Header
+      doc.setFontSize(20);
+      doc.setFont("helvetica", "bold");
+      doc.text("Leave Balance Report", pageWidth / 2, 20, { align: "center" });
+
+      doc.setFontSize(14);
+      doc.setFont("helvetica", "normal");
+      doc.text(`Year: ${report.year}`, pageWidth / 2, 30, { align: "center" });
+
+      // Summary info
+      doc.setFontSize(10);
+      doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 14, 45);
+      doc.text(`Total Employees: ${report.records.length}`, 14, 52);
+
+      // Build table headers
+      const headers = ["Employee", "Department"];
+      report.leaveTypes.forEach((lt) => {
+        headers.push(`${lt} (T)`, `${lt} (U)`, `${lt} (R)`);
+      });
+
+      // Build table body
+      const body = report.records.map((record) => {
+        const row: (string | number)[] = [record.employeeName, record.department];
+        record.balances.forEach((bal) => {
+          row.push(bal.total, bal.used, bal.remaining);
+        });
+        return row;
+      });
+
+      // Calculate totals
+      const totals: (string | number)[] = ["TOTAL", ""];
+      report.leaveTypes.forEach((_, index) => {
+        const totalT = report.records.reduce((sum, r) => sum + r.balances[index].total, 0);
+        const totalU = report.records.reduce((sum, r) => sum + r.balances[index].used, 0);
+        const totalR = report.records.reduce((sum, r) => sum + r.balances[index].remaining, 0);
+        totals.push(totalT, totalU, totalR);
+      });
+
+      autoTable(doc, {
+        startY: 60,
+        head: [headers],
+        body: body,
+        foot: [totals],
+        theme: "striped",
+        headStyles: { fillColor: [59, 130, 246], fontSize: 7, cellPadding: 2 },
+        bodyStyles: { fontSize: 7, cellPadding: 2 },
+        footStyles: { fillColor: [243, 244, 246], textColor: [0, 0, 0], fontStyle: "bold", fontSize: 7 },
+        columnStyles: {
+          0: { cellWidth: 35 },
+          1: { cellWidth: 30 },
+        },
+        didDrawPage: () => {
+          // Legend
+          doc.setFontSize(8);
+          doc.text("T = Total Days | U = Used Days | R = Remaining Days", 14, doc.internal.pageSize.getHeight() - 15);
+        },
+      });
+
+      // Footer with page numbers
+      const pageCount = doc.getNumberOfPages();
+      for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i);
+        doc.setFontSize(8);
+        doc.text(
+          `Page ${i} of ${pageCount}`,
+          pageWidth / 2,
+          doc.internal.pageSize.getHeight() - 10,
+          { align: "center" }
+        );
+      }
+
+      doc.save(`Leave_Balance_Report_${report.year}.pdf`);
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <Calendar className="h-5 w-5" />
+              Leave Balance Report
+            </CardTitle>
+            <CardDescription>Employee leave balances by type</CardDescription>
+          </div>
+          <div className="flex items-center gap-2">
+            <Select value={selectedYear} onValueChange={setSelectedYear}>
+              <SelectTrigger className="w-[100px]">
+                <SelectValue placeholder="Year" />
+              </SelectTrigger>
+              <SelectContent>
+                {YEARS.map((year) => (
+                  <SelectItem key={year.value} value={year.value}>
+                    {year.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Button onClick={exportToPDF} disabled={isExporting || !report?.records.length}>
+              {isExporting ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Download className="h-4 w-4 mr-2" />
+              )}
+              Export PDF
+            </Button>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent>
+        {isLoading ? (
+          <div className="space-y-4">
+            <Skeleton className="h-64" />
+          </div>
+        ) : report ? (
+          <div className="space-y-4">
+            {report.records.length > 0 ? (
+              <div className="rounded-md border overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="sticky left-0 bg-background">Employee</TableHead>
+                      <TableHead>Department</TableHead>
+                      {report.leaveTypes.map((lt) => (
+                        <TableHead key={lt} colSpan={3} className="text-center border-l">
+                          {lt}
+                        </TableHead>
+                      ))}
+                    </TableRow>
+                    <TableRow>
+                      <TableHead className="sticky left-0 bg-background"></TableHead>
+                      <TableHead></TableHead>
+                      {report.leaveTypes.map((lt) => (
+                        <>
+                          <TableHead key={`${lt}-t`} className="text-center text-xs border-l">Total</TableHead>
+                          <TableHead key={`${lt}-u`} className="text-center text-xs">Used</TableHead>
+                          <TableHead key={`${lt}-r`} className="text-center text-xs">Left</TableHead>
+                        </>
+                      ))}
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {report.records.map((record) => (
+                      <TableRow key={record.employeeId}>
+                        <TableCell className="sticky left-0 bg-background">
+                          <div>
+                            <p className="font-medium">{record.employeeName}</p>
+                            <p className="text-xs text-muted-foreground">{record.employeeCode}</p>
+                          </div>
+                        </TableCell>
+                        <TableCell>{record.department}</TableCell>
+                        {record.balances.map((bal, i) => (
+                          <>
+                            <TableCell key={`${record.employeeId}-${i}-t`} className="text-center border-l">
+                              {bal.total}
+                            </TableCell>
+                            <TableCell key={`${record.employeeId}-${i}-u`} className="text-center text-orange-600">
+                              {bal.used}
+                            </TableCell>
+                            <TableCell key={`${record.employeeId}-${i}-r`} className="text-center font-medium text-green-600">
+                              {bal.remaining}
+                            </TableCell>
+                          </>
+                        ))}
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center py-12 text-center">
+                <Calendar className="h-12 w-12 text-muted-foreground mb-4" />
+                <p className="text-lg font-medium">No leave balance records</p>
+                <p className="text-sm text-muted-foreground">
+                  There are no leave balance records for {report.year}
+                </p>
+              </div>
+            )}
+
+            {/* Legend */}
+            {report.records.length > 0 && (
+              <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                <span>Total = Allocated days</span>
+                <span className="text-orange-600">Used = Days taken</span>
+                <span className="text-green-600">Left = Remaining balance</span>
+              </div>
+            )}
+          </div>
+        ) : null}
+      </CardContent>
+    </Card>
+  );
+}
