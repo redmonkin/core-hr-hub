@@ -33,18 +33,18 @@ const actions = [
 export function QuickActions() {
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="pb-3">
         <CardTitle className="text-lg font-semibold">Quick Actions</CardTitle>
       </CardHeader>
-      <CardContent className="grid grid-cols-2 gap-3">
+      <CardContent className="space-y-2">
         {actions.map((action) => (
           <Link key={action.label} to={action.href}>
             <Button
               variant={action.variant}
-              className="h-auto w-full flex-col gap-2 py-4"
+              className="w-full justify-start gap-3"
             >
               {action.icon}
-              <span className="text-xs">{action.label}</span>
+              <span>{action.label}</span>
             </Button>
           </Link>
         ))}
