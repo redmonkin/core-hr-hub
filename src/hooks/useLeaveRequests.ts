@@ -32,12 +32,14 @@ export function useSubmitLeaveRequest() {
     mutationFn: async ({
       employeeId,
       leaveTypeId,
+      leaveTypeName,
       startDate,
       endDate,
       reason,
     }: {
       employeeId: string;
       leaveTypeId: string;
+      leaveTypeName: string;
       startDate: Date;
       endDate: Date;
       reason: string;
@@ -46,13 +48,16 @@ export function useSubmitLeaveRequest() {
       const diffTime = Math.abs(endDate.getTime() - startDate.getTime());
       const daysCount = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
 
+      const startDateStr = startDate.toISOString().split("T")[0];
+      const endDateStr = endDate.toISOString().split("T")[0];
+
       const { data, error } = await supabase
         .from("leave_requests")
         .insert({
           employee_id: employeeId,
           leave_type_id: leaveTypeId,
-          start_date: startDate.toISOString().split("T")[0],
-          end_date: endDate.toISOString().split("T")[0],
+          start_date: startDateStr,
+          end_date: endDateStr,
           days_count: daysCount,
           reason: reason.trim() || null,
           status: "pending",
@@ -61,6 +66,22 @@ export function useSubmitLeaveRequest() {
         .single();
 
       if (error) throw error;
+
+      // Notify manager (fire and forget)
+      supabase.functions.invoke("leave-submission-notification", {
+        body: {
+          request_id: data.id,
+          employee_id: employeeId,
+          leave_type: leaveTypeName,
+          start_date: startDateStr,
+          end_date: endDateStr,
+          days_count: daysCount,
+          reason: reason.trim() || undefined,
+        }
+      }).catch(err => {
+        console.error("Failed to send leave submission notification:", err);
+      });
+
       return data;
     },
     onSuccess: () => {

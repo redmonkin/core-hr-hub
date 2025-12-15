@@ -33,9 +33,12 @@ export function LeaveRequestForm({ employeeId }: LeaveRequestFormProps) {
     
     if (!leaveTypeId || !startDate || !endDate) return;
 
+    const selectedLeaveType = leaveTypes?.find(t => t.id === leaveTypeId);
+
     await submitMutation.mutateAsync({
       employeeId,
       leaveTypeId,
+      leaveTypeName: selectedLeaveType?.name || "Leave",
       startDate,
       endDate,
       reason,
