@@ -12,9 +12,10 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
-import { CalendarDays, Plus, Pencil, Trash2, PartyPopper, Briefcase, Users, ChevronLeft, ChevronRight } from "lucide-react";
+import { CalendarDays, Plus, Pencil, Trash2, PartyPopper, Briefcase, Users, ChevronLeft, ChevronRight, Mail } from "lucide-react";
 import { useCompanyEvents, useCreateCompanyEvent, useUpdateCompanyEvent, useDeleteCompanyEvent, CompanyEvent } from "@/hooks/useCompanyEvents";
 import { useIsAdminOrHR } from "@/hooks/useUserRole";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { format, addMonths, subMonths, isSameDay, parseISO } from "date-fns";
 
@@ -30,6 +31,7 @@ const CompanyCalendar = () => {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<CompanyEvent | null>(null);
+  const [isSendingNotifications, setIsSendingNotifications] = useState(false);
   const [formData, setFormData] = useState({
     title: "",
     description: "",
@@ -132,6 +134,22 @@ const CompanyCalendar = () => {
     return EVENT_TYPES.find((t) => t.value === type) || EVENT_TYPES[3];
   };
 
+  const sendNotifications = async () => {
+    setIsSendingNotifications(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("event-notification");
+      
+      if (error) throw error;
+      
+      toast.success(data.message || "Notifications sent successfully");
+    } catch (error) {
+      console.error("Error sending notifications:", error);
+      toast.error("Failed to send notifications");
+    } finally {
+      setIsSendingNotifications(false);
+    }
+  };
+
   const eventsOnSelectedDate = selectedDate
     ? events?.filter((e) => isSameDay(parseISO(e.event_date), selectedDate))
     : [];
@@ -148,13 +166,22 @@ const CompanyCalendar = () => {
             <p className="text-muted-foreground">View holidays and company events</p>
           </div>
           {isAdminOrHR && (
-            <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-              <DialogTrigger asChild>
-                <Button onClick={() => resetForm()}>
-                  <Plus className="mr-2 h-4 w-4" />
-                  Add Event
-                </Button>
-              </DialogTrigger>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={sendNotifications}
+                disabled={isSendingNotifications}
+              >
+                <Mail className="mr-2 h-4 w-4" />
+                {isSendingNotifications ? "Sending..." : "Send Notifications"}
+              </Button>
+              <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+                <DialogTrigger asChild>
+                  <Button onClick={() => resetForm()}>
+                    <Plus className="mr-2 h-4 w-4" />
+                    Add Event
+                  </Button>
+                </DialogTrigger>
               <DialogContent>
                 <DialogHeader>
                   <DialogTitle>Create Event</DialogTitle>
@@ -225,6 +252,7 @@ const CompanyCalendar = () => {
                 </DialogFooter>
               </DialogContent>
             </Dialog>
+            </div>
           )}
         </div>
 
