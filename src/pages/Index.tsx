@@ -5,12 +5,15 @@ import { LeaveCalendar } from "@/components/dashboard/LeaveCalendar";
 import { QuickActions } from "@/components/dashboard/QuickActions";
 import { PerformanceWidget } from "@/components/dashboard/PerformanceWidget";
 import { PendingApprovalsWidget } from "@/components/dashboard/PendingApprovalsWidget";
-import { Users, Calendar, Package, CreditCard } from "lucide-react";
+import { Users, Calendar, Package, CreditCard, ClipboardCheck } from "lucide-react";
 import { useDashboardStats } from "@/hooks/useDashboardStats";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useNavigate } from "react-router-dom";
 
 const Index = () => {
   const { data: stats, isLoading } = useDashboardStats();
+  const navigate = useNavigate();
+  const hasPendingApprovals = (stats?.pendingApprovals ?? 0) > 0;
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("en-US", {
@@ -25,10 +28,10 @@ const Index = () => {
     <DashboardLayout>
       <div className="space-y-6">
         {/* Stats Grid */}
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className={`grid gap-4 sm:grid-cols-2 ${hasPendingApprovals ? 'lg:grid-cols-5' : 'lg:grid-cols-4'}`}>
           {isLoading ? (
             <>
-              {[1, 2, 3, 4].map((i) => (
+              {[1, 2, 3, 4, 5].map((i) => (
                 <Skeleton key={i} className="h-32 rounded-xl" />
               ))}
             </>
@@ -58,6 +61,19 @@ const Index = () => {
                 icon={<CreditCard className="h-6 w-6" />}
                 variant="default"
               />
+              {hasPendingApprovals && (
+                <div 
+                  className="cursor-pointer" 
+                  onClick={() => navigate("/leave-approvals")}
+                >
+                  <StatsCard
+                    title="Pending Approvals"
+                    value={String(stats?.pendingApprovals || 0)}
+                    icon={<ClipboardCheck className="h-6 w-6" />}
+                    variant="warning"
+                  />
+                </div>
+              )}
             </>
           )}
         </div>
