@@ -4,7 +4,6 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
@@ -16,7 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2, User, Mail, Phone, MapPin, Building2, Calendar, Briefcase, Save, Shield, FileText, Clock } from "lucide-react";
+import { Loader2, User, Mail, Phone, MapPin, Building2, Calendar, Briefcase, Save, Shield, FileText, Clock, Wallet, Files } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -25,6 +24,8 @@ import { EmployeeDocuments } from "@/components/documents/EmployeeDocuments";
 import { LeaveBalanceCard } from "@/components/profile/LeaveBalanceCard";
 import { LeaveRequestForm } from "@/components/profile/LeaveRequestForm";
 import { LeaveRequestHistory } from "@/components/profile/LeaveRequestHistory";
+import { PayslipViewer } from "@/components/profile/PayslipViewer";
+import { TaxDocumentsViewer } from "@/components/profile/TaxDocumentsViewer";
 
 interface EmployeeProfile {
   id: string;
@@ -97,7 +98,6 @@ const Profile = () => {
 
       if (error) throw error;
       
-      // Transform the data to match our interface
       if (data) {
         return {
           ...data,
@@ -217,196 +217,232 @@ const Profile = () => {
             </CardContent>
           </Card>
         ) : (
-          <div className="grid gap-6 md:grid-cols-3">
-            {/* Profile Card */}
-            <Card className="md:col-span-1">
-              <CardContent className="pt-6">
-                <div className="flex flex-col items-center text-center">
-                  <Avatar className="h-24 w-24">
-                    <AvatarImage src={userProfile?.avatar_url || undefined} />
-                    <AvatarFallback className="text-2xl">{getUserInitials()}</AvatarFallback>
-                  </Avatar>
-                  <h3 className="mt-4 text-xl font-semibold">
-                    {employee.first_name} {employee.last_name}
-                  </h3>
-                  <p className="text-muted-foreground">{employee.designation}</p>
-                  <Badge className="mt-2" variant={employee.status === 'active' ? 'default' : 'secondary'}>
-                    {employee.status}
-                  </Badge>
-                  <Separator className="my-4 w-full" />
-                  <div className="w-full space-y-3 text-left text-sm">
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      <Mail className="h-4 w-4" />
-                      <span className="truncate">{employee.email}</span>
+          <Tabs defaultValue="profile" className="space-y-6">
+            <TabsList className="grid w-full grid-cols-4 lg:w-auto lg:inline-flex">
+              <TabsTrigger value="profile" className="gap-2">
+                <User className="h-4 w-4" />
+                <span className="hidden sm:inline">Profile</span>
+              </TabsTrigger>
+              <TabsTrigger value="leaves" className="gap-2">
+                <Calendar className="h-4 w-4" />
+                <span className="hidden sm:inline">Leaves</span>
+              </TabsTrigger>
+              <TabsTrigger value="payslips" className="gap-2">
+                <Wallet className="h-4 w-4" />
+                <span className="hidden sm:inline">Payslips</span>
+              </TabsTrigger>
+              <TabsTrigger value="documents" className="gap-2">
+                <Files className="h-4 w-4" />
+                <span className="hidden sm:inline">Documents</span>
+              </TabsTrigger>
+            </TabsList>
+
+            {/* Profile Tab */}
+            <TabsContent value="profile" className="space-y-6">
+              <div className="grid gap-6 md:grid-cols-3">
+                {/* Profile Card */}
+                <Card className="md:col-span-1">
+                  <CardContent className="pt-6">
+                    <div className="flex flex-col items-center text-center">
+                      <Avatar className="h-24 w-24">
+                        <AvatarImage src={userProfile?.avatar_url || undefined} />
+                        <AvatarFallback className="text-2xl">{getUserInitials()}</AvatarFallback>
+                      </Avatar>
+                      <h3 className="mt-4 text-xl font-semibold">
+                        {employee.first_name} {employee.last_name}
+                      </h3>
+                      <p className="text-muted-foreground">{employee.designation}</p>
+                      <Badge className="mt-2" variant={employee.status === 'active' ? 'default' : 'secondary'}>
+                        {employee.status}
+                      </Badge>
+                      <Separator className="my-4 w-full" />
+                      <div className="w-full space-y-3 text-left text-sm">
+                        <div className="flex items-center gap-2 text-muted-foreground">
+                          <Mail className="h-4 w-4" />
+                          <span className="truncate">{employee.email}</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-muted-foreground">
+                          <Building2 className="h-4 w-4" />
+                          <span>{employee.department?.name || "No Department"}</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-muted-foreground">
+                          <Briefcase className="h-4 w-4" />
+                          <span>{employee.employee_code}</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-muted-foreground">
+                          <Calendar className="h-4 w-4" />
+                          <span>Joined {formatDate(employee.hire_date)}</span>
+                        </div>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      <Building2 className="h-4 w-4" />
-                      <span>{employee.department?.name || "No Department"}</span>
+                  </CardContent>
+                </Card>
+
+                {/* Details Card */}
+                <Card className="md:col-span-2">
+                  <CardHeader className="flex flex-row items-center justify-between">
+                    <div>
+                      <CardTitle>Personal Information</CardTitle>
+                      <CardDescription>Update your contact details</CardDescription>
                     </div>
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      <Briefcase className="h-4 w-4" />
-                      <span>{employee.employee_code}</span>
+                    {!isEditing ? (
+                      <Button variant="outline" onClick={() => setIsEditing(true)}>
+                        Edit
+                      </Button>
+                    ) : (
+                      <div className="flex gap-2">
+                        <Button variant="outline" onClick={() => {
+                          setIsEditing(false);
+                          setFormData({
+                            phone: employee.phone || '',
+                            address: employee.address || '',
+                            city: employee.city || '',
+                            country: employee.country || '',
+                            date_of_birth: employee.date_of_birth || '',
+                            gender: employee.gender || '',
+                          });
+                        }}>
+                          Cancel
+                        </Button>
+                        <Button onClick={handleSave} disabled={updateProfileMutation.isPending}>
+                          {updateProfileMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                          <Save className="mr-2 h-4 w-4" />
+                          Save
+                        </Button>
+                      </div>
+                    )}
+                  </CardHeader>
+                  <CardContent className="space-y-6">
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <div className="space-y-2">
+                        <Label>First Name</Label>
+                        <Input value={employee.first_name} disabled />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Last Name</Label>
+                        <Input value={employee.last_name} disabled />
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      <Calendar className="h-4 w-4" />
-                      <span>Joined {formatDate(employee.hire_date)}</span>
+
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <div className="space-y-2">
+                        <Label>Email</Label>
+                        <Input value={employee.email} disabled />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Phone</Label>
+                        <Input 
+                          value={formData.phone}
+                          onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
+                          disabled={!isEditing}
+                          placeholder="Enter phone number"
+                        />
+                      </div>
                     </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
 
-            {/* Details Card */}
-            <Card className="md:col-span-2">
-              <CardHeader className="flex flex-row items-center justify-between">
-                <div>
-                  <CardTitle>Personal Information</CardTitle>
-                  <CardDescription>Update your contact details</CardDescription>
-                </div>
-                {!isEditing ? (
-                  <Button variant="outline" onClick={() => setIsEditing(true)}>
-                    Edit
-                  </Button>
-                ) : (
-                  <div className="flex gap-2">
-                    <Button variant="outline" onClick={() => {
-                      setIsEditing(false);
-                      setFormData({
-                        phone: employee.phone || '',
-                        address: employee.address || '',
-                        city: employee.city || '',
-                        country: employee.country || '',
-                        date_of_birth: employee.date_of_birth || '',
-                        gender: employee.gender || '',
-                      });
-                    }}>
-                      Cancel
-                    </Button>
-                    <Button onClick={handleSave} disabled={updateProfileMutation.isPending}>
-                      {updateProfileMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                      <Save className="mr-2 h-4 w-4" />
-                      Save
-                    </Button>
-                  </div>
-                )}
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label>First Name</Label>
-                    <Input value={employee.first_name} disabled />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Last Name</Label>
-                    <Input value={employee.last_name} disabled />
-                  </div>
-                </div>
+                    <Separator />
 
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label>Email</Label>
-                    <Input value={employee.email} disabled />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Phone</Label>
-                    <Input 
-                      value={formData.phone}
-                      onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
-                      disabled={!isEditing}
-                      placeholder="Enter phone number"
-                    />
-                  </div>
-                </div>
+                    <div className="space-y-2">
+                      <Label>Address</Label>
+                      <Input 
+                        value={formData.address}
+                        onChange={(e) => setFormData(prev => ({ ...prev, address: e.target.value }))}
+                        disabled={!isEditing}
+                        placeholder="Enter your address"
+                      />
+                    </div>
 
-                <Separator />
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <div className="space-y-2">
+                        <Label>City</Label>
+                        <Input 
+                          value={formData.city}
+                          onChange={(e) => setFormData(prev => ({ ...prev, city: e.target.value }))}
+                          disabled={!isEditing}
+                          placeholder="Enter city"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Country</Label>
+                        <Input 
+                          value={formData.country}
+                          onChange={(e) => setFormData(prev => ({ ...prev, country: e.target.value }))}
+                          disabled={!isEditing}
+                          placeholder="Enter country"
+                        />
+                      </div>
+                    </div>
 
-                <div className="space-y-2">
-                  <Label>Address</Label>
-                  <Input 
-                    value={formData.address}
-                    onChange={(e) => setFormData(prev => ({ ...prev, address: e.target.value }))}
-                    disabled={!isEditing}
-                    placeholder="Enter your address"
-                  />
-                </div>
+                    <Separator />
 
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label>City</Label>
-                    <Input 
-                      value={formData.city}
-                      onChange={(e) => setFormData(prev => ({ ...prev, city: e.target.value }))}
-                      disabled={!isEditing}
-                      placeholder="Enter city"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Country</Label>
-                    <Input 
-                      value={formData.country}
-                      onChange={(e) => setFormData(prev => ({ ...prev, country: e.target.value }))}
-                      disabled={!isEditing}
-                      placeholder="Enter country"
-                    />
-                  </div>
-                </div>
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <div className="space-y-2">
+                        <Label>Date of Birth</Label>
+                        <Input 
+                          type="date"
+                          value={formData.date_of_birth}
+                          onChange={(e) => setFormData(prev => ({ ...prev, date_of_birth: e.target.value }))}
+                          disabled={!isEditing}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Gender</Label>
+                        <Select
+                          value={formData.gender}
+                          onValueChange={(value) => setFormData(prev => ({ ...prev, gender: value }))}
+                          disabled={!isEditing}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select gender" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="male">Male</SelectItem>
+                            <SelectItem value="female">Female</SelectItem>
+                            <SelectItem value="other">Other</SelectItem>
+                            <SelectItem value="prefer_not_to_say">Prefer not to say</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
 
-                <Separator />
-
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label>Date of Birth</Label>
-                    <Input 
-                      type="date"
-                      value={formData.date_of_birth}
-                      onChange={(e) => setFormData(prev => ({ ...prev, date_of_birth: e.target.value }))}
-                      disabled={!isEditing}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Gender</Label>
-                    <Select
-                      value={formData.gender}
-                      onValueChange={(value) => setFormData(prev => ({ ...prev, gender: value }))}
-                      disabled={!isEditing}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select gender" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="male">Male</SelectItem>
-                        <SelectItem value="female">Female</SelectItem>
-                        <SelectItem value="other">Other</SelectItem>
-                        <SelectItem value="prefer_not_to_say">Prefer not to say</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Department</Label>
-                  <Input value={employee.department?.name || "Not Assigned"} disabled />
-                  <p className="text-xs text-muted-foreground">Contact HR to change department assignment</p>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Leave Balance & Request Section */}
-            <div className="md:col-span-2">
-              <div className="space-y-6">
-                <LeaveBalanceCard employeeId={employee.id} />
-                <LeaveRequestHistory employeeId={employee.id} />
+                    <div className="space-y-2">
+                      <Label>Department</Label>
+                      <Input value={employee.department?.name || "Not Assigned"} disabled />
+                      <p className="text-xs text-muted-foreground">Contact HR to change department assignment</p>
+                    </div>
+                  </CardContent>
+                </Card>
               </div>
-            </div>
-            <div className="md:col-span-1">
-              <LeaveRequestForm employeeId={employee.id} />
-            </div>
+            </TabsContent>
 
-            {/* Documents Section */}
-            <div className="md:col-span-3">
+            {/* Leaves Tab */}
+            <TabsContent value="leaves" className="space-y-6">
+              <div className="grid gap-6 md:grid-cols-3">
+                <div className="md:col-span-2 space-y-6">
+                  <LeaveBalanceCard employeeId={employee.id} />
+                  <LeaveRequestHistory employeeId={employee.id} />
+                </div>
+                <div className="md:col-span-1">
+                  <LeaveRequestForm employeeId={employee.id} />
+                </div>
+              </div>
+            </TabsContent>
+
+            {/* Payslips Tab */}
+            <TabsContent value="payslips" className="space-y-6">
+              <PayslipViewer 
+                employeeId={employee.id} 
+                employeeName={`${employee.first_name} ${employee.last_name}`}
+                employeeCode={employee.employee_code}
+              />
+            </TabsContent>
+
+            {/* Documents Tab */}
+            <TabsContent value="documents" className="space-y-6">
+              <TaxDocumentsViewer employeeId={employee.id} />
               <EmployeeDocuments employeeId={employee.id} />
-            </div>
-          </div>
+            </TabsContent>
+          </Tabs>
         )}
       </div>
     </DashboardLayout>
