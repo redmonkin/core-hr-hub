@@ -43,7 +43,21 @@ serve(async (req) => {
       throw new Error("Employee not found");
     }
 
-    console.log("Sending notification to:", employee.email);
+    // Check notification preferences
+    let wantsReviewNotifications = true;
+    if (employee.user_id) {
+      const { data: prefs } = await supabase
+        .from("notification_preferences")
+        .select("review_notifications")
+        .eq("user_id", employee.user_id)
+        .maybeSingle();
+      
+      if (prefs) {
+        wantsReviewNotifications = prefs.review_notifications;
+      }
+    }
+
+    console.log(`Review notifications preference for ${employee.email}: ${wantsReviewNotifications}`);
 
     const ratingText = payload.overall_rating 
       ? `${payload.overall_rating}/5` 
@@ -55,7 +69,7 @@ serve(async (req) => {
         ? "has been saved as a draft" 
         : "is pending your review";
 
-    // Create in-app notification
+    // Create in-app notification (always send in-app notifications)
     if (employee.user_id) {
       const { error: notifError } = await supabase
         .from("notifications")
@@ -74,35 +88,40 @@ serve(async (req) => {
       }
     }
 
-    // Send email notification
-    const emailResult = await resend.emails.send({
-      from: "HR System <onboarding@resend.dev>",
-      to: [employee.email],
-      subject: `Performance Review ${payload.status === "completed" ? "Completed" : "Update"} - ${payload.review_period}`,
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2 style="color: #333;">Performance Review ${payload.status === "completed" ? "Completed" : "Update"}</h2>
-          <p>Hi ${employee.first_name},</p>
-          <p>Your ${payload.review_period} performance review ${statusText}.</p>
-          
-          <div style="background-color: #f5f5f5; padding: 20px; border-radius: 8px; margin: 20px 0;">
-            <p style="margin: 0;"><strong>Review Period:</strong> ${payload.review_period}</p>
-            <p style="margin: 10px 0 0;"><strong>Reviewer:</strong> ${payload.reviewer_name}</p>
-            <p style="margin: 10px 0 0;"><strong>Overall Rating:</strong> ${ratingText}</p>
-            <p style="margin: 10px 0 0;"><strong>Status:</strong> ${payload.status.charAt(0).toUpperCase() + payload.status.slice(1)}</p>
+    // Send email notification only if user has enabled it
+    if (wantsReviewNotifications) {
+      const emailResult = await resend.emails.send({
+        from: "HR System <onboarding@resend.dev>",
+        to: [employee.email],
+        subject: `Performance Review ${payload.status === "completed" ? "Completed" : "Update"} - ${payload.review_period}`,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2 style="color: #333;">Performance Review ${payload.status === "completed" ? "Completed" : "Update"}</h2>
+            <p>Hi ${employee.first_name},</p>
+            <p>Your ${payload.review_period} performance review ${statusText}.</p>
+            
+            <div style="background-color: #f5f5f5; padding: 20px; border-radius: 8px; margin: 20px 0;">
+              <p style="margin: 0;"><strong>Review Period:</strong> ${payload.review_period}</p>
+              <p style="margin: 10px 0 0;"><strong>Reviewer:</strong> ${payload.reviewer_name}</p>
+              <p style="margin: 10px 0 0;"><strong>Overall Rating:</strong> ${ratingText}</p>
+              <p style="margin: 10px 0 0;"><strong>Status:</strong> ${payload.status.charAt(0).toUpperCase() + payload.status.slice(1)}</p>
+            </div>
+            
+            <p>Log in to your HR portal to view the full details of your review.</p>
+            <p style="color: #999; font-size: 12px; margin-top: 30px;">You can manage your notification preferences in your profile settings.</p>
+            
+            <p style="margin-top: 30px;">Best regards,<br>HR Team</p>
           </div>
-          
-          <p>Log in to your HR portal to view the full details of your review.</p>
-          
-          <p style="margin-top: 30px;">Best regards,<br>HR Team</p>
-        </div>
-      `,
-    });
+        `,
+      });
 
-    console.log("Email sent:", emailResult);
+      console.log("Email sent:", emailResult);
+    } else {
+      console.log(`Skipping email for ${employee.email} - review notifications disabled`);
+    }
 
     return new Response(
-      JSON.stringify({ success: true, emailResult }),
+      JSON.stringify({ success: true, emailSent: wantsReviewNotifications }),
       {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },

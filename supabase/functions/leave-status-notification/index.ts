@@ -67,13 +67,27 @@ serve(async (req) => {
       throw new Error("Employee not found");
     }
 
-    console.log("Sending notification to:", employee.email);
+    // Check notification preferences
+    let wantsLeaveStatusNotifications = true;
+    if (employee.user_id) {
+      const { data: prefs } = await supabase
+        .from("notification_preferences")
+        .select("leave_status_notifications")
+        .eq("user_id", employee.user_id)
+        .maybeSingle();
+      
+      if (prefs) {
+        wantsLeaveStatusNotifications = prefs.leave_status_notifications;
+      }
+    }
+
+    console.log(`Leave status notifications preference for ${employee.email}: ${wantsLeaveStatusNotifications}`);
 
     const statusText = payload.status === "approved" ? "Approved" : "Rejected";
     const statusColor = payload.status === "approved" ? "#4caf50" : "#f44336";
     const leaveTypeName = leaveType?.name || "Leave";
 
-    // Create in-app notification
+    // Create in-app notification (always send in-app notifications)
     if (employee.user_id) {
       const { error: notifError } = await supabase
         .from("notifications")
@@ -92,36 +106,41 @@ serve(async (req) => {
       }
     }
 
-    // Send email notification
-    const emailResult = await resend.emails.send({
-      from: "HR System <onboarding@resend.dev>",
-      to: [employee.email],
-      subject: `Leave Request ${statusText} - ${leaveTypeName}`,
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2 style="color: #333;">Leave Request ${statusText}</h2>
-          <p>Hi ${employee.first_name},</p>
-          <p>Your leave request has been <strong style="color: ${statusColor};">${payload.status}</strong> by ${payload.reviewer_name}.</p>
-          
-          <div style="background-color: #f5f5f5; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid ${statusColor};">
-            <p style="margin: 0;"><strong>Leave Type:</strong> ${leaveTypeName}</p>
-            <p style="margin: 10px 0 0;"><strong>Duration:</strong> ${leaveRequest.days_count} day(s)</p>
-            <p style="margin: 10px 0 0;"><strong>Dates:</strong> ${leaveRequest.start_date} to ${leaveRequest.end_date}</p>
-            <p style="margin: 10px 0 0;"><strong>Status:</strong> ${statusText}</p>
-            ${payload.review_notes ? `<p style="margin: 10px 0 0;"><strong>Notes:</strong> ${payload.review_notes}</p>` : ""}
+    // Send email notification only if user has enabled it
+    if (wantsLeaveStatusNotifications) {
+      const emailResult = await resend.emails.send({
+        from: "HR System <onboarding@resend.dev>",
+        to: [employee.email],
+        subject: `Leave Request ${statusText} - ${leaveTypeName}`,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2 style="color: #333;">Leave Request ${statusText}</h2>
+            <p>Hi ${employee.first_name},</p>
+            <p>Your leave request has been <strong style="color: ${statusColor};">${payload.status}</strong> by ${payload.reviewer_name}.</p>
+            
+            <div style="background-color: #f5f5f5; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid ${statusColor};">
+              <p style="margin: 0;"><strong>Leave Type:</strong> ${leaveTypeName}</p>
+              <p style="margin: 10px 0 0;"><strong>Duration:</strong> ${leaveRequest.days_count} day(s)</p>
+              <p style="margin: 10px 0 0;"><strong>Dates:</strong> ${leaveRequest.start_date} to ${leaveRequest.end_date}</p>
+              <p style="margin: 10px 0 0;"><strong>Status:</strong> ${statusText}</p>
+              ${payload.review_notes ? `<p style="margin: 10px 0 0;"><strong>Notes:</strong> ${payload.review_notes}</p>` : ""}
+            </div>
+            
+            <p>Log in to your HR portal to view more details.</p>
+            <p style="color: #999; font-size: 12px; margin-top: 30px;">You can manage your notification preferences in your profile settings.</p>
+            
+            <p style="margin-top: 30px;">Best regards,<br>HR Team</p>
           </div>
-          
-          <p>Log in to your HR portal to view more details.</p>
-          
-          <p style="margin-top: 30px;">Best regards,<br>HR Team</p>
-        </div>
-      `,
-    });
+        `,
+      });
 
-    console.log("Email sent:", emailResult);
+      console.log("Email sent:", emailResult);
+    } else {
+      console.log(`Skipping email for ${employee.email} - leave status notifications disabled`);
+    }
 
     return new Response(
-      JSON.stringify({ success: true, emailResult }),
+      JSON.stringify({ success: true, emailSent: wantsLeaveStatusNotifications }),
       {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },

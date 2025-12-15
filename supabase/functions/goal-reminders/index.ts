@@ -76,6 +76,23 @@ serve(async (req) => {
 
     console.log(`Found ${goals?.length || 0} goals with upcoming deadlines`);
 
+    // Get all unique user IDs to fetch preferences
+    const userIds = [...new Set((goals || [])
+      .map((g: unknown) => (g as GoalRow).employees?.user_id)
+      .filter(Boolean))] as string[];
+
+    // Fetch notification preferences for all users
+    const { data: preferences } = await supabase
+      .from("notification_preferences")
+      .select("user_id, goal_reminder_notifications")
+      .in("user_id", userIds);
+
+    const preferencesMap = new Map(
+      (preferences || []).map((p: { user_id: string; goal_reminder_notifications: boolean }) => [p.user_id, p.goal_reminder_notifications])
+    );
+
+    console.log(`Found preferences for ${preferencesMap.size} users`);
+
     const notifications: { user_id: string; title: string; message: string; type: string; link: string }[] = [];
     const emailPromises: Promise<any>[] = [];
     const goalUpdates: { id: string; last_reminder_sent: string }[] = [];
@@ -122,9 +139,9 @@ serve(async (req) => {
         
         const message = `Your goal "${goal.title}" is due on ${new Date(goal.due_date).toLocaleDateString()}. Current progress: ${goal.progress}%`;
 
-        console.log(`Sending ${reminderType} reminder to ${employee.email} for goal: ${goal.title}`);
+        console.log(`Processing reminder for ${employee.email} for goal: ${goal.title}`);
 
-        // Add in-app notification
+        // Add in-app notification (always send)
         notifications.push({
           user_id: employee.user_id,
           title,
@@ -133,29 +150,37 @@ serve(async (req) => {
           link: "/performance"
         });
 
-        // Send email
-        emailPromises.push(
-          resend.emails.send({
-            from: "HR System <onboarding@resend.dev>",
-            to: [employee.email],
-            subject: title,
-            html: `
-              <h2>${title}</h2>
-              <p>Hi ${employee.first_name},</p>
-              <p>${message}</p>
-              <p>Please update your progress or complete this goal before the deadline.</p>
-              <p style="margin-top: 20px;">
-                <strong>Goal:</strong> ${goal.title}<br>
-                <strong>Due Date:</strong> ${new Date(goal.due_date).toLocaleDateString()}<br>
-                <strong>Current Progress:</strong> ${goal.progress}%
-              </p>
-              <p style="margin-top: 20px;">Best regards,<br>HR Team</p>
-            `,
-          }).catch(err => {
-            console.error(`Failed to send email to ${employee.email}:`, err);
-            return null;
-          })
-        );
+        // Check notification preferences for email
+        const wantsGoalReminders = preferencesMap.get(employee.user_id) ?? true;
+
+        if (wantsGoalReminders) {
+          console.log(`Sending email reminder to ${employee.email}`);
+          emailPromises.push(
+            resend.emails.send({
+              from: "HR System <onboarding@resend.dev>",
+              to: [employee.email],
+              subject: title,
+              html: `
+                <h2>${title}</h2>
+                <p>Hi ${employee.first_name},</p>
+                <p>${message}</p>
+                <p>Please update your progress or complete this goal before the deadline.</p>
+                <p style="margin-top: 20px;">
+                  <strong>Goal:</strong> ${goal.title}<br>
+                  <strong>Due Date:</strong> ${new Date(goal.due_date).toLocaleDateString()}<br>
+                  <strong>Current Progress:</strong> ${goal.progress}%
+                </p>
+                <p style="color: #999; font-size: 12px; margin-top: 30px;">You can manage your notification preferences in your profile settings.</p>
+                <p style="margin-top: 20px;">Best regards,<br>HR Team</p>
+              `,
+            }).catch(err => {
+              console.error(`Failed to send email to ${employee.email}:`, err);
+              return null;
+            })
+          );
+        } else {
+          console.log(`Skipping email for ${employee.email} - goal reminder notifications disabled`);
+        }
 
         goalUpdates.push({
           id: goal.id,

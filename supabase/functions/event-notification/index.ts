@@ -17,6 +17,14 @@ interface CompanyEvent {
   is_holiday: boolean;
 }
 
+interface Employee {
+  id: string;
+  email: string;
+  first_name: string;
+  last_name: string;
+  user_id: string | null;
+}
+
 const handler = async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -57,12 +65,16 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
-    console.log(`Found ${events.length} upcoming events`);
+    // Separate events and holidays
+    const holidays = events.filter((e: CompanyEvent) => e.is_holiday);
+    const regularEvents = events.filter((e: CompanyEvent) => !e.is_holiday);
 
-    // Get all active employees with email
+    console.log(`Found ${events.length} upcoming events (${holidays.length} holidays, ${regularEvents.length} events)`);
+
+    // Get all active employees with email and user_id
     const { data: employees, error: empError } = await supabase
       .from("employees")
-      .select("id, email, first_name, last_name")
+      .select("id, email, first_name, last_name, user_id")
       .eq("status", "active");
 
     if (empError) {
@@ -78,36 +90,79 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
-    console.log(`Sending notifications to ${employees.length} employees`);
+    // Get notification preferences for all users
+    const userIds = employees.filter((e: Employee) => e.user_id).map((e: Employee) => e.user_id);
+    const { data: preferences, error: prefError } = await supabase
+      .from("notification_preferences")
+      .select("user_id, event_notifications, holiday_notifications")
+      .in("user_id", userIds);
 
-    // Build event list HTML
-    const eventListHtml = events
-      .map((event: CompanyEvent) => {
-        const eventDate = new Date(event.event_date).toLocaleDateString("en-US", {
-          weekday: "long",
-          year: "numeric",
-          month: "long",
-          day: "numeric",
-        });
-        const typeLabel = event.is_holiday ? "🎉 Holiday" : "📅 Event";
-        return `
-          <tr>
-            <td style="padding: 12px; border-bottom: 1px solid #eee;">
-              <strong>${event.title}</strong>
-              <br>
-              <span style="color: #666; font-size: 14px;">${eventDate}</span>
-              <br>
-              <span style="background: ${event.is_holiday ? "#fee2e2" : "#dbeafe"}; color: ${event.is_holiday ? "#dc2626" : "#2563eb"}; padding: 2px 8px; border-radius: 4px; font-size: 12px;">${typeLabel}</span>
-              ${event.description ? `<br><span style="color: #888; font-size: 13px; margin-top: 4px; display: inline-block;">${event.description}</span>` : ""}
-            </td>
-          </tr>
-        `;
-      })
-      .join("");
+    if (prefError) {
+      console.error("Error fetching preferences:", prefError);
+    }
 
-    // Send email to each employee
-    const emailPromises = employees.map(async (employee) => {
+    const preferencesMap = new Map(
+      (preferences || []).map((p: { user_id: string; event_notifications: boolean; holiday_notifications: boolean }) => [p.user_id, p])
+    );
+
+    console.log(`Found preferences for ${preferencesMap.size} users`);
+
+    // Build event list HTML generator
+    const buildEventListHtml = (eventList: CompanyEvent[]) => {
+      return eventList
+        .map((event: CompanyEvent) => {
+          const eventDate = new Date(event.event_date).toLocaleDateString("en-US", {
+            weekday: "long",
+            year: "numeric",
+            month: "long",
+            day: "numeric",
+          });
+          const typeLabel = event.is_holiday ? "🎉 Holiday" : "📅 Event";
+          return `
+            <tr>
+              <td style="padding: 12px; border-bottom: 1px solid #eee;">
+                <strong>${event.title}</strong>
+                <br>
+                <span style="color: #666; font-size: 14px;">${eventDate}</span>
+                <br>
+                <span style="background: ${event.is_holiday ? "#fee2e2" : "#dbeafe"}; color: ${event.is_holiday ? "#dc2626" : "#2563eb"}; padding: 2px 8px; border-radius: 4px; font-size: 12px;">${typeLabel}</span>
+                ${event.description ? `<br><span style="color: #888; font-size: 13px; margin-top: 4px; display: inline-block;">${event.description}</span>` : ""}
+              </td>
+            </tr>
+          `;
+        })
+        .join("");
+    };
+
+    // Send email to each employee based on preferences
+    const emailPromises = employees.map(async (employee: Employee) => {
       try {
+        // Check notification preferences
+        const userPrefs = employee.user_id ? preferencesMap.get(employee.user_id) : null;
+        
+        // Default to true if no preferences found
+        const wantsEventNotifications = userPrefs?.event_notifications ?? true;
+        const wantsHolidayNotifications = userPrefs?.holiday_notifications ?? true;
+
+        // Filter events based on preferences
+        const eventsToNotify: CompanyEvent[] = [];
+        if (wantsEventNotifications) {
+          eventsToNotify.push(...regularEvents);
+        }
+        if (wantsHolidayNotifications) {
+          eventsToNotify.push(...holidays);
+        }
+
+        if (eventsToNotify.length === 0) {
+          console.log(`Skipping ${employee.email} - no events match their preferences`);
+          return { email: employee.email, success: true, skipped: true };
+        }
+
+        // Sort events by date
+        eventsToNotify.sort((a, b) => new Date(a.event_date).getTime() - new Date(b.event_date).getTime());
+
+        const eventListHtml = buildEventListHtml(eventsToNotify);
+
         const emailResponse = await fetch("https://api.resend.com/emails", {
           method: "POST",
           headers: {
@@ -141,7 +196,7 @@ const handler = async (req: Request): Promise<Response> => {
                   <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; text-align: center;">
                     <p style="color: #999; font-size: 12px; margin: 0;">
                       This is an automated notification from HRMS Pro.<br>
-                      Please check the company calendar for more details.
+                      You can manage your notification preferences in your profile settings.
                     </p>
                   </div>
                 </div>
@@ -162,14 +217,15 @@ const handler = async (req: Request): Promise<Response> => {
     });
 
     const results = await Promise.all(emailPromises);
-    const successCount = results.filter((r) => r.success).length;
+    const successCount = results.filter((r) => r.success && !r.skipped).length;
+    const skippedCount = results.filter((r) => r.skipped).length;
     const failCount = results.filter((r) => !r.success).length;
 
-    console.log(`Notification complete. Success: ${successCount}, Failed: ${failCount}`);
+    console.log(`Notification complete. Success: ${successCount}, Skipped: ${skippedCount}, Failed: ${failCount}`);
 
     return new Response(
       JSON.stringify({
-        message: `Sent ${successCount} notifications, ${failCount} failed`,
+        message: `Sent ${successCount} notifications, ${skippedCount} skipped (preferences), ${failCount} failed`,
         eventsCount: events.length,
         results,
       }),

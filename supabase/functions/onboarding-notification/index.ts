@@ -67,10 +67,21 @@ serve(async (req) => {
       console.error("Error fetching HR users:", hrError);
     }
 
+    // Get notification preferences for HR users
+    const hrUserIds = (hrUsers || []).map((u: { user_id: string }) => u.user_id);
+    const { data: hrPreferences } = await supabase
+      .from("notification_preferences")
+      .select("user_id, onboarding_notifications")
+      .in("user_id", hrUserIds);
+
+    const hrPreferencesMap = new Map(
+      (hrPreferences || []).map((p: { user_id: string; onboarding_notifications: boolean }) => [p.user_id, p.onboarding_notifications])
+    );
+
     // Create in-app notifications and send emails to HR users
     if (hrUsers && hrUsers.length > 0) {
       for (const hrUser of hrUsers) {
-        // In-app notification
+        // In-app notification (always send)
         const { error: notifError } = await supabase
           .from("notifications")
           .insert({
@@ -83,6 +94,14 @@ serve(async (req) => {
 
         if (notifError) {
           console.error("Error creating HR notification:", notifError);
+        }
+
+        // Check notification preferences for email
+        const wantsOnboardingNotifications = hrPreferencesMap.get(hrUser.user_id) ?? true;
+
+        if (!wantsOnboardingNotifications) {
+          console.log(`Skipping email for HR user ${hrUser.user_id} - onboarding notifications disabled`);
+          continue;
         }
 
         // Get HR user email
@@ -108,6 +127,7 @@ serve(async (req) => {
                   <li><strong>Join Date:</strong> ${join_date}</li>
                 </ul>
                 <p>Please ensure all onboarding tasks are completed before the join date.</p>
+                <p style="color: #999; font-size: 12px; margin-top: 30px;">You can manage your notification preferences in your profile settings.</p>
               `
             );
             console.log("HR email sent:", result);
@@ -127,7 +147,16 @@ serve(async (req) => {
         .maybeSingle();
 
       if (manager?.user_id) {
-        // In-app notification for manager
+        // Check manager's notification preferences
+        const { data: managerPrefs } = await supabase
+          .from("notification_preferences")
+          .select("onboarding_notifications")
+          .eq("user_id", manager.user_id)
+          .maybeSingle();
+
+        const wantsOnboardingNotifications = managerPrefs?.onboarding_notifications ?? true;
+
+        // In-app notification for manager (always send)
         const { error: notifError } = await supabase
           .from("notifications")
           .insert({
@@ -141,31 +170,34 @@ serve(async (req) => {
         if (notifError) {
           console.error("Error creating manager notification:", notifError);
         }
-      }
 
-      // Email notification for manager
-      if (manager?.email) {
-        try {
-          const result = await sendEmail(
-            [manager.email],
-            `New Team Member: ${employee_name}`,
-            `
-              <h2>New Team Member Joining</h2>
-              <p>Hi ${manager.first_name},</p>
-              <p>A new team member will be reporting to you:</p>
-              <ul>
-                <li><strong>Name:</strong> ${employee_name}</li>
-                <li><strong>Email:</strong> ${employee_email}</li>
-                <li><strong>Designation:</strong> ${designation}</li>
-                ${department_name ? `<li><strong>Department:</strong> ${department_name}</li>` : ""}
-                <li><strong>Join Date:</strong> ${join_date}</li>
-              </ul>
-              <p>Please prepare for their arrival and help them get started.</p>
-            `
-          );
-          console.log("Manager email sent:", result);
-        } catch (err) {
-          console.error("Error sending manager email:", err);
+        // Email notification for manager (check preferences)
+        if (manager?.email && wantsOnboardingNotifications) {
+          try {
+            const result = await sendEmail(
+              [manager.email],
+              `New Team Member: ${employee_name}`,
+              `
+                <h2>New Team Member Joining</h2>
+                <p>Hi ${manager.first_name},</p>
+                <p>A new team member will be reporting to you:</p>
+                <ul>
+                  <li><strong>Name:</strong> ${employee_name}</li>
+                  <li><strong>Email:</strong> ${employee_email}</li>
+                  <li><strong>Designation:</strong> ${designation}</li>
+                  ${department_name ? `<li><strong>Department:</strong> ${department_name}</li>` : ""}
+                  <li><strong>Join Date:</strong> ${join_date}</li>
+                </ul>
+                <p>Please prepare for their arrival and help them get started.</p>
+                <p style="color: #999; font-size: 12px; margin-top: 30px;">You can manage your notification preferences in your profile settings.</p>
+              `
+            );
+            console.log("Manager email sent:", result);
+          } catch (err) {
+            console.error("Error sending manager email:", err);
+          }
+        } else if (!wantsOnboardingNotifications) {
+          console.log(`Skipping email for manager ${manager.email} - onboarding notifications disabled`);
         }
       }
     }
