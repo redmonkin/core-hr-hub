@@ -7,19 +7,37 @@ export interface Department {
   description: string | null;
   created_at: string;
   updated_at: string;
+  employee_count: number;
 }
 
 export function useDepartments() {
   return useQuery({
     queryKey: ["departments"],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data: departments, error } = await supabase
         .from("departments")
         .select("*")
         .order("name", { ascending: true });
 
       if (error) throw error;
-      return data as Department[];
+
+      // Get employee counts per department
+      const { data: employees } = await supabase
+        .from("employees")
+        .select("department_id")
+        .not("department_id", "is", null);
+
+      const countMap = new Map<string, number>();
+      employees?.forEach((emp) => {
+        if (emp.department_id) {
+          countMap.set(emp.department_id, (countMap.get(emp.department_id) || 0) + 1);
+        }
+      });
+
+      return (departments || []).map((dept) => ({
+        ...dept,
+        employee_count: countMap.get(dept.id) || 0,
+      })) as Department[];
     },
   });
 }

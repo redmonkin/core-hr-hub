@@ -9,7 +9,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Building2, Plus, Pencil, Trash2 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Building2, Plus, Pencil, Trash2, Users } from "lucide-react";
 import { useDepartments, useCreateDepartment, useUpdateDepartment, useDeleteDepartment, Department } from "@/hooks/useDepartments";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -139,7 +140,7 @@ const Departments = () => {
         </div>
 
         {/* Stats */}
-        <div className="grid gap-4 sm:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2">
           <Card>
             <CardContent className="pt-6">
               <div className="flex items-center gap-4">
@@ -149,6 +150,21 @@ const Departments = () => {
                 <div>
                   <p className="text-sm text-muted-foreground">Total Departments</p>
                   <p className="text-2xl font-bold">{departments?.length || 0}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center gap-4">
+                <div className="rounded-xl bg-secondary/50 p-3">
+                  <Users className="h-6 w-6 text-secondary-foreground" />
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Total Employees</p>
+                  <p className="text-2xl font-bold">
+                    {departments?.reduce((sum, d) => sum + d.employee_count, 0) || 0}
+                  </p>
                 </div>
               </div>
             </CardContent>
@@ -175,6 +191,7 @@ const Departments = () => {
                     <TableRow>
                       <TableHead>Name</TableHead>
                       <TableHead>Description</TableHead>
+                      <TableHead>Employees</TableHead>
                       <TableHead>Created</TableHead>
                       <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
@@ -185,6 +202,9 @@ const Departments = () => {
                         <TableCell className="font-medium">{department.name}</TableCell>
                         <TableCell className="text-muted-foreground">
                           {department.description || "-"}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="secondary">{department.employee_count}</Badge>
                         </TableCell>
                         <TableCell>
                           {format(new Date(department.created_at), "MMM d, yyyy")}
