@@ -8,7 +8,6 @@ import {
   Calendar,
   Package,
   CreditCard,
-  Bell,
   Settings,
   LogOut,
   Menu,
@@ -31,6 +30,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
+import { NotificationBell } from "@/components/notifications/NotificationBell";
 
 interface NavItem {
   label: string;
@@ -198,38 +198,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
           <div className="flex items-center gap-3">
             {/* Notifications */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="relative">
-                  <Bell className="h-5 w-5" />
-                  <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-xs text-primary-foreground">
-                    3
-                  </span>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-80">
-                <DropdownMenuLabel>Notifications</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem className="flex flex-col items-start gap-1 p-3">
-                  <span className="font-medium">Leave Request</span>
-                  <span className="text-xs text-muted-foreground">
-                    Sarah Miller requested annual leave
-                  </span>
-                </DropdownMenuItem>
-                <DropdownMenuItem className="flex flex-col items-start gap-1 p-3">
-                  <span className="font-medium">Payroll Generated</span>
-                  <span className="text-xs text-muted-foreground">
-                    December payroll has been processed
-                  </span>
-                </DropdownMenuItem>
-                <DropdownMenuItem className="flex flex-col items-start gap-1 p-3">
-                  <span className="font-medium">New Employee</span>
-                  <span className="text-xs text-muted-foreground">
-                    Mike Johnson joined Engineering team
-                  </span>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <NotificationBell />
 
             {/* Settings - only show for admin/HR */}
             {isAdminOrHR && (
