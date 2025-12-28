@@ -23,6 +23,10 @@ export const useUserRole = () => {
       return data?.role as AppRole | null;
     },
     enabled: !!user?.id,
+    retry: 3,
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 5000),
+    staleTime: 0,
+    refetchOnMount: true,
   });
 };
 

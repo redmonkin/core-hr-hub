@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface AuthContextType {
   user: User | null;
@@ -17,6 +18,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     // Set up auth state listener FIRST
@@ -25,6 +27,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setSession(session);
         setUser(session?.user ?? null);
         setIsLoading(false);
+        
+        // Invalidate user-role cache on login/signup to force refetch
+        if (event === 'SIGNED_IN' && session?.user?.id) {
+          queryClient.invalidateQueries({ queryKey: ['user-role', session.user.id] });
+        }
+        
+        // Clear cache on logout
+        if (event === 'SIGNED_OUT') {
+          queryClient.removeQueries({ queryKey: ['user-role'] });
+        }
       }
     );
 
