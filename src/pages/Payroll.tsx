@@ -13,7 +13,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, FileText, DollarSign, TrendingUp, Users, Loader2, ShieldAlert } from "lucide-react";
+import { Search, FileText, IndianRupee, TrendingUp, Users, Loader2, ShieldAlert } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { usePayrollRecords, usePayrollStats } from "@/hooks/usePayroll";
 import { useIsAdminOrHR } from "@/hooks/useUserRole";
@@ -81,16 +81,16 @@ const Payroll = () => {
   });
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("en-US", {
+    return new Intl.NumberFormat("en-IN", {
       style: "currency",
-      currency: "USD",
+      currency: "INR",
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
     }).format(amount);
   };
 
   const payrollStats = [
-    { label: "Total Payroll", value: formatCurrency(stats?.totalPayroll || 0), icon: <DollarSign className="h-5 w-5" />, change: "" },
+    { label: "Total Payroll", value: formatCurrency(stats?.totalPayroll || 0), icon: <IndianRupee className="h-5 w-5" />, change: "" },
     { label: "Employees", value: String(stats?.employeeCount || 0), icon: <Users className="h-5 w-5" />, change: "" },
     { label: "Avg. Salary", value: formatCurrency(stats?.avgSalary || 0), icon: <TrendingUp className="h-5 w-5" />, change: "" },
     { label: "Pending", value: String(stats?.pending || 0), icon: <FileText className="h-5 w-5" />, change: "" },

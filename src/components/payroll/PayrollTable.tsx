@@ -73,16 +73,16 @@ export function PayrollTable({ records, onView, onDownload }: PayrollTableProps)
               </TableCell>
               <TableCell className="text-muted-foreground">{record.month}</TableCell>
               <TableCell className="text-right text-muted-foreground">
-                ${record.basic.toLocaleString()}
+                ₹{record.basic.toLocaleString('en-IN')}
               </TableCell>
               <TableCell className="text-right text-emerald-600">
-                +${record.allowances.toLocaleString()}
+                +₹{record.allowances.toLocaleString('en-IN')}
               </TableCell>
               <TableCell className="text-right text-destructive">
-                -${record.deductions.toLocaleString()}
+                -₹{record.deductions.toLocaleString('en-IN')}
               </TableCell>
               <TableCell className="text-right font-semibold text-foreground">
-                ${record.netSalary.toLocaleString()}
+                ₹{record.netSalary.toLocaleString('en-IN')}
               </TableCell>
               <TableCell>
                 <Badge variant="outline" className={statusStyles[record.status]}>
