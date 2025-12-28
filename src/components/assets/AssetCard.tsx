@@ -87,7 +87,7 @@ export function AssetCard({ asset, onAssign, onReturn, onEdit }: AssetCardProps)
           </div>
           <div className="space-y-1 text-right">
             <p className="text-xs text-muted-foreground">Cost</p>
-            <p className="text-sm font-medium text-foreground">${asset.cost.toLocaleString()}</p>
+            <p className="text-sm font-medium text-foreground">₹{asset.cost.toLocaleString('en-IN')}</p>
           </div>
         </div>
 

@@ -377,7 +377,7 @@ const Reports = () => {
                           border: "1px solid hsl(var(--border))",
                           borderRadius: "8px",
                         }}
-                        formatter={(value: number) => [`$${value.toLocaleString()}`, "Amount"]}
+                        formatter={(value: number) => [`₹${value.toLocaleString('en-IN')}`, "Amount"]}
                       />
                       <Bar dataKey="amount" fill="hsl(var(--primary))" radius={[8, 8, 0, 0]} />
                     </BarChart>
