@@ -16,7 +16,14 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Switch } from "@/components/ui/switch";
-import { Upload, User, Briefcase, FileText, Loader2, ShieldAlert } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Upload, User, Briefcase, FileText, Loader2, ShieldAlert, Calendar, Mail, Phone, MapPin } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useDepartments } from "@/hooks/useEmployees";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -34,8 +41,12 @@ const useOnboardingEmployees = () => {
           id,
           first_name,
           last_name,
+          email,
+          phone,
+          address,
           avatar_url,
           hire_date,
+          designation,
           department_id,
           departments (name)
         `)
@@ -137,6 +148,7 @@ const initialFormData: FormData = {
 
 const Onboarding = () => {
   const [activeTab, setActiveTab] = useState("add");
+  const [selectedEmployee, setSelectedEmployee] = useState<any | null>(null);
   const [formData, setFormData] = useState<FormData>(initialFormData);
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -609,7 +621,11 @@ const Onboarding = () => {
                           </div>
                           <div className="flex items-center gap-4">
                             <Badge variant="secondary">Onboarding</Badge>
-                            <Button variant="outline" size="sm">
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={() => setSelectedEmployee(employee)}
+                            >
                               View Details
                             </Button>
                           </div>
@@ -622,6 +638,84 @@ const Onboarding = () => {
             </div>
           </TabsContent>
         </Tabs>
+
+        {/* Employee Details Dialog */}
+        <Dialog open={!!selectedEmployee} onOpenChange={(open) => !open && setSelectedEmployee(null)}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Employee Details</DialogTitle>
+              <DialogDescription>Onboarding employee information</DialogDescription>
+            </DialogHeader>
+            {selectedEmployee && (
+              <div className="space-y-4">
+                <div className="flex items-center gap-4">
+                  <Avatar className="h-16 w-16">
+                    <AvatarImage src={selectedEmployee.avatar_url || undefined} />
+                    <AvatarFallback className="text-lg">
+                      {`${selectedEmployee.first_name} ${selectedEmployee.last_name}`.split(" ").map((n: string) => n[0]).join("")}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div>
+                    <h3 className="text-lg font-semibold">{selectedEmployee.first_name} {selectedEmployee.last_name}</h3>
+                    <p className="text-sm text-muted-foreground">{selectedEmployee.designation || 'No designation'}</p>
+                  </div>
+                </div>
+                
+                <div className="space-y-3 rounded-lg border p-4">
+                  <div className="flex items-center gap-3">
+                    <Briefcase className="h-4 w-4 text-muted-foreground" />
+                    <div>
+                      <p className="text-xs text-muted-foreground">Department</p>
+                      <p className="text-sm font-medium">{selectedEmployee.departments?.name || 'Unassigned'}</p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center gap-3">
+                    <Calendar className="h-4 w-4 text-muted-foreground" />
+                    <div>
+                      <p className="text-xs text-muted-foreground">Start Date</p>
+                      <p className="text-sm font-medium">
+                        {selectedEmployee.hire_date 
+                          ? new Date(selectedEmployee.hire_date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+                          : 'TBD'}
+                      </p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center gap-3">
+                    <Mail className="h-4 w-4 text-muted-foreground" />
+                    <div>
+                      <p className="text-xs text-muted-foreground">Email</p>
+                      <p className="text-sm font-medium">{selectedEmployee.email || '-'}</p>
+                    </div>
+                  </div>
+                  
+                  {selectedEmployee.phone && (
+                    <div className="flex items-center gap-3">
+                      <Phone className="h-4 w-4 text-muted-foreground" />
+                      <div>
+                        <p className="text-xs text-muted-foreground">Phone</p>
+                        <p className="text-sm font-medium">{selectedEmployee.phone}</p>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {selectedEmployee.address && (
+                    <div className="flex items-center gap-3">
+                      <MapPin className="h-4 w-4 text-muted-foreground" />
+                      <div>
+                        <p className="text-xs text-muted-foreground">Address</p>
+                        <p className="text-sm font-medium">{selectedEmployee.address}</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+                
+                <Badge variant="secondary" className="w-fit">Onboarding</Badge>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
     </DashboardLayout>
   );
