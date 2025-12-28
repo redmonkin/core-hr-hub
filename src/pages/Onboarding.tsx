@@ -23,7 +23,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { CheckCircle2, Upload, User, Briefcase, FileText, Loader2, ShieldAlert, Calendar, Mail, Phone, MapPin } from "lucide-react";
+import { CheckCircle2, Upload, User, Briefcase, FileText, Loader2, ShieldAlert, Calendar, Mail, Phone, MapPin, Pencil } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useDepartments } from "@/hooks/useEmployees";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -59,6 +59,7 @@ const useOnboardingEmployees = () => {
           hire_date,
           designation,
           department_id,
+          manager_id,
           departments (name)
         `)
         .eq('status', 'onboarding');
@@ -160,6 +161,18 @@ const initialFormData: FormData = {
 const Onboarding = () => {
   const [activeTab, setActiveTab] = useState("add");
   const [selectedEmployee, setSelectedEmployee] = useState<any | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editFormData, setEditFormData] = useState({
+    firstName: '',
+    lastName: '',
+    email: '',
+    phone: '',
+    address: '',
+    departmentId: '',
+    designation: '',
+    managerId: '',
+    joinDate: '',
+  });
   const [formData, setFormData] = useState<FormData>(initialFormData);
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -302,6 +315,88 @@ const Onboarding = () => {
       });
     },
   });
+
+  const updateEmployeeMutation = useMutation({
+    mutationFn: async (data: typeof editFormData & { id: string }) => {
+      const { error } = await supabase
+        .from('employees')
+        .update({
+          first_name: data.firstName.trim(),
+          last_name: data.lastName.trim(),
+          email: data.email.trim(),
+          phone: data.phone.trim() || null,
+          address: data.address.trim() || null,
+          department_id: data.departmentId || null,
+          designation: data.designation.trim(),
+          manager_id: data.managerId || null,
+          hire_date: data.joinDate,
+        })
+        .eq('id', data.id);
+      
+      if (error) throw error;
+      return data.id;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['onboarding-employees'] });
+      queryClient.invalidateQueries({ queryKey: ['employees'] });
+      setIsEditing(false);
+      setSelectedEmployee(null);
+      toast({
+        title: "Employee Updated",
+        description: "Employee details have been updated successfully.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update employee.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const openEditMode = (employee: any) => {
+    setEditFormData({
+      firstName: employee.first_name || '',
+      lastName: employee.last_name || '',
+      email: employee.email || '',
+      phone: employee.phone || '',
+      address: employee.address || '',
+      departmentId: employee.department_id || '',
+      designation: employee.designation || '',
+      managerId: employee.manager_id || '',
+      joinDate: employee.hire_date || '',
+    });
+    setIsEditing(true);
+  };
+
+  const handleEditSubmit = () => {
+    if (!selectedEmployee) return;
+    
+    if (!editFormData.firstName.trim()) {
+      toast({ title: "Error", description: "First name is required", variant: "destructive" });
+      return;
+    }
+    if (!editFormData.lastName.trim()) {
+      toast({ title: "Error", description: "Last name is required", variant: "destructive" });
+      return;
+    }
+    if (!editFormData.email.trim()) {
+      toast({ title: "Error", description: "Email is required", variant: "destructive" });
+      return;
+    }
+    if (!editFormData.designation.trim()) {
+      toast({ title: "Error", description: "Designation is required", variant: "destructive" });
+      return;
+    }
+    if (!editFormData.joinDate) {
+      toast({ title: "Error", description: "Join date is required", variant: "destructive" });
+      return;
+    }
+
+    updateEmployeeMutation.mutate({ ...editFormData, id: selectedEmployee.id });
+  };
+
   if (roleLoading) {
     return (
       <DashboardLayout>
@@ -705,25 +800,40 @@ const Onboarding = () => {
         </Tabs>
 
         {/* Employee Details Dialog */}
-        <Dialog open={!!selectedEmployee} onOpenChange={(open) => !open && setSelectedEmployee(null)}>
-          <DialogContent className="sm:max-w-md">
+        <Dialog 
+          open={!!selectedEmployee} 
+          onOpenChange={(open) => {
+            if (!open) {
+              setSelectedEmployee(null);
+              setIsEditing(false);
+            }
+          }}
+        >
+          <DialogContent className="sm:max-w-lg">
             <DialogHeader>
-              <DialogTitle>Employee Details</DialogTitle>
-              <DialogDescription>Onboarding employee information</DialogDescription>
+              <DialogTitle>{isEditing ? 'Edit Employee' : 'Employee Details'}</DialogTitle>
+              <DialogDescription>
+                {isEditing ? 'Update onboarding employee information' : 'Onboarding employee information'}
+              </DialogDescription>
             </DialogHeader>
-            {selectedEmployee && (
+            {selectedEmployee && !isEditing && (
               <div className="space-y-4">
-                <div className="flex items-center gap-4">
-                  <Avatar className="h-16 w-16">
-                    <AvatarImage src={selectedEmployee.avatar_url || undefined} />
-                    <AvatarFallback className="text-lg">
-                      {`${selectedEmployee.first_name} ${selectedEmployee.last_name}`.split(" ").map((n: string) => n[0]).join("")}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div>
-                    <h3 className="text-lg font-semibold">{selectedEmployee.first_name} {selectedEmployee.last_name}</h3>
-                    <p className="text-sm text-muted-foreground">{selectedEmployee.designation || 'No designation'}</p>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <Avatar className="h-16 w-16">
+                      <AvatarImage src={selectedEmployee.avatar_url || undefined} />
+                      <AvatarFallback className="text-lg">
+                        {`${selectedEmployee.first_name} ${selectedEmployee.last_name}`.split(" ").map((n: string) => n[0]).join("")}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <h3 className="text-lg font-semibold">{selectedEmployee.first_name} {selectedEmployee.last_name}</h3>
+                      <p className="text-sm text-muted-foreground">{selectedEmployee.designation || 'No designation'}</p>
+                    </div>
                   </div>
+                  <Button variant="outline" size="icon" onClick={() => openEditMode(selectedEmployee)}>
+                    <Pencil className="h-4 w-4" />
+                  </Button>
                 </div>
                 
                 <div className="space-y-3 rounded-lg border p-4">
@@ -809,6 +919,142 @@ const Onboarding = () => {
                       </AlertDialogFooter>
                     </AlertDialogContent>
                   </AlertDialog>
+                </div>
+              </div>
+            )}
+            
+            {selectedEmployee && isEditing && (
+              <div className="space-y-4">
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-firstName">First Name *</Label>
+                    <Input
+                      id="edit-firstName"
+                      value={editFormData.firstName}
+                      onChange={(e) => setEditFormData({ ...editFormData, firstName: e.target.value })}
+                      disabled={updateEmployeeMutation.isPending}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-lastName">Last Name *</Label>
+                    <Input
+                      id="edit-lastName"
+                      value={editFormData.lastName}
+                      onChange={(e) => setEditFormData({ ...editFormData, lastName: e.target.value })}
+                      disabled={updateEmployeeMutation.isPending}
+                    />
+                  </div>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="edit-email">Email *</Label>
+                  <Input
+                    id="edit-email"
+                    type="email"
+                    value={editFormData.email}
+                    onChange={(e) => setEditFormData({ ...editFormData, email: e.target.value })}
+                    disabled={updateEmployeeMutation.isPending}
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="edit-phone">Phone</Label>
+                  <Input
+                    id="edit-phone"
+                    value={editFormData.phone}
+                    onChange={(e) => setEditFormData({ ...editFormData, phone: e.target.value })}
+                    disabled={updateEmployeeMutation.isPending}
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="edit-designation">Designation *</Label>
+                  <Input
+                    id="edit-designation"
+                    value={editFormData.designation}
+                    onChange={(e) => setEditFormData({ ...editFormData, designation: e.target.value })}
+                    disabled={updateEmployeeMutation.isPending}
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="edit-department">Department</Label>
+                  <Select
+                    value={editFormData.departmentId}
+                    onValueChange={(value) => setEditFormData({ ...editFormData, departmentId: value })}
+                    disabled={updateEmployeeMutation.isPending || loadingDepartments}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select department" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {departments.map((dept) => (
+                        <SelectItem key={dept.id} value={dept.id}>
+                          {dept.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="edit-manager">Manager</Label>
+                  <Select
+                    value={editFormData.managerId}
+                    onValueChange={(value) => setEditFormData({ ...editFormData, managerId: value === 'none' ? '' : value })}
+                    disabled={updateEmployeeMutation.isPending || loadingManagers}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select manager" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">No manager</SelectItem>
+                      {managers.map((m) => (
+                        <SelectItem key={m.id} value={m.id}>
+                          {m.first_name} {m.last_name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="edit-joinDate">Join Date *</Label>
+                  <Input
+                    id="edit-joinDate"
+                    type="date"
+                    value={editFormData.joinDate}
+                    onChange={(e) => setEditFormData({ ...editFormData, joinDate: e.target.value })}
+                    disabled={updateEmployeeMutation.isPending}
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="edit-address">Address</Label>
+                  <Textarea
+                    id="edit-address"
+                    value={editFormData.address}
+                    onChange={(e) => setEditFormData({ ...editFormData, address: e.target.value })}
+                    disabled={updateEmployeeMutation.isPending}
+                    rows={2}
+                  />
+                </div>
+                
+                <div className="flex justify-end gap-2 pt-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => setIsEditing(false)}
+                    disabled={updateEmployeeMutation.isPending}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={handleEditSubmit}
+                    disabled={updateEmployeeMutation.isPending}
+                  >
+                    {updateEmployeeMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Save Changes
+                  </Button>
                 </div>
               </div>
             )}
