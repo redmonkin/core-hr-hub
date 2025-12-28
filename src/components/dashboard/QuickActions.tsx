@@ -37,8 +37,8 @@ export function QuickActions() {
         <CardTitle className="text-lg font-semibold">Quick Actions</CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
-        {actions.map((action) => (
-          <Link key={action.label} to={action.href}>
+        {actions.map((action, index) => (
+          <Link key={action.label} to={action.href} className={index < actions.length - 1 ? "mb-2 block" : "block"}>
             <Button
               variant={action.variant}
               className="w-full justify-start gap-3"
