@@ -87,32 +87,7 @@ const Settings = () => {
   const { data: departments = [], isLoading: loadingDepts } = useDepartments();
   const { data: leaveTypes = [], isLoading: loadingLeaves } = useLeaveTypes();
 
-  // Show loading while checking role
-  if (roleLoading) {
-    return (
-      <DashboardLayout>
-        <div className="flex min-h-[400px] items-center justify-center">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        </div>
-      </DashboardLayout>
-    );
-  }
-
-  // Redirect non-admin/HR users
-  if (!isAdminOrHR) {
-    return (
-      <DashboardLayout>
-        <div className="flex min-h-[400px] flex-col items-center justify-center space-y-4">
-          <ShieldAlert className="h-16 w-16 text-destructive" />
-          <h2 className="text-2xl font-bold text-foreground">Access Denied</h2>
-          <p className="text-muted-foreground">You don't have permission to access this page.</p>
-          <p className="text-sm text-muted-foreground">Only administrators and HR personnel can manage settings.</p>
-        </div>
-      </DashboardLayout>
-    );
-  }
-
-  // Department mutations
+  // Department mutations - must be before any early returns
   const createDeptMutation = useMutation({
     mutationFn: async (data: DepartmentForm) => {
       const { error } = await supabase.from('departments').insert({
@@ -166,7 +141,7 @@ const Settings = () => {
     },
   });
 
-  // Leave type mutations
+  // Leave type mutations - must be before any early returns
   const createLeaveMutation = useMutation({
     mutationFn: async (data: LeaveTypeForm) => {
       const { error } = await supabase.from('leave_types').insert({
@@ -223,6 +198,32 @@ const Settings = () => {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     },
   });
+
+  // Show loading while checking role
+  if (roleLoading) {
+    return (
+      <DashboardLayout>
+        <div className="flex min-h-[400px] items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  // Redirect non-admin/HR users
+  if (!isAdminOrHR) {
+    return (
+      <DashboardLayout>
+        <div className="flex min-h-[400px] flex-col items-center justify-center space-y-4">
+          <ShieldAlert className="h-16 w-16 text-destructive" />
+          <h2 className="text-2xl font-bold text-foreground">Access Denied</h2>
+          <p className="text-muted-foreground">You don't have permission to access this page.</p>
+          <p className="text-sm text-muted-foreground">Only administrators and HR personnel can manage settings.</p>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
 
   const handleEditDept = (dept: { id: string; name: string; description: string | null }) => {
     setEditingDept({ id: dept.id });
