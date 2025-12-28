@@ -46,7 +46,7 @@ interface NavItem {
 }
 
 const navItems: NavItem[] = [
-  { label: "Dashboard", href: "/", icon: <Home className="h-5 w-5" /> },
+  { label: "Dashboard", href: "/dashboard", icon: <Home className="h-5 w-5" /> },
   { label: "Employees", href: "/employees", icon: <Users className="h-5 w-5" /> },
   { label: "Departments", href: "/departments", icon: <Building2 className="h-5 w-5" />, adminOnly: true },
   { label: "Onboarding", href: "/onboarding", icon: <UserPlus className="h-5 w-5" />, adminOnly: true },
@@ -110,7 +110,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         <div className="flex h-full flex-col">
           {/* Logo */}
           <div className="flex h-20 items-center justify-between border-b border-border px-6">
-            <Link to="/" className="flex items-center gap-3">
+            <Link to="/dashboard" className="flex items-center gap-3">
               <img src={hrHubLogo} alt="HR Hub" className="h-10 w-auto" />
               <span className="text-xl font-bold text-foreground">HR Hub</span>
             </Link>
