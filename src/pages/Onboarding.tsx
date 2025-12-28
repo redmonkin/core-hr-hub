@@ -213,6 +213,8 @@ const Onboarding = () => {
   });
   const [formData, setFormData] = useState<FormData>(initialFormData);
   const [documents, setDocuments] = useState<Record<string, DocumentUpload>>(initialDocuments);
+  const [additionalDoc, setAdditionalDoc] = useState<{ file: File | null; type: string }>({ file: null, type: '' });
+  const [isUploadingAdditional, setIsUploadingAdditional] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { isAdminOrHR, isLoading: roleLoading } = useIsAdminOrHR();
@@ -294,6 +296,37 @@ const Onboarding = () => {
     if (dbError) throw dbError;
 
     return fileName;
+  };
+
+  // Upload additional document for existing employee
+  const handleUploadAdditionalDocument = async () => {
+    if (!selectedEmployee || !additionalDoc.file || !additionalDoc.type) {
+      toast({
+        title: "Error",
+        description: "Please select a document type and file",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsUploadingAdditional(true);
+    try {
+      await uploadDocument(selectedEmployee.id, additionalDoc.type, additionalDoc.file);
+      queryClient.invalidateQueries({ queryKey: ['employee-documents', selectedEmployee.id] });
+      setAdditionalDoc({ file: null, type: '' });
+      toast({
+        title: "Success",
+        description: "Document uploaded successfully",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to upload document",
+        variant: "destructive",
+      });
+    } finally {
+      setIsUploadingAdditional(false);
+    }
   };
 
   const createEmployeeMutation = useMutation({
@@ -1060,7 +1093,7 @@ const Onboarding = () => {
                 </div>
                 
                 {/* Documents Section */}
-                <div className="space-y-2">
+                <div className="space-y-3">
                   <p className="text-sm font-medium text-foreground flex items-center gap-2">
                     <FileText className="h-4 w-4" />
                     Documents
@@ -1112,6 +1145,54 @@ const Onboarding = () => {
                       })}
                     </div>
                   )}
+                  
+                  {/* Upload Additional Document */}
+                  <div className="space-y-3 pt-2 border-t">
+                    <p className="text-xs font-medium text-muted-foreground">Upload Additional Document</p>
+                    <div className="flex gap-2">
+                      <Select
+                        value={additionalDoc.type}
+                        onValueChange={(value) => setAdditionalDoc(prev => ({ ...prev, type: value }))}
+                        disabled={isUploadingAdditional}
+                      >
+                        <SelectTrigger className="w-[140px]">
+                          <SelectValue placeholder="Type" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {DOCUMENT_TYPES.map((docType) => (
+                            <SelectItem key={docType.key} value={docType.key}>
+                              {docType.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <div className="flex-1">
+                        <Input
+                          type="file"
+                          accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                          disabled={isUploadingAdditional}
+                          onChange={(e) => setAdditionalDoc(prev => ({ ...prev, file: e.target.files?.[0] || null }))}
+                          className="text-xs"
+                        />
+                      </div>
+                      <Button
+                        size="sm"
+                        onClick={handleUploadAdditionalDocument}
+                        disabled={isUploadingAdditional || !additionalDoc.file || !additionalDoc.type}
+                      >
+                        {isUploadingAdditional ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Upload className="h-4 w-4" />
+                        )}
+                      </Button>
+                    </div>
+                    {additionalDoc.file && (
+                      <p className="text-xs text-muted-foreground">
+                        Selected: {additionalDoc.file.name}
+                      </p>
+                    )}
+                  </div>
                 </div>
                 
                 <div className="flex items-center justify-between pt-2">
