@@ -23,6 +23,7 @@ import {
   CalendarDays,
   Bell,
 } from "lucide-react";
+import hrHubLogo from "@/assets/hr-hub-logo.svg";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -110,9 +111,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           {/* Logo */}
           <div className="flex h-20 items-center justify-between border-b border-border px-6">
             <Link to="/" className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary">
-                <Users className="h-5 w-5 text-primary-foreground" />
-              </div>
+              <img src={hrHubLogo} alt="HR Hub" className="h-10 w-auto" />
               <span className="text-xl font-bold text-foreground">HR Hub</span>
             </Link>
             <Button

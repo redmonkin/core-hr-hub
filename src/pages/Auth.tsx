@@ -7,8 +7,9 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Building2, Shield, Users, Calendar } from "lucide-react";
+import { Loader2, Shield, Users, Calendar } from "lucide-react";
 import { z } from "zod";
+import hrHubLogo from "@/assets/hr-hub-logo.svg";
 
 const loginSchema = z.object({
   email: z.string().trim().email("Please enter a valid email address"),
@@ -148,7 +149,7 @@ const Auth = () => {
       <div className="hidden lg:flex lg:w-1/2 flex-col justify-between bg-primary p-12 text-primary-foreground">
         <div>
           <div className="flex items-center gap-3">
-            <Building2 className="h-10 w-10" />
+            <img src={hrHubLogo} alt="HR Hub" className="h-12 w-auto" />
             <h1 className="text-3xl font-bold">HR Hub</h1>
           </div>
         </div>
@@ -181,8 +182,8 @@ const Auth = () => {
       <div className="flex w-full lg:w-1/2 items-center justify-center bg-background p-6">
         <Card className="w-full max-w-md border-border">
           <CardHeader className="text-center">
-            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-primary text-primary-foreground lg:hidden">
-              <Building2 className="h-6 w-6" />
+            <div className="mx-auto mb-4 lg:hidden">
+              <img src={hrHubLogo} alt="HR Hub" className="h-12 w-auto" />
             </div>
             <CardTitle className="text-2xl">Welcome to HR Hub</CardTitle>
             <CardDescription>Sign in to your account or create a new one</CardDescription>
