@@ -23,7 +23,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { CheckCircle2, Upload, User, Briefcase, FileText, Loader2, ShieldAlert, Calendar, Mail, Phone, MapPin, Pencil, X, Check } from "lucide-react";
+import { CheckCircle2, Upload, User, Briefcase, FileText, Loader2, ShieldAlert, Calendar, Mail, Phone, MapPin, Pencil, X, Check, Download, ExternalLink } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useDepartments } from "@/hooks/useEmployees";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -67,6 +67,25 @@ const useOnboardingEmployees = () => {
       if (error) throw error;
       return data || [];
     },
+  });
+};
+
+// Fetch documents for a specific employee
+const useEmployeeDocuments = (employeeId: string | null) => {
+  return useQuery({
+    queryKey: ['employee-documents', employeeId],
+    queryFn: async () => {
+      if (!employeeId) return [];
+      const { data, error } = await supabase
+        .from('employee_documents')
+        .select('*')
+        .eq('employee_id', employeeId)
+        .order('uploaded_at', { ascending: false });
+      
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!employeeId,
   });
 };
 
@@ -202,8 +221,44 @@ const Onboarding = () => {
   const { data: managers = [], isLoading: loadingManagers } = useManagers();
   const { data: onboardingEmployees = [], isLoading: loadingOnboarding } = useOnboardingEmployees();
   const { data: unlinkedUsers = [], isLoading: loadingUsers } = useUnlinkedUsers();
+  const { data: employeeDocs = [], isLoading: loadingDocs } = useEmployeeDocuments(selectedEmployee?.id || null);
 
-  // Handle file selection
+  // Get signed URL for document download
+  const getDocumentUrl = async (filePath: string) => {
+    const { data, error } = await supabase.storage
+      .from('employee-documents')
+      .createSignedUrl(filePath, 3600); // 1 hour expiry
+    
+    if (error) {
+      toast({
+        title: "Error",
+        description: "Failed to get document URL",
+        variant: "destructive",
+      });
+      return null;
+    }
+    return data.signedUrl;
+  };
+
+  const handleViewDocument = async (filePath: string) => {
+    const url = await getDocumentUrl(filePath);
+    if (url) {
+      window.open(url, '_blank');
+    }
+  };
+
+  const handleDownloadDocument = async (filePath: string, fileName: string) => {
+    const url = await getDocumentUrl(filePath);
+    if (url) {
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+  };
+
   const handleFileSelect = (docType: string, file: File | null) => {
     setDocuments(prev => ({
       ...prev,
@@ -1000,6 +1055,61 @@ const Onboarding = () => {
                         <p className="text-xs text-muted-foreground">Address</p>
                         <p className="text-sm font-medium">{selectedEmployee.address}</p>
                       </div>
+                    </div>
+                  )}
+                </div>
+                
+                {/* Documents Section */}
+                <div className="space-y-2">
+                  <p className="text-sm font-medium text-foreground flex items-center gap-2">
+                    <FileText className="h-4 w-4" />
+                    Documents
+                  </p>
+                  {loadingDocs ? (
+                    <div className="flex items-center justify-center py-4">
+                      <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                    </div>
+                  ) : employeeDocs.length === 0 ? (
+                    <p className="text-sm text-muted-foreground py-2">No documents uploaded</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {employeeDocs.map((doc) => {
+                        const docTypeLabel = DOCUMENT_TYPES.find(d => d.key === doc.document_type)?.label || doc.document_type;
+                        return (
+                          <div
+                            key={doc.id}
+                            className="flex items-center justify-between rounded-lg border p-3"
+                          >
+                            <div className="flex items-center gap-3 min-w-0">
+                              <FileText className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                              <div className="min-w-0">
+                                <p className="text-sm font-medium truncate">{docTypeLabel}</p>
+                                <p className="text-xs text-muted-foreground truncate">{doc.document_name}</p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-1 flex-shrink-0">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                                onClick={() => handleViewDocument(doc.file_url)}
+                                title="View"
+                              >
+                                <ExternalLink className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                                onClick={() => handleDownloadDocument(doc.file_url, doc.document_name)}
+                                title="Download"
+                              >
+                                <Download className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
                 </div>
