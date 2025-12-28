@@ -278,19 +278,22 @@ const Settings = () => {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-2 sm:inline-flex sm:w-auto lg:grid-cols-none">
-            <TabsTrigger value="departments" className="gap-2">
+          <TabsList className="grid h-auto w-full grid-cols-2 gap-1 sm:inline-flex sm:h-10 sm:w-auto">
+            <TabsTrigger value="departments" className="w-full justify-center gap-2 sm:w-auto">
               <Building2 className="h-4 w-4" />
               <span className="hidden sm:inline">Departments</span>
               <span className="sm:hidden">Depts</span>
             </TabsTrigger>
-            <TabsTrigger value="leave-types" className="gap-2">
+            <TabsTrigger value="leave-types" className="w-full justify-center gap-2 sm:w-auto">
               <CalendarDays className="h-4 w-4" />
               <span className="hidden sm:inline">Leave Types</span>
               <span className="sm:hidden">Leaves</span>
             </TabsTrigger>
             {isAdmin && (
-              <TabsTrigger value="user-roles" className="gap-2 col-span-2 sm:col-span-1">
+              <TabsTrigger
+                value="user-roles"
+                className="col-span-2 w-full justify-center gap-2 sm:col-span-1 sm:w-auto"
+              >
                 <Users className="h-4 w-4" />
                 <span className="hidden sm:inline">User Roles</span>
                 <span className="sm:hidden">Roles</span>
