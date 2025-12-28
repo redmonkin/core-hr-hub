@@ -5,22 +5,43 @@ import { Database } from "@/integrations/supabase/types";
 
 type AppRole = Database["public"]["Enums"]["app_role"];
 
+type UserRoleData = {
+  roles: AppRole[];
+  primaryRole: AppRole | null;
+};
+
+const getPrimaryRole = (roles: AppRole[]): AppRole | null => {
+  if (roles.includes("admin")) return "admin";
+  if (roles.includes("hr")) return "hr";
+  if (roles.includes("manager")) return "manager";
+  if (roles.includes("employee")) return "employee";
+  return null;
+};
+
 export const useUserRole = () => {
   const { user } = useAuth();
 
   return useQuery({
-    queryKey: ['user-role', user?.id],
-    queryFn: async () => {
+    queryKey: ["user-role", user?.id],
+    queryFn: async (): Promise<UserRoleData | null> => {
       if (!user?.id) return null;
 
+      // user_roles can contain multiple roles per user
       const { data, error } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', user.id)
-        .maybeSingle();
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", user.id);
 
       if (error) throw error;
-      return data?.role as AppRole | null;
+
+      const roles = Array.from(
+        new Set((data ?? []).map((r) => r.role as AppRole).filter(Boolean))
+      );
+
+      return {
+        roles,
+        primaryRole: getPrimaryRole(roles),
+      };
     },
     enabled: !!user?.id,
     retry: 3,
@@ -31,12 +52,15 @@ export const useUserRole = () => {
 };
 
 export const useIsAdminOrHR = () => {
-  const { data: role, isLoading, error } = useUserRole();
-  
+  const { data, isLoading, error } = useUserRole();
+
+  const roles = data?.roles ?? [];
+
   return {
-    isAdminOrHR: role === 'admin' || role === 'hr',
+    isAdminOrHR: roles.includes("admin") || roles.includes("hr"),
     isLoading,
     error,
-    role,
+    role: data?.primaryRole ?? null,
+    roles,
   };
 };
