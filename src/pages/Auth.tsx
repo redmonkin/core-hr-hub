@@ -149,7 +149,7 @@ const Auth = () => {
         <div>
           <div className="flex items-center gap-3">
             <Building2 className="h-10 w-10" />
-            <h1 className="text-3xl font-bold">HRMS Pro</h1>
+            <h1 className="text-3xl font-bold">HR Hub</h1>
           </div>
         </div>
         
@@ -173,7 +173,7 @@ const Auth = () => {
         </div>
 
         <p className="text-sm opacity-70">
-          © 2024 HRMS Pro. All rights reserved.
+          © 2024 HR Hub. All rights reserved.
         </p>
       </div>
 
@@ -184,7 +184,7 @@ const Auth = () => {
             <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-primary text-primary-foreground lg:hidden">
               <Building2 className="h-6 w-6" />
             </div>
-            <CardTitle className="text-2xl">Welcome to HRMS Pro</CardTitle>
+            <CardTitle className="text-2xl">Welcome to HR Hub</CardTitle>
             <CardDescription>Sign in to your account or create a new one</CardDescription>
           </CardHeader>
           <CardContent>

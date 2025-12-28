@@ -113,7 +113,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary">
                 <Users className="h-5 w-5 text-primary-foreground" />
               </div>
-              <span className="text-xl font-bold text-foreground">HRMS Pro</span>
+              <span className="text-xl font-bold text-foreground">HR Hub</span>
             </Link>
             <Button
               variant="ghost"
