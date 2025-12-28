@@ -173,7 +173,7 @@ const Auth = () => {
         </div>
 
         <p className="text-sm opacity-70">
-          © 2024 HR Hub. All rights reserved.
+          © 2025 HR Hub. All rights reserved.
         </p>
       </div>
 
