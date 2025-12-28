@@ -207,7 +207,9 @@ const Departments = () => {
                           <Badge variant="secondary">{department.employee_count}</Badge>
                         </TableCell>
                         <TableCell>
-                          {format(new Date(department.created_at), "MMM d, yyyy")}
+                          {department.created_at && !isNaN(new Date(department.created_at).getTime())
+                            ? format(new Date(department.created_at), "MMM d, yyyy")
+                            : "-"}
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-2">
