@@ -7,6 +7,7 @@ interface AuthContextType {
   user: User | null;
   session: Session | null;
   isLoading: boolean;
+  isSigningOut: boolean;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signUp: (email: string, password: string, fullName: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
@@ -18,6 +19,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isSigningOut, setIsSigningOut] = useState(false);
   const queryClient = useQueryClient();
 
   useEffect(() => {
@@ -75,19 +77,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signOut = async () => {
+    setIsSigningOut(true);
     try {
       await supabase.auth.signOut({ scope: 'local' });
     } catch (error) {
       console.error('Sign out error:', error);
+    } finally {
+      // Clear local state regardless of server response
+      setSession(null);
+      setUser(null);
+      queryClient.clear();
+      setIsSigningOut(false);
     }
-    // Clear local state regardless of server response
-    setSession(null);
-    setUser(null);
-    queryClient.clear();
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, isLoading, signIn, signUp, signOut }}>
+    <AuthContext.Provider value={{ user, session, isLoading, isSigningOut, signIn, signUp, signOut }}>
       {children}
     </AuthContext.Provider>
   );
