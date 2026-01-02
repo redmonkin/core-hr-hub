@@ -2,6 +2,7 @@ import { ReactNode, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
+import { Loader2 } from "lucide-react";
 import { useIsAdminOrHR } from "@/hooks/useUserRole";
 import {
   Users,
@@ -71,7 +72,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, signOut } = useAuth();
+  const { user, signOut, isSigningOut } = useAuth();
   const { isAdminOrHR } = useIsAdminOrHR();
 
   const filteredNavItems = navItems.filter(item => !item.adminOnly || isAdminOrHR);
@@ -255,9 +256,13 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                   </DropdownMenuItem>
                 )}
                 <DropdownMenuSeparator />
-                <DropdownMenuItem className="text-destructive" onClick={handleSignOut}>
-                  <LogOut className="mr-2 h-4 w-4" />
-                  Log out
+                <DropdownMenuItem className="text-destructive" onClick={handleSignOut} disabled={isSigningOut}>
+                  {isSigningOut ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <LogOut className="mr-2 h-4 w-4" />
+                  )}
+                  {isSigningOut ? "Logging out..." : "Log out"}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
