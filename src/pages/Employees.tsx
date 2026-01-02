@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { EmployeeTable, Employee } from "@/components/employees/EmployeeTable";
 import { Button } from "@/components/ui/button";
@@ -17,7 +16,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { UserPlus, Search, Download, Users } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { UserPlus, Search, Download, Users, FileSpreadsheet, FileText } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useEmployees, useDepartments } from "@/hooks/useEmployees";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -26,6 +31,9 @@ import { EmployeeDocuments } from "@/components/documents/EmployeeDocuments";
 import { useIsAdminOrHR } from "@/hooks/useUserRole";
 import { EmployeeViewDialog } from "@/components/employees/EmployeeViewDialog";
 import { EmployeeEditDialog } from "@/components/employees/EmployeeEditDialog";
+import { toast } from "sonner";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 const Employees = () => {
   const [searchQuery, setSearchQuery] = useState("");
@@ -49,6 +57,58 @@ const Employees = () => {
 
   const isLoading = isLoadingEmployees || isLoadingRole;
 
+  const exportToCSV = () => {
+    const headers = ["Name", "Email", "Department", "Designation", "Status", "Join Date"];
+    const csvContent = [
+      headers.join(","),
+      ...filteredEmployees.map((emp) =>
+        [
+          `"${emp.name}"`,
+          `"${emp.email}"`,
+          `"${emp.department}"`,
+          `"${emp.designation}"`,
+          `"${emp.status}"`,
+          `"${emp.joinDate}"`,
+        ].join(",")
+      ),
+    ].join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = `employee-directory-${new Date().toISOString().split("T")[0]}.csv`;
+    link.click();
+    toast.success("Employee directory exported to CSV");
+  };
+
+  const exportToPDF = () => {
+    const doc = new jsPDF();
+    
+    doc.setFontSize(18);
+    doc.text("Employee Directory", 14, 22);
+    doc.setFontSize(10);
+    doc.text(`Generated on ${new Date().toLocaleDateString()}`, 14, 30);
+    doc.text(`Total Employees: ${filteredEmployees.length}`, 14, 36);
+
+    autoTable(doc, {
+      startY: 44,
+      head: [["Name", "Email", "Department", "Designation", "Status", "Join Date"]],
+      body: filteredEmployees.map((emp) => [
+        emp.name,
+        emp.email,
+        emp.department,
+        emp.designation,
+        emp.status,
+        emp.joinDate,
+      ]),
+      styles: { fontSize: 8 },
+      headStyles: { fillColor: [59, 130, 246] },
+    });
+
+    doc.save(`employee-directory-${new Date().toISOString().split("T")[0]}.pdf`);
+    toast.success("Employee directory exported to PDF");
+  };
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
@@ -64,10 +124,24 @@ const Employees = () => {
           </div>
           {isAdminOrHR && (
             <div className="flex gap-3">
-              <Button variant="outline">
-                <Download className="mr-2 h-4 w-4" />
-                Export
-              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline">
+                    <Download className="mr-2 h-4 w-4" />
+                    Export
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent>
+                  <DropdownMenuItem onClick={exportToCSV}>
+                    <FileSpreadsheet className="mr-2 h-4 w-4" />
+                    Export as CSV
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={exportToPDF}>
+                    <FileText className="mr-2 h-4 w-4" />
+                    Export as PDF
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
               <Link to="/onboarding">
                 <Button>
                   <UserPlus className="mr-2 h-4 w-4" />
