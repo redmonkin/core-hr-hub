@@ -16,12 +16,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { UserPlus, Search, Download } from "lucide-react";
+import { UserPlus, Search, Download, Users } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useEmployees, useDepartments } from "@/hooks/useEmployees";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent } from "@/components/ui/card";
 import { EmployeeDocuments } from "@/components/documents/EmployeeDocuments";
+import { useIsAdminOrHR } from "@/hooks/useUserRole";
 
 const Employees = () => {
   const [searchQuery, setSearchQuery] = useState("");
@@ -30,6 +31,7 @@ const Employees = () => {
 
   const { data: employees = [], isLoading: isLoadingEmployees } = useEmployees();
   const { data: departments = [] } = useDepartments();
+  const { isAdminOrHR, isLoading: isLoadingRole } = useIsAdminOrHR();
 
   const filteredEmployees = employees.filter((employee) => {
     const matchesSearch =
@@ -40,27 +42,35 @@ const Employees = () => {
     return matchesSearch && matchesDepartment;
   });
 
+  const isLoading = isLoadingEmployees || isLoadingRole;
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
         {/* Header */}
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h2 className="text-2xl font-bold text-foreground">Employee Directory</h2>
-            <p className="text-muted-foreground">Manage and view all employees</p>
+            <h2 className="text-2xl font-bold text-foreground">
+              {isAdminOrHR ? "Employee Directory" : "Team Directory"}
+            </h2>
+            <p className="text-muted-foreground">
+              {isAdminOrHR ? "Manage and view all employees" : "View your colleagues"}
+            </p>
           </div>
-          <div className="flex gap-3">
-            <Button variant="outline">
-              <Download className="mr-2 h-4 w-4" />
-              Export
-            </Button>
-            <Link to="/onboarding">
-              <Button>
-                <UserPlus className="mr-2 h-4 w-4" />
-                Add Employee
+          {isAdminOrHR && (
+            <div className="flex gap-3">
+              <Button variant="outline">
+                <Download className="mr-2 h-4 w-4" />
+                Export
               </Button>
-            </Link>
-          </div>
+              <Link to="/onboarding">
+                <Button>
+                  <UserPlus className="mr-2 h-4 w-4" />
+                  Add Employee
+                </Button>
+              </Link>
+            </div>
+          )}
         </div>
 
         {/* Filters */}
@@ -90,7 +100,7 @@ const Employees = () => {
         </div>
 
         {/* Table */}
-        {isLoadingEmployees ? (
+        {isLoading ? (
           <div className="space-y-4">
             {[1, 2, 3, 4, 5].map((i) => (
               <Skeleton key={i} className="h-16 w-full rounded-lg" />
@@ -99,14 +109,16 @@ const Employees = () => {
         ) : filteredEmployees.length === 0 ? (
           <Card>
             <CardContent className="flex flex-col items-center justify-center py-12">
-              <UserPlus className="mb-4 h-12 w-12 text-muted-foreground" />
+              <Users className="mb-4 h-12 w-12 text-muted-foreground" />
               <h3 className="text-lg font-semibold text-foreground">No Employees Found</h3>
               <p className="text-muted-foreground">
                 {employees.length === 0
-                  ? "Start by adding your first employee"
+                  ? isAdminOrHR 
+                    ? "Start by adding your first employee"
+                    : "No team members available to display"
                   : "No employees match your search criteria"}
               </p>
-              {employees.length === 0 && (
+              {employees.length === 0 && isAdminOrHR && (
                 <Link to="/onboarding" className="mt-4">
                   <Button>
                     <UserPlus className="mr-2 h-4 w-4" />
@@ -119,7 +131,7 @@ const Employees = () => {
         ) : (
           <EmployeeTable 
             employees={filteredEmployees} 
-            onManageDocuments={(employee) => setDocumentsEmployee(employee)}
+            onManageDocuments={isAdminOrHR ? (employee) => setDocumentsEmployee(employee) : undefined}
           />
         )}
 
