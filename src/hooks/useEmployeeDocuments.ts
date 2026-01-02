@@ -44,7 +44,11 @@ export function useUploadDocument() {
       documentType: string;
     }) => {
       const fileExt = file.name.split(".").pop();
-      const fileName = `${employeeId}/${Date.now()}-${file.name}`;
+      // Sanitize filename: replace spaces and special characters with underscores
+      const sanitizedName = file.name
+        .replace(/[^a-zA-Z0-9.-]/g, "_")
+        .replace(/_+/g, "_");
+      const fileName = `${employeeId}/${Date.now()}-${sanitizedName}`;
 
       // Upload file to storage
       const { error: uploadError } = await supabase.storage
