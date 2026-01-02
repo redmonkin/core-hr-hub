@@ -170,7 +170,7 @@ const handler = async (req: Request): Promise<Response> => {
             Authorization: `Bearer ${RESEND_API_KEY}`,
           },
           body: JSON.stringify({
-            from: "HR Hub <onboarding@resend.dev>",
+            from: "Peoplo <onboarding@resend.dev>",
             to: [employee.email],
             subject: `📅 Upcoming Events & Holidays This Week`,
             html: `
@@ -195,7 +195,7 @@ const handler = async (req: Request): Promise<Response> => {
                   
                   <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; text-align: center;">
                     <p style="color: #999; font-size: 12px; margin: 0;">
-                      This is an automated notification from HR Hub.<br>
+                      This is an automated notification from Peoplo.<br>
                       You can manage your notification preferences in your profile settings.
                     </p>
                   </div>

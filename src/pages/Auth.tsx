@@ -150,8 +150,8 @@ const Auth = () => {
       <div className="hidden lg:flex lg:w-1/2 flex-col justify-between bg-primary p-12 text-primary-foreground">
         <div>
           <div className="flex items-center gap-3">
-            <img src={hrHubLogoLight} alt="HR Hub" className="h-12 w-auto" />
-            <h1 className="text-3xl font-bold">HR Hub</h1>
+            <img src={hrHubLogoLight} alt="Peoplo" className="h-12 w-auto" />
+            <h1 className="text-3xl font-bold">Peoplo</h1>
           </div>
         </div>
         
@@ -175,7 +175,7 @@ const Auth = () => {
         </div>
 
         <p className="text-sm opacity-70">
-          © 2025 HR Hub. All rights reserved.
+          © 2025 Peoplo. All rights reserved.
         </p>
       </div>
 
@@ -184,9 +184,9 @@ const Auth = () => {
         <Card className="w-full max-w-md border-border">
           <CardHeader className="text-center">
             <div className="mx-auto mb-4 lg:hidden">
-              <img src={hrHubLogo} alt="HR Hub" className="h-12 w-auto" />
+              <img src={hrHubLogo} alt="Peoplo" className="h-12 w-auto" />
             </div>
-            <CardTitle className="text-2xl">Welcome to HR Hub</CardTitle>
+            <CardTitle className="text-2xl">Welcome to Peoplo</CardTitle>
             <CardDescription>Sign in to your account or create a new one</CardDescription>
           </CardHeader>
           <CardContent>

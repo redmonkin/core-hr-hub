@@ -88,8 +88,8 @@ const Features = () => {
       <nav className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2">
-            <img src={hrHubLogo} alt="HR Hub" className="h-8 w-auto" />
-            <span className="text-xl font-bold">HR Hub</span>
+            <img src={hrHubLogo} alt="Peoplo" className="h-8 w-auto" />
+            <span className="text-xl font-bold">Peoplo</span>
           </Link>
           <div className="hidden md:flex items-center gap-6">
             <Link to="/features" className="text-foreground font-medium">
@@ -146,7 +146,7 @@ const Features = () => {
         <div className="container mx-auto px-4 text-center">
           <h2 className="text-3xl font-bold mb-4">Ready to get started?</h2>
           <p className="text-muted-foreground mb-6">
-            Join organizations using HR Hub to manage their workforce.
+            Join organizations using Peoplo to manage their workforce.
           </p>
           <div className="flex gap-4 justify-center">
             <Link to="/auth">
@@ -168,8 +168,8 @@ const Features = () => {
         <div className="container mx-auto px-4">
           <div className="flex flex-col md:flex-row justify-between items-center gap-4">
             <div className="flex items-center gap-2">
-              <img src={hrHubLogo} alt="HR Hub" className="h-6 w-auto" />
-              <span className="font-semibold">HR Hub</span>
+              <img src={hrHubLogo} alt="Peoplo" className="h-6 w-auto" />
+              <span className="font-semibold">Peoplo</span>
             </div>
             <div className="flex gap-6 text-sm text-muted-foreground">
               <Link to="/features" className="hover:text-foreground">Features</Link>
@@ -177,7 +177,7 @@ const Features = () => {
               <Link to="/pricing" className="hover:text-foreground">Pricing</Link>
             </div>
             <p className="text-sm text-muted-foreground">
-              © {new Date().getFullYear()} HR Hub. Open Source.
+              © {new Date().getFullYear()} Peoplo. Open Source.
             </p>
           </div>
         </div>

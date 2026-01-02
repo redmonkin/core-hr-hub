@@ -71,8 +71,8 @@ const plans = [
 
 const faqs = [
   {
-    question: "Is HR Hub really free?",
-    answer: "Yes! HR Hub is 100% open source. You can self-host it on your own infrastructure at no cost. The cloud-hosted option is a paid service for those who prefer managed hosting."
+    question: "Is Peoplo really free?",
+    answer: "Yes! Peoplo is 100% open source. You can self-host it on your own infrastructure at no cost. The cloud-hosted option is a paid service for those who prefer managed hosting."
   },
   {
     question: "Can I migrate from self-hosted to cloud?",
@@ -95,8 +95,8 @@ const Pricing = () => {
       <nav className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2">
-            <img src={hrHubLogo} alt="HR Hub" className="h-8 w-auto" />
-            <span className="text-xl font-bold">HR Hub</span>
+            <img src={hrHubLogo} alt="Peoplo" className="h-8 w-auto" />
+            <span className="text-xl font-bold">Peoplo</span>
           </Link>
           <div className="hidden md:flex items-center gap-6">
             <Link to="/features" className="text-muted-foreground hover:text-foreground transition-colors">
@@ -225,8 +225,8 @@ const Pricing = () => {
         <div className="container mx-auto px-4">
           <div className="flex flex-col md:flex-row justify-between items-center gap-4">
             <div className="flex items-center gap-2">
-              <img src={hrHubLogo} alt="HR Hub" className="h-6 w-auto" />
-              <span className="font-semibold">HR Hub</span>
+              <img src={hrHubLogo} alt="Peoplo" className="h-6 w-auto" />
+              <span className="font-semibold">Peoplo</span>
             </div>
             <div className="flex gap-6 text-sm text-muted-foreground">
               <Link to="/features" className="hover:text-foreground">Features</Link>
@@ -234,7 +234,7 @@ const Pricing = () => {
               <Link to="/pricing" className="hover:text-foreground">Pricing</Link>
             </div>
             <p className="text-sm text-muted-foreground">
-              © {new Date().getFullYear()} HR Hub. Open Source.
+              © {new Date().getFullYear()} Peoplo. Open Source.
             </p>
           </div>
         </div>
