@@ -184,10 +184,16 @@ const initialFormData: FormData = {
   linkedUserId: '',
 };
 
-const DOCUMENT_TYPES = [
+const REQUIRED_DOCUMENT_TYPES = [
   { key: 'id_proof', label: 'ID Proof', accept: '.pdf,.jpg,.jpeg,.png' },
   { key: 'offer_letter', label: 'Offer Letter', accept: '.pdf,.doc,.docx' },
   { key: 'resume', label: 'Resume', accept: '.pdf,.doc,.docx' },
+];
+
+const ALL_DOCUMENT_TYPES = [
+  { key: 'contract', label: 'Contract', accept: '.pdf,.doc,.docx' },
+  ...REQUIRED_DOCUMENT_TYPES,
+  { key: 'other', label: 'Others', accept: '.pdf,.doc,.docx,.jpg,.jpeg,.png' },
 ];
 
 const initialDocuments: Record<string, DocumentUpload> = {
@@ -870,7 +876,7 @@ const Onboarding = () => {
                   </CardHeader>
                   <CardContent>
                     <div className="grid gap-4 sm:grid-cols-3">
-                      {DOCUMENT_TYPES.map((docType) => {
+                      {REQUIRED_DOCUMENT_TYPES.map((docType) => {
                         const doc = documents[docType.key];
                         return (
                           <label
@@ -1111,7 +1117,7 @@ const Onboarding = () => {
                   ) : (
                     <div className="space-y-2">
                       {employeeDocs.map((doc) => {
-                        const docTypeLabel = DOCUMENT_TYPES.find(d => d.key === doc.document_type)?.label || doc.document_type;
+                        const docTypeLabel = ALL_DOCUMENT_TYPES.find(d => d.key === doc.document_type)?.label || doc.document_type;
                         return (
                           <div
                             key={doc.id}
@@ -1163,7 +1169,7 @@ const Onboarding = () => {
                           <SelectValue placeholder="Type" />
                         </SelectTrigger>
                         <SelectContent>
-                          {DOCUMENT_TYPES.map((docType) => (
+                          {ALL_DOCUMENT_TYPES.map((docType) => (
                             <SelectItem key={docType.key} value={docType.key}>
                               {docType.label}
                             </SelectItem>

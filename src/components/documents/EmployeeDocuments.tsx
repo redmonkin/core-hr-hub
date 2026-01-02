@@ -22,11 +22,11 @@ import {
 } from "@/components/ui/alert-dialog";
 
 const DOCUMENT_TYPES = [
+  { value: "id_proof", label: "ID Proof" },
+  { value: "resume", label: "Resume" },
+  { value: "offer_letter", label: "Offer Letter" },
   { value: "contract", label: "Contract" },
-  { value: "id", label: "ID Document" },
-  { value: "certificate", label: "Certificate" },
-  { value: "resume", label: "Resume/CV" },
-  { value: "other", label: "Other" },
+  { value: "other", label: "Others" },
 ];
 
 interface EmployeeDocumentsProps {
@@ -90,9 +90,11 @@ export function EmployeeDocuments({ employeeId, canUpload = true, canDelete = tr
     switch (type) {
       case "contract":
         return "default";
-      case "id":
+      case "id_proof":
         return "secondary";
-      case "certificate":
+      case "offer_letter":
+        return "secondary";
+      case "resume":
         return "outline";
       default:
         return "secondary";
@@ -107,7 +109,7 @@ export function EmployeeDocuments({ employeeId, canUpload = true, canDelete = tr
           Documents
         </CardTitle>
         <CardDescription>
-          Manage employee documents like contracts, IDs, and certificates
+          Manage employee documents like ID proof, resumes, offer letters, and contracts
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
