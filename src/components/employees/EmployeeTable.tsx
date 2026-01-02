@@ -34,6 +34,7 @@ interface EmployeeTableProps {
   onEdit?: (employee: Employee) => void;
   onDelete?: (employee: Employee) => void;
   onManageDocuments?: (employee: Employee) => void;
+  isAdminOrHR?: boolean;
 }
 
 const statusStyles = {
@@ -42,7 +43,7 @@ const statusStyles = {
   onboarding: "bg-primary/10 text-primary border-primary/20",
 };
 
-export function EmployeeTable({ employees, onView, onEdit, onDelete, onManageDocuments }: EmployeeTableProps) {
+export function EmployeeTable({ employees, onView, onEdit, onDelete, onManageDocuments, isAdminOrHR = false }: EmployeeTableProps) {
   return (
     <div className="rounded-xl border border-border bg-card">
       <Table>
@@ -93,21 +94,25 @@ export function EmployeeTable({ employees, onView, onEdit, onDelete, onManageDoc
                       <Eye className="mr-2 h-4 w-4" />
                       View Profile
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => onEdit?.(employee)}>
-                      <Edit className="mr-2 h-4 w-4" />
-                      Edit
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => onManageDocuments?.(employee)}>
-                      <FileText className="mr-2 h-4 w-4" />
-                      Documents
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={() => onDelete?.(employee)}
-                      className="text-destructive"
-                    >
-                      <Trash2 className="mr-2 h-4 w-4" />
-                      Delete
-                    </DropdownMenuItem>
+                    {isAdminOrHR && (
+                      <>
+                        <DropdownMenuItem onClick={() => onEdit?.(employee)}>
+                          <Edit className="mr-2 h-4 w-4" />
+                          Edit
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => onManageDocuments?.(employee)}>
+                          <FileText className="mr-2 h-4 w-4" />
+                          Documents
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => onDelete?.(employee)}
+                          className="text-destructive"
+                        >
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          Delete
+                        </DropdownMenuItem>
+                      </>
+                    )}
                   </DropdownMenuContent>
                 </DropdownMenu>
               </TableCell>

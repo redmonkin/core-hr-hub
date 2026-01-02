@@ -139,6 +139,7 @@ const Employees = () => {
             onView={(employee) => setViewEmployee(employee)}
             onEdit={isAdminOrHR ? (employee) => setEditEmployee(employee) : undefined}
             onManageDocuments={isAdminOrHR ? (employee) => setDocumentsEmployee(employee) : undefined}
+            isAdminOrHR={isAdminOrHR}
           />
         )}
 
