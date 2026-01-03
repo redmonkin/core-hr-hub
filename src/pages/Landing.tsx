@@ -134,7 +134,7 @@ const Landing = () => {
               Enterprise-Grade HR Platform
             </Badge>
             
-            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight leading-normal">
+            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight leading-relaxed">
               The Complete HR Platform for{" "}
               <span className="text-primary">Modern Enterprises</span>
             </h1>
