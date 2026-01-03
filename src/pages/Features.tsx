@@ -1,5 +1,7 @@
+import React from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { 
   Users, 
   Calendar, 
@@ -14,70 +16,151 @@ import {
   Building2,
   Target,
   ArrowRight,
-  Github
+  Github,
+  CheckCircle,
+  UserPlus,
+  FolderOpen,
+  History,
+  PieChart,
+  Wallet,
+  FileCheck,
+  Laptop,
+  Wrench,
+  Trophy,
+  TrendingUp,
+  LineChart,
+  Mail,
+  BellRing,
+  CalendarCheck,
+  Upload,
+  Lock,
+  Eye,
+  UserCog,
+  Sliders,
+  Cog
 } from "lucide-react";
 import hrHubLogo from "@/assets/hr-hub-logo.svg";
 
-const features = [
+const featureSections = [
   {
-    icon: <Users className="h-6 w-6" />,
+    icon: <Users className="h-8 w-8" />,
     title: "Employee Management",
-    description: "Comprehensive employee profiles with personal details, job information, documents, and organizational hierarchy."
+    description: "Centralized employee database with complete lifecycle management from onboarding to offboarding.",
+    details: [
+      { icon: <UserPlus className="h-5 w-5" />, text: "Complete employee profiles with personal and professional details" },
+      { icon: <FolderOpen className="h-5 w-5" />, text: "Document storage for contracts, certificates, and compliance files" },
+      { icon: <History className="h-5 w-5" />, text: "Employment history tracking and audit trails" },
+      { icon: <Building2 className="h-5 w-5" />, text: "Organizational hierarchy and reporting structure visualization" }
+    ],
+    reversed: false
   },
   {
-    icon: <Building2 className="h-6 w-6" />,
-    title: "Department Structure",
-    description: "Organize your company with departments and teams. Define reporting structures and manage organizational growth."
+    icon: <Calendar className="h-8 w-8" />,
+    title: "Leave & Attendance Management",
+    description: "Streamlined time-off requests and real-time attendance tracking with automated workflows.",
+    details: [
+      { icon: <CalendarCheck className="h-5 w-5" />, text: "Multiple leave types with customizable policies and accrual rules" },
+      { icon: <Clock className="h-5 w-5" />, text: "Clock in/out with geolocation and IP-based verification" },
+      { icon: <CheckCircle className="h-5 w-5" />, text: "Multi-level approval workflows with manager notifications" },
+      { icon: <PieChart className="h-5 w-5" />, text: "Real-time leave balance tracking and forecasting" }
+    ],
+    reversed: true
   },
   {
-    icon: <Calendar className="h-6 w-6" />,
-    title: "Leave Management",
-    description: "Streamlined leave requests and approvals. Track different leave types, balances, and generate reports."
-  },
-  {
-    icon: <Clock className="h-6 w-6" />,
-    title: "Attendance Tracking",
-    description: "Clock in/out functionality, attendance reports, and real-time presence tracking for your workforce."
-  },
-  {
-    icon: <CreditCard className="h-6 w-6" />,
+    icon: <CreditCard className="h-8 w-8" />,
     title: "Payroll Processing",
-    description: "Manage salary structures, allowances, deductions, and generate payslips for your employees."
+    description: "Comprehensive payroll management with automatic calculations, tax handling, and detailed reporting.",
+    details: [
+      { icon: <Wallet className="h-5 w-5" />, text: "Flexible salary structures with allowances and deductions" },
+      { icon: <FileCheck className="h-5 w-5" />, text: "Automated payslip generation and distribution" },
+      { icon: <BarChart3 className="h-5 w-5" />, text: "Tax calculations and compliance reporting" },
+      { icon: <History className="h-5 w-5" />, text: "Payment history and year-end summaries" }
+    ],
+    reversed: false
   },
   {
-    icon: <Package className="h-6 w-6" />,
+    icon: <Package className="h-8 w-8" />,
     title: "Asset Management",
-    description: "Track company assets, assignments, and maintenance schedules. Know who has what equipment."
+    description: "Track company assets throughout their lifecycle from procurement to retirement.",
+    details: [
+      { icon: <Laptop className="h-5 w-5" />, text: "Comprehensive asset inventory with categories and serial tracking" },
+      { icon: <Users className="h-5 w-5" />, text: "Employee assignment history and current allocations" },
+      { icon: <Wrench className="h-5 w-5" />, text: "Maintenance scheduling and warranty tracking" },
+      { icon: <FileText className="h-5 w-5" />, text: "Asset depreciation and value reports" }
+    ],
+    reversed: true
   },
   {
-    icon: <Target className="h-6 w-6" />,
-    title: "Performance Reviews",
-    description: "Set goals, conduct periodic reviews, and track employee progress with customizable review cycles."
+    icon: <Target className="h-8 w-8" />,
+    title: "Performance Management",
+    description: "Goal setting, continuous feedback, and structured performance reviews to drive employee growth.",
+    details: [
+      { icon: <Trophy className="h-5 w-5" />, text: "SMART goal setting with progress tracking and milestones" },
+      { icon: <TrendingUp className="h-5 w-5" />, text: "Customizable review cycles (quarterly, semi-annual, annual)" },
+      { icon: <LineChart className="h-5 w-5" />, text: "360-degree feedback and self-assessments" },
+      { icon: <BarChart3 className="h-5 w-5" />, text: "Performance analytics and team comparisons" }
+    ],
+    reversed: false
   },
   {
-    icon: <BarChart3 className="h-6 w-6" />,
-    title: "Analytics & Reports",
-    description: "Comprehensive dashboards and exportable reports for leave balances, payroll summaries, and asset inventory."
+    icon: <Bell className="h-8 w-8" />,
+    title: "Notifications & Communication",
+    description: "Stay informed with automated notifications for all important HR events and deadlines.",
+    details: [
+      { icon: <Mail className="h-5 w-5" />, text: "Email notifications for leave approvals and status updates" },
+      { icon: <BellRing className="h-5 w-5" />, text: "Review schedule reminders and deadline alerts" },
+      { icon: <CalendarCheck className="h-5 w-5" />, text: "Company event and holiday announcements" },
+      { icon: <Settings className="h-5 w-5" />, text: "Customizable notification preferences per user" }
+    ],
+    reversed: true
   },
   {
-    icon: <Bell className="h-6 w-6" />,
-    title: "Notifications",
-    description: "Email notifications for leave approvals, review schedules, goal reminders, and important updates."
-  },
-  {
-    icon: <FileText className="h-6 w-6" />,
+    icon: <FileText className="h-8 w-8" />,
     title: "Document Management",
-    description: "Secure storage for employee documents including contracts, certificates, and compliance documents."
+    description: "Secure, centralized storage for all employee documents with easy access and organization.",
+    details: [
+      { icon: <Upload className="h-5 w-5" />, text: "Drag-and-drop document uploads with categorization" },
+      { icon: <Lock className="h-5 w-5" />, text: "Role-based access control for sensitive documents" },
+      { icon: <History className="h-5 w-5" />, text: "Version history and document expiry tracking" },
+      { icon: <FileCheck className="h-5 w-5" />, text: "Digital signature integration for contracts" }
+    ],
+    reversed: false
   },
   {
-    icon: <Shield className="h-6 w-6" />,
-    title: "Role-Based Access",
-    description: "Fine-grained permissions for admins, HR, managers, and employees. Control who sees what."
+    icon: <Shield className="h-8 w-8" />,
+    title: "Security & Access Control",
+    description: "Enterprise-grade security with granular permissions and comprehensive audit trails.",
+    details: [
+      { icon: <UserCog className="h-5 w-5" />, text: "Role-based access for admins, HR, managers, and employees" },
+      { icon: <Eye className="h-5 w-5" />, text: "Field-level permissions for sensitive data" },
+      { icon: <History className="h-5 w-5" />, text: "Complete audit logs for compliance and accountability" },
+      { icon: <Lock className="h-5 w-5" />, text: "Two-factor authentication and session management" }
+    ],
+    reversed: true
   },
   {
-    icon: <Settings className="h-6 w-6" />,
+    icon: <BarChart3 className="h-8 w-8" />,
+    title: "Analytics & Reporting",
+    description: "Data-driven insights with customizable dashboards and exportable reports.",
+    details: [
+      { icon: <PieChart className="h-5 w-5" />, text: "Real-time dashboards with key HR metrics" },
+      { icon: <FileText className="h-5 w-5" />, text: "Pre-built reports for payroll, leave, and assets" },
+      { icon: <TrendingUp className="h-5 w-5" />, text: "Trend analysis and workforce planning insights" },
+      { icon: <FileCheck className="h-5 w-5" />, text: "Export to PDF and CSV for external sharing" }
+    ],
+    reversed: false
+  },
+  {
+    icon: <Settings className="h-8 w-8" />,
     title: "Customizable Settings",
-    description: "Configure leave types, working days, notification preferences, and more to fit your organization."
+    description: "Flexible configuration options to adapt the platform to your organization's unique needs.",
+    details: [
+      { icon: <Sliders className="h-5 w-5" />, text: "Custom leave types with individual policies and limits" },
+      { icon: <Calendar className="h-5 w-5" />, text: "Working days and holiday calendar configuration" },
+      { icon: <Cog className="h-5 w-5" />, text: "Workflow customization for approvals and escalations" },
+      { icon: <Building2 className="h-5 w-5" />, text: "Multi-location and department-specific settings" }
+    ],
+    reversed: true
   }
 ];
 
@@ -91,94 +174,163 @@ const Features = () => {
             <img src={hrHubLogo} alt="Peoplo" className="h-8 w-auto" />
             <span className="text-xl font-bold">Peoplo</span>
           </Link>
-          <div className="hidden md:flex items-center gap-6">
-            <Link to="/features" className="text-foreground font-medium">
+          <div className="hidden md:flex items-center gap-8">
+            <Link to="/features" className="text-sm font-medium text-foreground transition-colors">
               Features
             </Link>
-            <Link to="/how-it-works" className="text-muted-foreground hover:text-foreground transition-colors">
+            <Link to="/how-it-works" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
               How It Works
             </Link>
-            <Link to="/pricing" className="text-muted-foreground hover:text-foreground transition-colors">
+            <Link to="/pricing" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
               Pricing
             </Link>
           </div>
           <div className="flex items-center gap-3">
             <Link to="/auth">
-              <Button variant="ghost">Sign In</Button>
+              <Button variant="ghost" size="sm">Sign In</Button>
             </Link>
-            <Link to="/auth">
-              <Button>Get Started</Button>
-            </Link>
+            <a href="https://cal.com/littlemissbot/business-consultancy" target="_blank" rel="noopener noreferrer">
+              <Button size="sm">Request Demo</Button>
+            </a>
           </div>
         </div>
       </nav>
 
       {/* Hero */}
-      <section className="container mx-auto px-4 py-16 text-center">
-        <h1 className="text-4xl md:text-5xl font-bold mb-4">
-          Everything You Need for HR
-        </h1>
-        <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-          A complete suite of HR tools designed to simplify your operations and empower your team.
-        </p>
-      </section>
-
-      {/* Features Grid */}
-      <section className="container mx-auto px-4 pb-20">
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {features.map((feature, index) => (
-            <div 
-              key={index}
-              className="p-6 rounded-xl border bg-card hover:shadow-lg transition-all hover:border-primary/50"
-            >
-              <div className="h-12 w-12 rounded-lg bg-primary/10 text-primary flex items-center justify-center mb-4">
-                {feature.icon}
-              </div>
-              <h3 className="text-lg font-semibold mb-2">{feature.title}</h3>
-              <p className="text-muted-foreground text-sm">{feature.description}</p>
-            </div>
-          ))}
+      <section className="relative overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-primary/5" />
+        <div className="container mx-auto px-4 py-20 lg:py-28 relative">
+          <div className="max-w-4xl mx-auto text-center space-y-6">
+            <Badge variant="secondary" className="px-4 py-1.5 text-sm font-medium">
+              Platform Features
+            </Badge>
+            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight leading-relaxed">
+              Everything You Need to{" "}
+              <span className="text-primary">Manage Your Workforce</span>
+            </h1>
+            <p className="text-lg md:text-xl text-muted-foreground max-w-3xl mx-auto leading-relaxed">
+              A complete suite of HR tools designed to simplify your operations, 
+              empower your team, and drive organizational success.
+            </p>
+          </div>
         </div>
       </section>
 
-      {/* CTA */}
-      <section className="bg-muted/50 py-16">
+      {/* Feature Sections */}
+      <section className="py-16">
+        {featureSections.map((feature, index) => (
+          <div 
+            key={index} 
+            className={`py-16 ${index % 2 === 1 ? 'bg-muted/30' : ''}`}
+          >
+            <div className="container mx-auto px-4">
+              <div className={`grid lg:grid-cols-2 gap-12 lg:gap-16 items-center ${feature.reversed ? 'lg:flex-row-reverse' : ''}`}>
+                <div className={feature.reversed ? 'lg:order-2' : ''}>
+                  <div className="h-16 w-16 rounded-2xl bg-primary/10 text-primary flex items-center justify-center mb-6">
+                    {feature.icon}
+                  </div>
+                  <h2 className="text-3xl md:text-4xl font-bold mb-4">{feature.title}</h2>
+                  <p className="text-lg text-muted-foreground mb-8 leading-relaxed">
+                    {feature.description}
+                  </p>
+                  <ul className="space-y-4">
+                    {feature.details.map((detail, detailIndex) => (
+                      <li key={detailIndex} className="flex items-start gap-4">
+                        <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0 text-primary">
+                          {detail.icon}
+                        </div>
+                        <span className="text-foreground pt-2">{detail.text}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                <div className={`${feature.reversed ? 'lg:order-1' : ''}`}>
+                  <div className="bg-gradient-to-br from-primary/10 via-primary/5 to-transparent rounded-3xl p-8 lg:p-12 aspect-square flex items-center justify-center">
+                    <div className="text-primary opacity-20">
+                      {React.cloneElement(feature.icon, { className: "h-48 w-48" })}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        ))}
+      </section>
+
+      {/* CTA Section */}
+      <section className="bg-primary text-primary-foreground py-20">
         <div className="container mx-auto px-4 text-center">
-          <h2 className="text-3xl font-bold mb-4">Ready to get started?</h2>
-          <p className="text-muted-foreground mb-6">
-            Join organizations using Peoplo to manage their workforce.
-          </p>
-          <div className="flex gap-4 justify-center">
-            <Link to="/auth">
-              <Button size="lg" className="gap-2">
-                Start Free <ArrowRight className="h-4 w-4" />
-              </Button>
-            </Link>
-            <a href="https://github.com" target="_blank" rel="noopener noreferrer">
-              <Button size="lg" variant="outline" className="gap-2">
-                <Github className="h-4 w-4" /> View Source
-              </Button>
-            </a>
+          <div className="max-w-3xl mx-auto space-y-6">
+            <h2 className="text-3xl md:text-4xl font-bold">
+              Ready to Transform Your HR Operations?
+            </h2>
+            <p className="text-primary-foreground/80 text-lg">
+              Join thousands of companies that have modernized their HR with Peoplo. 
+              Start your free trial today — no credit card required.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center pt-4">
+              <Link to="/auth">
+                <Button size="lg" variant="secondary" className="gap-2 px-8 h-12">
+                  Start Free Trial <ArrowRight className="h-4 w-4" />
+                </Button>
+              </Link>
+              <a href="https://cal.com/littlemissbot/business-consultancy" target="_blank" rel="noopener noreferrer">
+                <Button size="lg" variant="secondary" className="gap-2 px-8 h-12">
+                  Talk to Sales
+                </Button>
+              </a>
+            </div>
           </div>
         </div>
       </section>
 
       {/* Footer */}
-      <footer className="border-t py-12">
+      <footer className="border-t py-16 bg-muted/30">
         <div className="container mx-auto px-4">
-          <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-            <div className="flex items-center gap-2">
-              <img src={hrHubLogo} alt="Peoplo" className="h-6 w-auto" />
-              <span className="font-semibold">Peoplo</span>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-12">
+            <div className="col-span-2 md:col-span-1">
+              <Link to="/" className="flex items-center gap-2 mb-4">
+                <img src={hrHubLogo} alt="Peoplo" className="h-7 w-auto" />
+                <span className="font-bold text-lg">Peoplo</span>
+              </Link>
+              <p className="text-sm text-muted-foreground">
+                The complete HR platform for modern enterprises.
+              </p>
             </div>
-            <div className="flex gap-6 text-sm text-muted-foreground">
-              <Link to="/features" className="hover:text-foreground">Features</Link>
-              <Link to="/how-it-works" className="hover:text-foreground">How It Works</Link>
-              <Link to="/pricing" className="hover:text-foreground">Pricing</Link>
+            <div>
+              <h4 className="font-semibold mb-4 text-sm">Product</h4>
+              <ul className="space-y-3 text-sm text-muted-foreground">
+                <li><Link to="/features" className="hover:text-foreground transition-colors">Features</Link></li>
+                <li><Link to="/pricing" className="hover:text-foreground transition-colors">Pricing</Link></li>
+                <li><Link to="/how-it-works" className="hover:text-foreground transition-colors">How It Works</Link></li>
+              </ul>
             </div>
+            <div>
+              <h4 className="font-semibold mb-4 text-sm">Company</h4>
+              <ul className="space-y-3 text-sm text-muted-foreground">
+                <li><a href="#" className="hover:text-foreground transition-colors">About</a></li>
+                <li><a href="#" className="hover:text-foreground transition-colors">Careers</a></li>
+                <li><a href="#" className="hover:text-foreground transition-colors">Contact</a></li>
+              </ul>
+            </div>
+            <div>
+              <h4 className="font-semibold mb-4 text-sm">Legal</h4>
+              <ul className="space-y-3 text-sm text-muted-foreground">
+                <li><a href="#" className="hover:text-foreground transition-colors">Privacy Policy</a></li>
+                <li><a href="#" className="hover:text-foreground transition-colors">Terms of Service</a></li>
+                <li><a href="#" className="hover:text-foreground transition-colors">Security</a></li>
+              </ul>
+            </div>
+          </div>
+          <div className="border-t pt-8 flex flex-col md:flex-row justify-between items-center gap-4">
             <p className="text-sm text-muted-foreground">
-              © {new Date().getFullYear()} Peoplo. Open Source.
+              © {new Date().getFullYear()} Peoplo. All rights reserved.
             </p>
+            <div className="flex items-center gap-4">
+              <a href="https://github.com" target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-foreground transition-colors">
+                <Github className="h-5 w-5" />
+              </a>
+            </div>
           </div>
         </div>
       </footer>
