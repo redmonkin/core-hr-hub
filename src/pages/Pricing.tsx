@@ -1,10 +1,11 @@
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
 import { 
   Check,
   ArrowRight,
   Github,
-  Server,
   Cloud,
   Zap,
   HeartHandshake
@@ -63,7 +64,7 @@ const plans = [
       "Onboarding assistance"
     ],
     cta: "Contact Sales",
-    ctaLink: "/auth",
+    ctaLink: "https://cal.com/littlemissbot/business-consultancy",
     variant: "outline" as const,
     highlight: false
   }
@@ -98,144 +99,205 @@ const Pricing = () => {
             <img src={hrHubLogo} alt="Peoplo" className="h-8 w-auto" />
             <span className="text-xl font-bold">Peoplo</span>
           </Link>
-          <div className="hidden md:flex items-center gap-6">
-            <Link to="/features" className="text-muted-foreground hover:text-foreground transition-colors">
+          <div className="hidden md:flex items-center gap-8">
+            <Link to="/features" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
               Features
             </Link>
-            <Link to="/how-it-works" className="text-muted-foreground hover:text-foreground transition-colors">
+            <Link to="/how-it-works" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
               How It Works
             </Link>
-            <Link to="/pricing" className="text-foreground font-medium">
+            <Link to="/pricing" className="text-sm font-medium text-foreground transition-colors">
               Pricing
             </Link>
           </div>
           <div className="flex items-center gap-3">
             <Link to="/auth">
-              <Button variant="ghost">Sign In</Button>
+              <Button variant="ghost" size="sm">Sign In</Button>
             </Link>
-            <Link to="/auth">
-              <Button>Get Started</Button>
-            </Link>
+            <a href="https://cal.com/littlemissbot/business-consultancy" target="_blank" rel="noopener noreferrer">
+              <Button size="sm">Request Demo</Button>
+            </a>
           </div>
         </div>
       </nav>
 
       {/* Hero */}
-      <section className="container mx-auto px-4 py-16 text-center">
-        <div className="inline-flex items-center gap-2 bg-primary/10 text-primary px-4 py-2 rounded-full text-sm font-medium mb-4">
-          <HeartHandshake className="h-4 w-4" />
-          Open Source First
+      <section className="relative overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-primary/5" />
+        <div className="container mx-auto px-4 py-20 lg:py-28 relative">
+          <div className="max-w-4xl mx-auto text-center space-y-6">
+            <Badge variant="secondary" className="px-4 py-1.5 text-sm font-medium">
+              <HeartHandshake className="h-3.5 w-3.5 mr-2" />
+              Open Source First
+            </Badge>
+            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight leading-relaxed">
+              Simple, <span className="text-primary">Transparent</span> Pricing
+            </h1>
+            <p className="text-lg md:text-xl text-muted-foreground max-w-3xl mx-auto leading-relaxed">
+              Free forever for self-hosted. Affordable cloud hosting for those who prefer managed infrastructure.
+            </p>
+          </div>
         </div>
-        <h1 className="text-4xl md:text-5xl font-bold mb-4">
-          Simple, Transparent Pricing
-        </h1>
-        <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-          Free forever for self-hosted. Affordable cloud hosting for those who prefer it.
-        </p>
       </section>
 
       {/* Pricing Cards */}
-      <section className="container mx-auto px-4 pb-16">
-        <div className="grid md:grid-cols-3 gap-6 max-w-5xl mx-auto">
+      <section className="container mx-auto px-4 pb-20">
+        <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
           {plans.map((plan, index) => (
-            <div 
+            <Card 
               key={index}
-              className={`relative p-6 rounded-xl border bg-card ${
+              className={`relative hover:shadow-lg transition-all duration-300 ${
                 plan.highlight 
                   ? 'border-primary shadow-lg ring-1 ring-primary' 
-                  : 'hover:border-primary/50'
-              } transition-all`}
+                  : 'hover:border-primary/30'
+              }`}
             >
               {plan.highlight && (
-                <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-primary text-primary-foreground text-xs font-medium px-3 py-1 rounded-full">
+                <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-primary text-primary-foreground text-xs font-medium px-4 py-1.5 rounded-full">
                   Most Popular
                 </div>
               )}
-              <div className="h-12 w-12 rounded-lg bg-primary/10 text-primary flex items-center justify-center mb-4">
-                {plan.icon}
-              </div>
-              <h3 className="text-xl font-semibold mb-1">{plan.name}</h3>
-              <div className="flex items-baseline gap-1 mb-2">
-                <span className="text-3xl font-bold">{plan.price}</span>
-                {plan.period && (
-                  <span className="text-muted-foreground">{plan.period}</span>
+              <CardContent className="p-8">
+                <div className="h-14 w-14 rounded-2xl bg-primary/10 text-primary flex items-center justify-center mb-5">
+                  {plan.icon}
+                </div>
+                <h3 className="text-xl font-semibold mb-2">{plan.name}</h3>
+                <div className="flex items-baseline gap-1 mb-3">
+                  <span className="text-4xl font-bold">{plan.price}</span>
+                  {plan.period && (
+                    <span className="text-muted-foreground text-lg">{plan.period}</span>
+                  )}
+                </div>
+                <p className="text-muted-foreground mb-8">{plan.description}</p>
+                <ul className="space-y-4 mb-8">
+                  {plan.features.map((feature, featureIndex) => (
+                    <li key={featureIndex} className="flex items-center gap-3">
+                      <div className="h-5 w-5 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                        <Check className="h-3 w-3 text-primary" />
+                      </div>
+                      <span>{feature}</span>
+                    </li>
+                  ))}
+                </ul>
+                {plan.ctaLink.startsWith('http') ? (
+                  <a href={plan.ctaLink} target="_blank" rel="noopener noreferrer" className="block">
+                    <Button variant={plan.variant} className="w-full gap-2 h-12">
+                      {plan.name === "Open Source" && <Github className="h-4 w-4" />}
+                      {plan.cta}
+                      {plan.name !== "Open Source" && <ArrowRight className="h-4 w-4" />}
+                    </Button>
+                  </a>
+                ) : (
+                  <Link to={plan.ctaLink} className="block">
+                    <Button variant={plan.variant} className="w-full gap-2 h-12">
+                      {plan.cta} <ArrowRight className="h-4 w-4" />
+                    </Button>
+                  </Link>
                 )}
-              </div>
-              <p className="text-sm text-muted-foreground mb-6">{plan.description}</p>
-              <ul className="space-y-3 mb-6">
-                {plan.features.map((feature, featureIndex) => (
-                  <li key={featureIndex} className="flex items-center gap-2 text-sm">
-                    <Check className="h-4 w-4 text-primary flex-shrink-0" />
-                    <span>{feature}</span>
-                  </li>
-                ))}
-              </ul>
-              {plan.ctaLink.startsWith('http') ? (
-                <a href={plan.ctaLink} target="_blank" rel="noopener noreferrer" className="block">
-                  <Button variant={plan.variant} className="w-full gap-2">
-                    {plan.name === "Open Source" && <Github className="h-4 w-4" />}
-                    {plan.cta}
-                    {plan.name !== "Open Source" && <ArrowRight className="h-4 w-4" />}
-                  </Button>
-                </a>
-              ) : (
-                <Link to={plan.ctaLink} className="block">
-                  <Button variant={plan.variant} className="w-full gap-2">
-                    {plan.cta} <ArrowRight className="h-4 w-4" />
-                  </Button>
-                </Link>
-              )}
-            </div>
+              </CardContent>
+            </Card>
           ))}
         </div>
       </section>
 
       {/* FAQ Section */}
-      <section className="bg-muted/50 py-16">
+      <section className="bg-muted/30 py-20">
         <div className="container mx-auto px-4">
-          <h2 className="text-3xl font-bold text-center mb-10">
-            Frequently Asked Questions
-          </h2>
+          <div className="text-center mb-12">
+            <Badge variant="outline" className="mb-4">FAQ</Badge>
+            <h2 className="text-3xl md:text-4xl font-bold mb-4">
+              Frequently Asked Questions
+            </h2>
+            <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+              Everything you need to know about our pricing and plans.
+            </p>
+          </div>
           <div className="grid md:grid-cols-2 gap-6 max-w-4xl mx-auto">
             {faqs.map((faq, index) => (
-              <div key={index} className="p-6 rounded-xl border bg-card">
-                <h3 className="font-semibold mb-2">{faq.question}</h3>
-                <p className="text-sm text-muted-foreground">{faq.answer}</p>
-              </div>
+              <Card key={index} className="hover:shadow-lg transition-all duration-300 hover:border-primary/30">
+                <CardContent className="p-6">
+                  <h3 className="font-semibold text-lg mb-3">{faq.question}</h3>
+                  <p className="text-muted-foreground">{faq.answer}</p>
+                </CardContent>
+              </Card>
             ))}
           </div>
         </div>
       </section>
 
-      {/* CTA */}
-      <section className="container mx-auto px-4 py-16 text-center">
-        <h2 className="text-3xl font-bold mb-4">Start for free today</h2>
-        <p className="text-muted-foreground mb-6">
-          No credit card required. Get started in minutes.
-        </p>
-        <Link to="/auth">
-          <Button size="lg" className="gap-2">
-            Get Started <ArrowRight className="h-4 w-4" />
-          </Button>
-        </Link>
+      {/* CTA Section */}
+      <section className="bg-primary text-primary-foreground py-20">
+        <div className="container mx-auto px-4 text-center">
+          <div className="max-w-3xl mx-auto space-y-6">
+            <h2 className="text-3xl md:text-4xl font-bold">
+              Start for Free Today
+            </h2>
+            <p className="text-primary-foreground/80 text-lg">
+              No credit card required. Get started in minutes and see the difference.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center pt-4">
+              <Link to="/auth">
+                <Button size="lg" variant="secondary" className="gap-2 px-8 h-12">
+                  Start Free Trial <ArrowRight className="h-4 w-4" />
+                </Button>
+              </Link>
+              <a href="https://cal.com/littlemissbot/business-consultancy" target="_blank" rel="noopener noreferrer">
+                <Button size="lg" variant="secondary" className="gap-2 px-8 h-12">
+                  Talk to Sales
+                </Button>
+              </a>
+            </div>
+          </div>
+        </div>
       </section>
 
       {/* Footer */}
-      <footer className="border-t py-12">
+      <footer className="border-t py-16 bg-muted/30">
         <div className="container mx-auto px-4">
-          <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-            <div className="flex items-center gap-2">
-              <img src={hrHubLogo} alt="Peoplo" className="h-6 w-auto" />
-              <span className="font-semibold">Peoplo</span>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-12">
+            <div className="col-span-2 md:col-span-1">
+              <Link to="/" className="flex items-center gap-2 mb-4">
+                <img src={hrHubLogo} alt="Peoplo" className="h-7 w-auto" />
+                <span className="font-bold text-lg">Peoplo</span>
+              </Link>
+              <p className="text-sm text-muted-foreground">
+                The complete HR platform for modern enterprises.
+              </p>
             </div>
-            <div className="flex gap-6 text-sm text-muted-foreground">
-              <Link to="/features" className="hover:text-foreground">Features</Link>
-              <Link to="/how-it-works" className="hover:text-foreground">How It Works</Link>
-              <Link to="/pricing" className="hover:text-foreground">Pricing</Link>
+            <div>
+              <h4 className="font-semibold mb-4 text-sm">Product</h4>
+              <ul className="space-y-3 text-sm text-muted-foreground">
+                <li><Link to="/features" className="hover:text-foreground transition-colors">Features</Link></li>
+                <li><Link to="/pricing" className="hover:text-foreground transition-colors">Pricing</Link></li>
+                <li><Link to="/how-it-works" className="hover:text-foreground transition-colors">How It Works</Link></li>
+              </ul>
             </div>
+            <div>
+              <h4 className="font-semibold mb-4 text-sm">Company</h4>
+              <ul className="space-y-3 text-sm text-muted-foreground">
+                <li><a href="#" className="hover:text-foreground transition-colors">About</a></li>
+                <li><a href="#" className="hover:text-foreground transition-colors">Careers</a></li>
+                <li><a href="#" className="hover:text-foreground transition-colors">Contact</a></li>
+              </ul>
+            </div>
+            <div>
+              <h4 className="font-semibold mb-4 text-sm">Legal</h4>
+              <ul className="space-y-3 text-sm text-muted-foreground">
+                <li><a href="#" className="hover:text-foreground transition-colors">Privacy Policy</a></li>
+                <li><a href="#" className="hover:text-foreground transition-colors">Terms of Service</a></li>
+                <li><a href="#" className="hover:text-foreground transition-colors">Security</a></li>
+              </ul>
+            </div>
+          </div>
+          <div className="border-t pt-8 flex flex-col md:flex-row justify-between items-center gap-4">
             <p className="text-sm text-muted-foreground">
-              © {new Date().getFullYear()} Peoplo. Open Source.
+              © {new Date().getFullYear()} Peoplo. All rights reserved.
             </p>
+            <div className="flex items-center gap-4">
+              <a href="https://github.com" target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-foreground transition-colors">
+                <Github className="h-5 w-5" />
+              </a>
+            </div>
           </div>
         </div>
       </footer>
