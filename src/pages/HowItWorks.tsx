@@ -89,24 +89,24 @@ const HowItWorks = () => {
             <img src={hrHubLogo} alt="Peoplo" className="h-8 w-auto" />
             <span className="text-xl font-bold">Peoplo</span>
           </Link>
-          <div className="hidden md:flex items-center gap-6">
-            <Link to="/features" className="text-muted-foreground hover:text-foreground transition-colors">
+          <div className="hidden md:flex items-center gap-8">
+            <Link to="/features" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
               Features
             </Link>
-            <Link to="/how-it-works" className="text-foreground font-medium">
+            <Link to="/how-it-works" className="text-sm font-medium text-foreground transition-colors">
               How It Works
             </Link>
-            <Link to="/pricing" className="text-muted-foreground hover:text-foreground transition-colors">
+            <Link to="/pricing" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
               Pricing
             </Link>
           </div>
           <div className="flex items-center gap-3">
             <Link to="/auth">
-              <Button variant="ghost">Sign In</Button>
+              <Button variant="ghost" size="sm">Sign In</Button>
             </Link>
-            <Link to="/auth">
-              <Button>Get Started</Button>
-            </Link>
+            <a href="https://cal.com/littlemissbot/business-consultancy" target="_blank" rel="noopener noreferrer">
+              <Button size="sm">Request Demo</Button>
+            </a>
           </div>
         </div>
       </nav>
@@ -180,42 +180,80 @@ const HowItWorks = () => {
         </div>
       </section>
 
-      {/* CTA */}
-      <section className="container mx-auto px-4 py-16 text-center">
-        <h2 className="text-3xl font-bold mb-4">Ready to simplify your HR?</h2>
-        <p className="text-muted-foreground mb-6">
-          Start managing your workforce effectively today.
-        </p>
-        <div className="flex gap-4 justify-center">
-          <Link to="/auth">
-            <Button size="lg" className="gap-2">
-              Get Started <ArrowRight className="h-4 w-4" />
-            </Button>
-          </Link>
-          <a href="https://github.com" target="_blank" rel="noopener noreferrer">
-            <Button size="lg" variant="outline" className="gap-2">
-              <Github className="h-4 w-4" /> View on GitHub
-            </Button>
-          </a>
+      {/* CTA Section */}
+      <section className="bg-primary text-primary-foreground py-20">
+        <div className="container mx-auto px-4 text-center">
+          <div className="max-w-3xl mx-auto space-y-6">
+            <h2 className="text-3xl md:text-4xl font-bold">
+              Ready to Simplify Your HR?
+            </h2>
+            <p className="text-primary-foreground/80 text-lg">
+              Start managing your workforce effectively today. 
+              No credit card required for your free trial.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center pt-4">
+              <Link to="/auth">
+                <Button size="lg" variant="secondary" className="gap-2 px-8 h-12">
+                  Start Free Trial <ArrowRight className="h-4 w-4" />
+                </Button>
+              </Link>
+              <a href="https://cal.com/littlemissbot/business-consultancy" target="_blank" rel="noopener noreferrer">
+                <Button size="lg" variant="secondary" className="gap-2 px-8 h-12">
+                  Talk to Sales
+                </Button>
+              </a>
+            </div>
+          </div>
         </div>
       </section>
 
       {/* Footer */}
-      <footer className="border-t py-12">
+      <footer className="border-t py-16 bg-muted/30">
         <div className="container mx-auto px-4">
-          <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-            <div className="flex items-center gap-2">
-              <img src={hrHubLogo} alt="Peoplo" className="h-6 w-auto" />
-              <span className="font-semibold">Peoplo</span>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-12">
+            <div className="col-span-2 md:col-span-1">
+              <Link to="/" className="flex items-center gap-2 mb-4">
+                <img src={hrHubLogo} alt="Peoplo" className="h-7 w-auto" />
+                <span className="font-bold text-lg">Peoplo</span>
+              </Link>
+              <p className="text-sm text-muted-foreground">
+                The complete HR platform for modern enterprises.
+              </p>
             </div>
-            <div className="flex gap-6 text-sm text-muted-foreground">
-              <Link to="/features" className="hover:text-foreground">Features</Link>
-              <Link to="/how-it-works" className="hover:text-foreground">How It Works</Link>
-              <Link to="/pricing" className="hover:text-foreground">Pricing</Link>
+            <div>
+              <h4 className="font-semibold mb-4 text-sm">Product</h4>
+              <ul className="space-y-3 text-sm text-muted-foreground">
+                <li><Link to="/features" className="hover:text-foreground transition-colors">Features</Link></li>
+                <li><Link to="/pricing" className="hover:text-foreground transition-colors">Pricing</Link></li>
+                <li><Link to="/how-it-works" className="hover:text-foreground transition-colors">How It Works</Link></li>
+              </ul>
             </div>
+            <div>
+              <h4 className="font-semibold mb-4 text-sm">Company</h4>
+              <ul className="space-y-3 text-sm text-muted-foreground">
+                <li><a href="#" className="hover:text-foreground transition-colors">About</a></li>
+                <li><a href="#" className="hover:text-foreground transition-colors">Careers</a></li>
+                <li><a href="#" className="hover:text-foreground transition-colors">Contact</a></li>
+              </ul>
+            </div>
+            <div>
+              <h4 className="font-semibold mb-4 text-sm">Legal</h4>
+              <ul className="space-y-3 text-sm text-muted-foreground">
+                <li><a href="#" className="hover:text-foreground transition-colors">Privacy Policy</a></li>
+                <li><a href="#" className="hover:text-foreground transition-colors">Terms of Service</a></li>
+                <li><a href="#" className="hover:text-foreground transition-colors">Security</a></li>
+              </ul>
+            </div>
+          </div>
+          <div className="border-t pt-8 flex flex-col md:flex-row justify-between items-center gap-4">
             <p className="text-sm text-muted-foreground">
-              © {new Date().getFullYear()} Peoplo. Open Source.
+              © {new Date().getFullYear()} Peoplo. All rights reserved.
             </p>
+            <div className="flex items-center gap-4">
+              <a href="https://github.com" target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-foreground transition-colors">
+                <Github className="h-5 w-5" />
+              </a>
+            </div>
           </div>
         </div>
       </footer>
