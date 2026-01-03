@@ -68,7 +68,6 @@ const Landing = () => {
 
   const stats = [
     { value: "99.9%", label: "Uptime SLA", icon: <Zap className="h-5 w-5" /> },
-    { value: "SOC 2", label: "Compliant", icon: <Lock className="h-5 w-5" /> },
     { value: "50K+", label: "Employees Managed", icon: <Users className="h-5 w-5" /> },
     { value: "24/7", label: "Enterprise Support", icon: <HeadphonesIcon className="h-5 w-5" /> }
   ];
@@ -118,9 +117,9 @@ const Landing = () => {
             <Link to="/auth">
               <Button variant="ghost" size="sm">Sign In</Button>
             </Link>
-            <Link to="/auth">
+            <a href="https://cal.com/littlemissbot/business-consultancy" target="_blank" rel="noopener noreferrer">
               <Button size="sm">Request Demo</Button>
-            </Link>
+            </a>
           </div>
         </div>
       </nav>
@@ -152,11 +151,11 @@ const Landing = () => {
                   Start Free Trial <ArrowRight className="h-4 w-4" />
                 </Button>
               </Link>
-              <Link to="/auth">
+              <a href="https://cal.com/littlemissbot/business-consultancy" target="_blank" rel="noopener noreferrer">
                 <Button size="lg" variant="outline" className="gap-2 px-8 h-12 text-base">
                   Schedule Demo
                 </Button>
-              </Link>
+              </a>
             </div>
 
             <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-4 pt-8 text-sm text-muted-foreground">
@@ -327,11 +326,11 @@ const Landing = () => {
                   Start Free Trial <ArrowRight className="h-4 w-4" />
                 </Button>
               </Link>
-              <Link to="/auth">
-                <Button size="lg" variant="outline" className="gap-2 px-8 h-12 border-primary-foreground/30 text-primary-foreground hover:bg-primary-foreground/10">
+              <a href="https://cal.com/littlemissbot/business-consultancy" target="_blank" rel="noopener noreferrer">
+                <Button size="lg" variant="secondary" className="gap-2 px-8 h-12">
                   Talk to Sales
                 </Button>
-              </Link>
+              </a>
             </div>
           </div>
         </div>
