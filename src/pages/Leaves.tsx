@@ -1,3 +1,4 @@
+import { useNavigate } from "react-router-dom";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { LeaveRequestCard } from "@/components/leaves/LeaveRequestCard";
 import { Button } from "@/components/ui/button";
@@ -10,6 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useLeaveRequests, useLeaveStats, useUpdateLeaveStatus } from "@/hooks/useLeaves";
 
 const Leaves = () => {
+  const navigate = useNavigate();
   const { toast } = useToast();
   const { data: requests = [], isLoading } = useLeaveRequests();
   const { data: stats } = useLeaveStats();
@@ -75,7 +77,7 @@ const Leaves = () => {
             <h2 className="text-2xl font-bold text-foreground">Leave Management</h2>
             <p className="text-muted-foreground">Manage and track leave requests</p>
           </div>
-          <Button>
+          <Button onClick={() => navigate("/profile?tab=leaves")}>
             <Plus className="mr-2 h-4 w-4" />
             New Leave Request
           </Button>
