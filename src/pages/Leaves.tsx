@@ -1,18 +1,42 @@
-import { useNavigate } from "react-router-dom";
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { LeaveRequestCard } from "@/components/leaves/LeaveRequestCard";
+import { LeaveRequestForm } from "@/components/profile/LeaveRequestForm";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogDescription, DialogHeader as ModalHeader, DialogTitle as ModalTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Calendar, Plus, Clock, CheckCircle, XCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 import { useLeaveRequests, useLeaveStats, useUpdateLeaveStatus } from "@/hooks/useLeaves";
 
 const Leaves = () => {
-  const navigate = useNavigate();
+  const { user } = useAuth();
   const { toast } = useToast();
+  const [isNewRequestOpen, setIsNewRequestOpen] = useState(false);
+
+  const { data: myEmployeeId, isLoading: isLoadingMyEmployee } = useQuery({
+    queryKey: ["my-employee-id", user?.id],
+    queryFn: async () => {
+      if (!user?.id) return null;
+
+      const { data, error } = await supabase
+        .from("employees")
+        .select("id")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      if (error) throw error;
+      return data?.id ?? null;
+    },
+    enabled: !!user?.id,
+  });
+
   const { data: requests = [], isLoading } = useLeaveRequests();
   const { data: stats } = useLeaveStats();
   const updateStatus = useUpdateLeaveStatus();
@@ -77,10 +101,30 @@ const Leaves = () => {
             <h2 className="text-2xl font-bold text-foreground">Leave Management</h2>
             <p className="text-muted-foreground">Manage and track leave requests</p>
           </div>
-          <Button onClick={() => navigate("/profile?tab=leaves")}>
-            <Plus className="mr-2 h-4 w-4" />
-            New Leave Request
-          </Button>
+          <Dialog open={isNewRequestOpen} onOpenChange={setIsNewRequestOpen}>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="mr-2 h-4 w-4" />
+                New Leave Request
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-2xl">
+              <ModalHeader>
+                <ModalTitle>New Leave Request</ModalTitle>
+                <DialogDescription>Submit a leave request for approval.</DialogDescription>
+              </ModalHeader>
+
+              {isLoadingMyEmployee ? (
+                <Skeleton className="h-72 w-full" />
+              ) : !myEmployeeId ? (
+                <div className="rounded-lg border border-border bg-muted/30 p-4 text-sm text-muted-foreground">
+                  We couldn’t find an employee profile linked to your account. Please contact HR to link your profile.
+                </div>
+              ) : (
+                <LeaveRequestForm employeeId={myEmployeeId} />
+              )}
+            </DialogContent>
+          </Dialog>
         </div>
 
         {/* Stats */}

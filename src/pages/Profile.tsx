@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -58,6 +59,13 @@ const Profile = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const tabParam = (searchParams.get("tab") || "").toLowerCase();
+  const allowedTabs = ["profile", "leaves", "payslips", "documents"] as const;
+  const initialTab = allowedTabs.includes(tabParam as (typeof allowedTabs)[number]) ? tabParam : "profile";
+
+  const [activeTab, setActiveTab] = useState<string>(initialTab);
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState<ProfileForm>({
     phone: '',
@@ -67,6 +75,21 @@ const Profile = () => {
     date_of_birth: '',
     gender: '',
   });
+
+  useEffect(() => {
+    if (allowedTabs.includes(tabParam as (typeof allowedTabs)[number]) && tabParam !== activeTab) {
+      setActiveTab(tabParam);
+    }
+  }, [tabParam, activeTab]);
+
+  const handleTabChange = (value: string) => {
+    setActiveTab(value);
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.set("tab", value);
+      return next;
+    });
+  };
 
   // Fetch employee profile linked to current user
   const { data: employee, isLoading } = useQuery({
@@ -217,7 +240,7 @@ const Profile = () => {
             </CardContent>
           </Card>
         ) : (
-          <Tabs defaultValue="profile" className="space-y-6">
+          <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
             <TabsList className="grid w-full grid-cols-4 lg:w-auto lg:inline-flex">
               <TabsTrigger value="profile" className="gap-2">
                 <User className="h-4 w-4" />
