@@ -72,29 +72,33 @@ export function LeaveRequestCard({ request, onApprove, onReject }: LeaveRequestC
             </div>
           </div>
           <div className="flex items-center gap-2">
-            {request.status === "pending" ? (
+            {request.status === "pending" && (onApprove || onReject) ? (
               <>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="border-emerald-500/20 text-emerald-600 hover:bg-emerald-500/10"
-                  onClick={() => onApprove?.(request.id)}
-                >
-                  <Check className="mr-1 h-4 w-4" />
-                  Approve
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="border-destructive/20 text-destructive hover:bg-destructive/10"
-                  onClick={() => onReject?.(request.id)}
-                >
-                  <X className="mr-1 h-4 w-4" />
-                  Reject
-                </Button>
+                {onApprove && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="border-emerald-500/20 text-emerald-600 hover:bg-emerald-500/10"
+                    onClick={() => onApprove(request.id)}
+                  >
+                    <Check className="mr-1 h-4 w-4" />
+                    Approve
+                  </Button>
+                )}
+                {onReject && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="border-destructive/20 text-destructive hover:bg-destructive/10"
+                    onClick={() => onReject(request.id)}
+                  >
+                    <X className="mr-1 h-4 w-4" />
+                    Reject
+                  </Button>
+                )}
               </>
             ) : (
-              <Badge variant="outline" className={statusStyles[request.status]}>
+              <Badge variant="outline" className={statusStyles[request.status] || ""}>
                 {request.status}
               </Badge>
             )}

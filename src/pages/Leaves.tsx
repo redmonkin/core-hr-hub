@@ -14,11 +14,15 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useLeaveRequests, useLeaveStats, useUpdateLeaveStatus } from "@/hooks/useLeaves";
+import { useIsAdminOrHR } from "@/hooks/useUserRole";
 
 const Leaves = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const [isNewRequestOpen, setIsNewRequestOpen] = useState(false);
+  const { isAdminOrHR, roles } = useIsAdminOrHR();
+  
+  const canApproveLeaves = isAdminOrHR || roles.includes("manager");
 
   const { data: myEmployeeId, isLoading: isLoadingMyEmployee } = useQuery({
     queryKey: ["my-employee-id", user?.id],
@@ -177,8 +181,8 @@ const Leaves = () => {
                 <LeaveRequestCard
                   key={request.id}
                   request={request}
-                  onApprove={handleApprove}
-                  onReject={handleReject}
+                  onApprove={canApproveLeaves ? handleApprove : undefined}
+                  onReject={canApproveLeaves ? handleReject : undefined}
                 />
               ))
             )}
