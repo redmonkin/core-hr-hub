@@ -6,13 +6,18 @@ import { QuickActions } from "@/components/dashboard/QuickActions";
 import { PerformanceWidget } from "@/components/dashboard/PerformanceWidget";
 import { PendingApprovalsWidget } from "@/components/dashboard/PendingApprovalsWidget";
 import { TeamLeaveCalendar } from "@/components/dashboard/TeamLeaveCalendar";
+import { NonEmployeeDashboard } from "@/components/dashboard/NonEmployeeDashboard";
 import { Users, Calendar, Package, CreditCard, ClipboardCheck } from "lucide-react";
 import { useDashboardStats } from "@/hooks/useDashboardStats";
+import { useEmployeeStatus } from "@/hooks/useEmployeeStatus";
+import { useIsAdminOrHR } from "@/hooks/useUserRole";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useNavigate } from "react-router-dom";
 
 const Index = () => {
   const { data: stats, isLoading } = useDashboardStats();
+  const { data: employeeStatus, isLoading: isEmployeeStatusLoading } = useEmployeeStatus();
+  const { isAdminOrHR, isLoading: isRoleLoading } = useIsAdminOrHR();
   const navigate = useNavigate();
   const hasPendingApprovals = (stats?.pendingApprovals ?? 0) > 0;
 
@@ -24,6 +29,30 @@ const Index = () => {
       maximumFractionDigits: 0,
     }).format(amount);
   };
+
+  // Show loading state while checking employee status
+  if (isEmployeeStatusLoading || isRoleLoading) {
+    return (
+      <DashboardLayout>
+        <div className="space-y-6">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {[1, 2, 3, 4].map((i) => (
+              <Skeleton key={i} className="h-32 rounded-xl" />
+            ))}
+          </div>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  // Show non-employee dashboard if user is not an employee and not admin/HR
+  if (!employeeStatus?.isEmployee && !isAdminOrHR) {
+    return (
+      <DashboardLayout>
+        <NonEmployeeDashboard />
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout>
