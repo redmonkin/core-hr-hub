@@ -1,10 +1,26 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.87.1";
-import { Resend } from "https://esm.sh/resend@2.0.0";
+import { createClient } from "npm:@supabase/supabase-js@2.87.1";
 
-const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
+const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+const sendEmail = async (to: string[], subject: string, html: string) => {
+  const res = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${RESEND_API_KEY}`,
+    },
+    body: JSON.stringify({
+      from: "HR System <onboarding@resend.dev>",
+      to,
+      subject,
+      html,
+    }),
+  });
+  return res.json();
+};
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -156,11 +172,10 @@ serve(async (req) => {
         if (wantsGoalReminders) {
           console.log(`Sending email reminder to ${employee.email}`);
           emailPromises.push(
-            resend.emails.send({
-              from: "HR System <onboarding@resend.dev>",
-              to: [employee.email],
-              subject: title,
-              html: `
+            sendEmail(
+              [employee.email],
+              title,
+              `
                 <h2>${title}</h2>
                 <p>Hi ${employee.first_name},</p>
                 <p>${message}</p>
@@ -172,8 +187,8 @@ serve(async (req) => {
                 </p>
                 <p style="color: #999; font-size: 12px; margin-top: 30px;">You can manage your notification preferences in your profile settings.</p>
                 <p style="margin-top: 20px;">Best regards,<br>HR Team</p>
-              `,
-            }).catch(err => {
+              `
+            ).catch((err: Error) => {
               console.error(`Failed to send email to ${employee.email}:`, err);
               return null;
             })

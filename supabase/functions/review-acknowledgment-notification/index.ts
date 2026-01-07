@@ -1,10 +1,26 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.87.1";
-import { Resend } from "https://esm.sh/resend@2.0.0";
+import { createClient } from "npm:@supabase/supabase-js@2.87.1";
 
-const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
+const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+const sendEmail = async (to: string[], subject: string, html: string) => {
+  const res = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${RESEND_API_KEY}`,
+    },
+    body: JSON.stringify({
+      from: "HR System <onboarding@resend.dev>",
+      to,
+      subject,
+      html,
+    }),
+  });
+  return res.json();
+};
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -82,11 +98,10 @@ serve(async (req) => {
     }
 
     // Send email to reviewer
-    const emailResult = await resend.emails.send({
-      from: "HR System <onboarding@resend.dev>",
-      to: [reviewer.email],
-      subject: `Performance Review Acknowledged - ${payload.employee_name}`,
-      html: `
+    const emailResult = await sendEmail(
+      [reviewer.email],
+      `Performance Review Acknowledged - ${payload.employee_name}`,
+      `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <h2 style="color: #333;">Performance Review Acknowledged</h2>
           <p>Hi ${reviewer.first_name},</p>
@@ -102,8 +117,8 @@ serve(async (req) => {
           
           <p style="margin-top: 30px;">Best regards,<br>HR System</p>
         </div>
-      `,
-    });
+      `
+    );
 
     console.log("Acknowledgment email sent:", emailResult);
 
