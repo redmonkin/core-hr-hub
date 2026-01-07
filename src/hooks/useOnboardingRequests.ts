@@ -33,6 +33,13 @@ export function useOnboardingRequests() {
 
   const approveRequest = useMutation({
     mutationFn: async ({ requestId, userId }: { requestId: string; userId: string }) => {
+      // Get request details first
+      const { data: request } = await supabase
+        .from("onboarding_requests")
+        .select("email, full_name")
+        .eq("id", requestId)
+        .single();
+
       const { error } = await supabase
         .from("onboarding_requests")
         .update({
@@ -43,6 +50,22 @@ export function useOnboardingRequests() {
         .eq("id", requestId);
 
       if (error) throw error;
+
+      // Send notification to user
+      if (request) {
+        try {
+          await supabase.functions.invoke("onboarding-request-notification", {
+            body: {
+              type: "approved",
+              request_id: requestId,
+              user_email: request.email,
+              user_name: request.full_name,
+            },
+          });
+        } catch (notifError) {
+          console.error("Failed to send approval notification:", notifError);
+        }
+      }
     },
     onSuccess: () => {
       toast.success("Request approved successfully!");
@@ -55,6 +78,13 @@ export function useOnboardingRequests() {
 
   const rejectRequest = useMutation({
     mutationFn: async ({ requestId, userId }: { requestId: string; userId: string }) => {
+      // Get request details first
+      const { data: request } = await supabase
+        .from("onboarding_requests")
+        .select("email, full_name")
+        .eq("id", requestId)
+        .single();
+
       const { error } = await supabase
         .from("onboarding_requests")
         .update({
@@ -65,6 +95,22 @@ export function useOnboardingRequests() {
         .eq("id", requestId);
 
       if (error) throw error;
+
+      // Send notification to user
+      if (request) {
+        try {
+          await supabase.functions.invoke("onboarding-request-notification", {
+            body: {
+              type: "rejected",
+              request_id: requestId,
+              user_email: request.email,
+              user_name: request.full_name,
+            },
+          });
+        } catch (notifError) {
+          console.error("Failed to send rejection notification:", notifError);
+        }
+      }
     },
     onSuccess: () => {
       toast.success("Request rejected");

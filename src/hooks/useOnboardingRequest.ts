@@ -35,14 +35,31 @@ export function useOnboardingRequest() {
         .eq("id", user.id)
         .single();
 
-      const { error } = await supabase.from("onboarding_requests").insert({
+      const fullName = profile?.full_name || user.email.split("@")[0];
+
+      const { data, error } = await supabase.from("onboarding_requests").insert({
         user_id: user.id,
         email: user.email,
-        full_name: profile?.full_name || user.email.split("@")[0],
+        full_name: fullName,
         message,
-      });
+      }).select().single();
 
       if (error) throw error;
+
+      // Send notification to HR
+      try {
+        await supabase.functions.invoke("onboarding-request-notification", {
+          body: {
+            type: "submitted",
+            request_id: data.id,
+            user_email: user.email,
+            user_name: fullName,
+            message,
+          },
+        });
+      } catch (notifError) {
+        console.error("Failed to send notification:", notifError);
+      }
     },
     onSuccess: () => {
       toast.success("Onboarding request submitted successfully!");

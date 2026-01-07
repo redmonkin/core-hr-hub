@@ -23,3 +23,6 @@ verify_jwt = false
 
 [functions.event-notification]
 verify_jwt = false
+
+[functions.onboarding-request-notification]
+verify_jwt = false
