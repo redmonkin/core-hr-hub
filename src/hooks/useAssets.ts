@@ -10,6 +10,7 @@ export interface Asset {
   purchaseDate: string;
   cost: number;
   status: "available" | "assigned" | "maintenance" | "retired";
+  notes?: string;
   assignedTo?: {
     name: string;
     avatar?: string;
@@ -29,7 +30,8 @@ export function useAssets() {
           serial_number,
           purchase_date,
           purchase_cost,
-          status
+          status,
+          notes
         `)
         .order("created_at", { ascending: false });
 
@@ -66,6 +68,7 @@ export function useAssets() {
             : "Unknown",
           cost: Number(asset.purchase_cost) || 0,
           status: asset.status as Asset["status"],
+          notes: asset.notes || undefined,
           assignedTo: assignedEmployee
             ? {
                 name: `${assignedEmployee.first_name} ${assignedEmployee.last_name}`,
@@ -142,6 +145,7 @@ export interface UpdateAssetData {
   purchase_date?: string;
   purchase_cost?: number;
   vendor?: string;
+  notes?: string;
   status?: "available" | "assigned" | "maintenance" | "retired";
 }
 

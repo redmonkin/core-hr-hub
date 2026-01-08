@@ -3,6 +3,7 @@ import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { AssetCard } from "@/components/assets/AssetCard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -50,6 +51,7 @@ const Assets = () => {
     purchase_date: "",
     purchase_cost: "",
     vendor: "",
+    notes: "",
   });
 
   const { data: assets = [], isLoading } = useAssets();
@@ -80,6 +82,7 @@ const Assets = () => {
         purchase_date: formData.purchase_date || undefined,
         purchase_cost: formData.purchase_cost ? parseFloat(formData.purchase_cost) : undefined,
         vendor: formData.vendor || undefined,
+        notes: formData.notes || undefined,
       },
       {
         onSuccess: () => {
@@ -92,6 +95,7 @@ const Assets = () => {
             purchase_date: "",
             purchase_cost: "",
             vendor: "",
+            notes: "",
           });
         },
         onError: () => {
@@ -110,6 +114,7 @@ const Assets = () => {
       purchase_date: "",
       purchase_cost: asset.cost.toString(),
       vendor: "",
+      notes: asset.notes || "",
     });
     setIsEditDialogOpen(true);
   };
@@ -128,6 +133,7 @@ const Assets = () => {
         purchase_date: formData.purchase_date || undefined,
         purchase_cost: formData.purchase_cost ? parseFloat(formData.purchase_cost) : undefined,
         vendor: formData.vendor || undefined,
+        notes: formData.notes || undefined,
       },
       {
         onSuccess: () => {
@@ -345,6 +351,16 @@ const Assets = () => {
                 placeholder="e.g., Apple Store"
               />
             </div>
+            <div className="space-y-2">
+              <Label htmlFor="notes">Notes</Label>
+              <Textarea
+                id="notes"
+                value={formData.notes}
+                onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                placeholder="e.g., 16GB RAM, 512GB SSD, M3 Pro chip"
+                rows={3}
+              />
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
@@ -428,6 +444,16 @@ const Assets = () => {
                 value={formData.vendor}
                 onChange={(e) => setFormData({ ...formData, vendor: e.target.value })}
                 placeholder="e.g., Apple Store"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-notes">Notes</Label>
+              <Textarea
+                id="edit-notes"
+                value={formData.notes}
+                onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                placeholder="e.g., 16GB RAM, 512GB SSD, M3 Pro chip"
+                rows={3}
               />
             </div>
           </div>
