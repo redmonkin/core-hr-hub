@@ -33,7 +33,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import { Plus, Search, Package, Laptop, Monitor, Smartphone } from "lucide-react";
-import { useAssets, useAssetStats, useCreateAsset, useUpdateAsset, useDeleteAsset, type Asset } from "@/hooks/useAssets";
+import { useAssets, useAssetStats, useCreateAsset, useUpdateAsset, useDeleteAsset, useAssignAsset, useReturnAsset, type Asset } from "@/hooks/useAssets";
+import { useEmployees } from "@/hooks/useEmployees";
 import { toast } from "sonner";
 
 const Assets = () => {
@@ -43,7 +44,10 @@ const Assets = () => {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false);
   const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null);
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState("");
+  const [assignmentNotes, setAssignmentNotes] = useState("");
   const [formData, setFormData] = useState({
     name: "",
     category: "laptop",
@@ -56,9 +60,12 @@ const Assets = () => {
 
   const { data: assets = [], isLoading } = useAssets();
   const { data: stats } = useAssetStats();
+  const { data: employees = [] } = useEmployees();
   const createAsset = useCreateAsset();
   const updateAsset = useUpdateAsset();
   const deleteAsset = useDeleteAsset();
+  const assignAsset = useAssignAsset();
+  const returnAsset = useReturnAsset();
 
   const filteredAssets = assets.filter((asset) => {
     const matchesSearch =
@@ -163,6 +170,50 @@ const Assets = () => {
       },
       onError: () => {
         toast.error("Failed to delete asset");
+      },
+    });
+  };
+
+  const handleAssignAsset = (asset: Asset) => {
+    setSelectedAsset(asset);
+    setSelectedEmployeeId("");
+    setAssignmentNotes("");
+    setIsAssignDialogOpen(true);
+  };
+
+  const confirmAssign = () => {
+    if (!selectedAsset || !selectedEmployeeId) {
+      toast.error("Please select an employee");
+      return;
+    }
+    assignAsset.mutate(
+      {
+        assetId: selectedAsset.id,
+        employeeId: selectedEmployeeId,
+        notes: assignmentNotes || undefined,
+      },
+      {
+        onSuccess: () => {
+          toast.success("Asset assigned successfully");
+          setIsAssignDialogOpen(false);
+          setSelectedAsset(null);
+          setSelectedEmployeeId("");
+          setAssignmentNotes("");
+        },
+        onError: () => {
+          toast.error("Failed to assign asset");
+        },
+      }
+    );
+  };
+
+  const handleReturnAsset = (asset: Asset) => {
+    returnAsset.mutate(asset.id, {
+      onSuccess: () => {
+        toast.success("Asset marked as returned");
+      },
+      onError: () => {
+        toast.error("Failed to return asset");
       },
     });
   };
@@ -273,6 +324,8 @@ const Assets = () => {
                 asset={asset} 
                 onEdit={handleEditAsset}
                 onDelete={handleDeleteAsset}
+                onAssign={handleAssignAsset}
+                onReturn={handleReturnAsset}
               />
             ))}
           </div>
@@ -488,6 +541,55 @@ const Assets = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Assign Asset Dialog */}
+      <Dialog open={isAssignDialogOpen} onOpenChange={setIsAssignDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Assign Asset</DialogTitle>
+            <DialogDescription>
+              Assign "{selectedAsset?.name}" to an employee.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="employee">Select Employee *</Label>
+              <Select value={selectedEmployeeId} onValueChange={setSelectedEmployeeId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Choose an employee" />
+                </SelectTrigger>
+                <SelectContent>
+                  {employees
+                    .filter((emp) => emp.status === "active")
+                    .map((emp) => (
+                      <SelectItem key={emp.id} value={emp.id}>
+                        {emp.name} - {emp.department}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="assign-notes">Notes (optional)</Label>
+              <Textarea
+                id="assign-notes"
+                value={assignmentNotes}
+                onChange={(e) => setAssignmentNotes(e.target.value)}
+                placeholder="e.g., Assigned for project work"
+                rows={2}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsAssignDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={confirmAssign} disabled={assignAsset.isPending || !selectedEmployeeId}>
+              {assignAsset.isPending ? "Assigning..." : "Assign Asset"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </DashboardLayout>
   );
 };
