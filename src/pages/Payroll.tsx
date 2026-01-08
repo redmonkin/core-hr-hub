@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { PayrollTable } from "@/components/payroll/PayrollTable";
+import { PayslipViewDialog } from "@/components/payroll/PayslipViewDialog";
 import { SalaryStructureManager } from "@/components/payroll/SalaryStructureManager";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -22,6 +23,8 @@ import { useIsAdminOrHR } from "@/hooks/useUserRole";
 const Payroll = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [monthFilter, setMonthFilter] = useState("current");
+  const [viewDialogOpen, setViewDialogOpen] = useState(false);
+  const [selectedRecord, setSelectedRecord] = useState<PayrollRecord | null>(null);
   const { toast } = useToast();
   const { isAdminOrHR, isLoading: roleLoading } = useIsAdminOrHR();
 
@@ -84,11 +87,9 @@ const Payroll = () => {
     );
   }
 
-  const handleView = (record: { employee: { name: string } }) => {
-    toast({
-      title: "View Payslip",
-      description: `Opening payslip for ${record.employee.name}`,
-    });
+  const handleView = (record: PayrollRecord) => {
+    setSelectedRecord(record);
+    setViewDialogOpen(true);
   };
 
   const handleMarkProcessed = (record: PayrollRecord) => {
@@ -366,6 +367,12 @@ const Payroll = () => {
           </TabsContent>
         </Tabs>
       </div>
+
+      <PayslipViewDialog
+        open={viewDialogOpen}
+        onOpenChange={setViewDialogOpen}
+        record={selectedRecord}
+      />
     </DashboardLayout>
   );
 };
