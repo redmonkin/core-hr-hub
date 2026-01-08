@@ -4,12 +4,16 @@ import { format } from "date-fns";
 
 export interface PayrollRecord {
   id: string;
+  employeeId: string;
+  employeeCode: string;
   employee: {
     name: string;
     email: string;
     avatar?: string;
   };
   month: string;
+  monthNum: number;
+  year: number;
   basic: number;
   allowances: number;
   deductions: number;
@@ -31,6 +35,7 @@ export function usePayrollRecords(month?: number, year?: number) {
         .from("payroll_records")
         .select(`
           id,
+          employee_id,
           month,
           year,
           basic_salary,
@@ -43,7 +48,8 @@ export function usePayrollRecords(month?: number, year?: number) {
             first_name,
             last_name,
             email,
-            avatar_url
+            avatar_url,
+            employee_code
           )
         `)
         .order("created_at", { ascending: false });
@@ -61,12 +67,16 @@ export function usePayrollRecords(month?: number, year?: number) {
 
       return (data || []).map((record): PayrollRecord => ({
         id: record.id,
+        employeeId: record.employee_id,
+        employeeCode: record.employee?.employee_code || "",
         employee: {
           name: `${record.employee?.first_name} ${record.employee?.last_name}`,
           email: record.employee?.email || "",
           avatar: record.employee?.avatar_url || undefined,
         },
         month: `${MONTH_NAMES[record.month - 1]} ${record.year}`,
+        monthNum: record.month,
+        year: record.year,
         basic: Number(record.basic_salary),
         allowances: Number(record.total_allowances),
         deductions: Number(record.total_deductions),

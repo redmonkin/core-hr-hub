@@ -83,13 +83,6 @@ const Payroll = () => {
     );
   }
 
-  const handleDownload = (record: { employee: { name: string } }) => {
-    toast({
-      title: "Downloading Payslip",
-      description: `Generating PDF for ${record.employee.name}...`,
-    });
-  };
-
   const handleView = (record: { employee: { name: string } }) => {
     toast({
       title: "View Payslip",
@@ -280,7 +273,6 @@ const Payroll = () => {
               <PayrollTable
                 records={filteredRecords}
                 onView={handleView}
-                onDownload={handleDownload}
                 onMarkProcessed={handleMarkProcessed}
                 onMarkPaid={handleMarkPaid}
                 onRevertToPending={handleRevertToPending}
