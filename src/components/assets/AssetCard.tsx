@@ -2,7 +2,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Laptop, Monitor, Smartphone, Headphones, MoreVertical, Edit, Trash2, UserPlus, RotateCcw } from "lucide-react";
+import { Laptop, Monitor, Smartphone, Headphones, MoreVertical, Edit, Trash2, UserPlus, RotateCcw, History } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -32,6 +32,7 @@ interface AssetCardProps {
   onReturn?: (asset: Asset) => void;
   onEdit?: (asset: Asset) => void;
   onDelete?: (asset: Asset) => void;
+  onViewHistory?: (asset: Asset) => void;
 }
 
 const typeIcons = {
@@ -47,7 +48,7 @@ const statusStyles = {
   maintenance: "bg-amber-500/10 text-amber-600 border-amber-500/20",
 };
 
-export function AssetCard({ asset, onAssign, onReturn, onEdit, onDelete }: AssetCardProps) {
+export function AssetCard({ asset, onAssign, onReturn, onEdit, onDelete, onViewHistory }: AssetCardProps) {
   return (
     <Card className="overflow-hidden transition-all duration-300 hover:shadow-lg">
       <CardContent className="p-6">
@@ -71,6 +72,10 @@ export function AssetCard({ asset, onAssign, onReturn, onEdit, onDelete }: Asset
               <DropdownMenuItem onClick={() => onEdit?.(asset)}>
                 <Edit className="mr-2 h-4 w-4" />
                 Edit Asset
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onViewHistory?.(asset)}>
+                <History className="mr-2 h-4 w-4" />
+                View History
               </DropdownMenuItem>
               {asset.status === "available" && (
                 <DropdownMenuItem onClick={() => onAssign?.(asset)}>

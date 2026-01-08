@@ -33,7 +33,10 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import { Plus, Search, Package, Laptop, Monitor, Smartphone } from "lucide-react";
-import { useAssets, useAssetStats, useCreateAsset, useUpdateAsset, useDeleteAsset, useAssignAsset, useReturnAsset, type Asset } from "@/hooks/useAssets";
+import { useAssets, useAssetStats, useCreateAsset, useUpdateAsset, useDeleteAsset, useAssignAsset, useReturnAsset, useAssetHistory, type Asset } from "@/hooks/useAssets";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { useEmployees } from "@/hooks/useEmployees";
 import { toast } from "sonner";
 
@@ -45,7 +48,9 @@ const Assets = () => {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false);
+  const [isHistoryDialogOpen, setIsHistoryDialogOpen] = useState(false);
   const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null);
+  const [historyAssetId, setHistoryAssetId] = useState<string | null>(null);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState("");
   const [assignmentNotes, setAssignmentNotes] = useState("");
   const [formData, setFormData] = useState({
@@ -66,6 +71,7 @@ const Assets = () => {
   const deleteAsset = useDeleteAsset();
   const assignAsset = useAssignAsset();
   const returnAsset = useReturnAsset();
+  const { data: assetHistory = [], isLoading: isHistoryLoading } = useAssetHistory(historyAssetId);
 
   const filteredAssets = assets.filter((asset) => {
     const matchesSearch =
@@ -218,6 +224,12 @@ const Assets = () => {
     });
   };
 
+  const handleViewHistory = (asset: Asset) => {
+    setSelectedAsset(asset);
+    setHistoryAssetId(asset.id);
+    setIsHistoryDialogOpen(true);
+  };
+
   const assetStats = [
     { label: "Total Assets", value: stats?.total || 0, icon: <Package className="h-5 w-5" /> },
     { label: "Laptops", value: stats?.laptops || 0, icon: <Laptop className="h-5 w-5" /> },
@@ -326,6 +338,7 @@ const Assets = () => {
                 onDelete={handleDeleteAsset}
                 onAssign={handleAssignAsset}
                 onReturn={handleReturnAsset}
+                onViewHistory={handleViewHistory}
               />
             ))}
           </div>
@@ -586,6 +599,74 @@ const Assets = () => {
             </Button>
             <Button onClick={confirmAssign} disabled={assignAsset.isPending || !selectedEmployeeId}>
               {assignAsset.isPending ? "Assigning..." : "Assign Asset"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Assignment History Dialog */}
+      <Dialog open={isHistoryDialogOpen} onOpenChange={(open) => {
+        setIsHistoryDialogOpen(open);
+        if (!open) {
+          setHistoryAssetId(null);
+          setSelectedAsset(null);
+        }
+      }}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Assignment History</DialogTitle>
+            <DialogDescription>
+              History for "{selectedAsset?.name}"
+            </DialogDescription>
+          </DialogHeader>
+          <ScrollArea className="max-h-[400px]">
+            {isHistoryLoading ? (
+              <div className="space-y-3 p-4">
+                {[1, 2, 3].map((i) => (
+                  <Skeleton key={i} className="h-20 w-full rounded-lg" />
+                ))}
+              </div>
+            ) : assetHistory.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-8 text-center">
+                <p className="text-muted-foreground">No assignment history found</p>
+              </div>
+            ) : (
+              <div className="space-y-3 p-1">
+                {assetHistory.map((assignment, index) => (
+                  <div
+                    key={assignment.id}
+                    className="rounded-lg border border-border p-4"
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-center gap-3">
+                        <Avatar className="h-10 w-10">
+                          <AvatarImage src={assignment.employee.avatar} />
+                          <AvatarFallback>
+                            {assignment.employee.name.split(" ").map((n) => n[0]).join("")}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div>
+                          <p className="font-medium text-foreground">{assignment.employee.name}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {assignment.assignedDate} — {assignment.returnedDate || "Present"}
+                          </p>
+                        </div>
+                      </div>
+                      <Badge variant={index === 0 && !assignment.returnedDate ? "default" : "secondary"}>
+                        {index === 0 && !assignment.returnedDate ? "Current" : "Returned"}
+                      </Badge>
+                    </div>
+                    {assignment.notes && (
+                      <p className="mt-2 text-sm text-muted-foreground">{assignment.notes}</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </ScrollArea>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsHistoryDialogOpen(false)}>
+              Close
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -252,3 +252,56 @@ export function useReturnAsset() {
     },
   });
 }
+
+export interface AssetAssignment {
+  id: string;
+  assignedDate: string;
+  returnedDate: string | null;
+  notes: string | null;
+  employee: {
+    name: string;
+    avatar?: string;
+  };
+}
+
+export function useAssetHistory(assetId: string | null) {
+  return useQuery({
+    queryKey: ["asset-history", assetId],
+    queryFn: async () => {
+      if (!assetId) return [];
+
+      const { data, error } = await supabase
+        .from("asset_assignments")
+        .select(`
+          id,
+          assigned_date,
+          returned_date,
+          notes,
+          employee:employees(first_name, last_name, avatar_url)
+        `)
+        .eq("asset_id", assetId)
+        .order("assigned_date", { ascending: false });
+
+      if (error) throw error;
+
+      return (data || []).map((assignment): AssetAssignment => {
+        const emp = assignment.employee as { first_name: string; last_name: string; avatar_url: string | null } | null;
+        return {
+          id: assignment.id,
+          assignedDate: format(new Date(assignment.assigned_date), "MMM d, yyyy"),
+          returnedDate: assignment.returned_date
+            ? format(new Date(assignment.returned_date), "MMM d, yyyy")
+            : null,
+          notes: assignment.notes,
+          employee: emp
+            ? {
+                name: `${emp.first_name} ${emp.last_name}`,
+                avatar: emp.avatar_url || undefined,
+              }
+            : { name: "Unknown" },
+        };
+      });
+    },
+    enabled: !!assetId,
+  });
+}
