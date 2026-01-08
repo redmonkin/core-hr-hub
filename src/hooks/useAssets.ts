@@ -97,3 +97,39 @@ export function useAssetStats() {
     },
   });
 }
+
+export interface CreateAssetData {
+  name: string;
+  category: string;
+  serial_number?: string;
+  purchase_date?: string;
+  purchase_cost?: number;
+  vendor?: string;
+  warranty_end_date?: string;
+  notes?: string;
+}
+
+export function useCreateAsset() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: CreateAssetData) => {
+      // Generate asset code
+      const prefix = data.category.substring(0, 3).toUpperCase();
+      const randomNum = Math.floor(Math.random() * 10000).toString().padStart(4, "0");
+      const asset_code = `${prefix}-${randomNum}`;
+
+      const { error } = await supabase.from("assets").insert({
+        ...data,
+        asset_code,
+        status: "available",
+      });
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["assets"] });
+      queryClient.invalidateQueries({ queryKey: ["asset-stats"] });
+    },
+  });
+}

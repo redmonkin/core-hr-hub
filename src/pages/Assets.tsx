@@ -12,16 +12,35 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 import { Plus, Search, Package, Laptop, Monitor, Smartphone } from "lucide-react";
-import { useAssets, useAssetStats } from "@/hooks/useAssets";
+import { useAssets, useAssetStats, useCreateAsset } from "@/hooks/useAssets";
+import { toast } from "sonner";
 
 const Assets = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [formData, setFormData] = useState({
+    name: "",
+    category: "laptop",
+    serial_number: "",
+    purchase_date: "",
+    purchase_cost: "",
+    vendor: "",
+  });
 
   const { data: assets = [], isLoading } = useAssets();
   const { data: stats } = useAssetStats();
+  const createAsset = useCreateAsset();
 
   const filteredAssets = assets.filter((asset) => {
     const matchesSearch =
@@ -31,6 +50,40 @@ const Assets = () => {
     const matchesStatus = statusFilter === "all" || asset.status === statusFilter;
     return matchesSearch && matchesType && matchesStatus;
   });
+
+  const handleAddAsset = () => {
+    if (!formData.name.trim()) {
+      toast.error("Asset name is required");
+      return;
+    }
+    createAsset.mutate(
+      {
+        name: formData.name,
+        category: formData.category,
+        serial_number: formData.serial_number || undefined,
+        purchase_date: formData.purchase_date || undefined,
+        purchase_cost: formData.purchase_cost ? parseFloat(formData.purchase_cost) : undefined,
+        vendor: formData.vendor || undefined,
+      },
+      {
+        onSuccess: () => {
+          toast.success("Asset added successfully");
+          setIsAddDialogOpen(false);
+          setFormData({
+            name: "",
+            category: "laptop",
+            serial_number: "",
+            purchase_date: "",
+            purchase_cost: "",
+            vendor: "",
+          });
+        },
+        onError: () => {
+          toast.error("Failed to add asset");
+        },
+      }
+    );
+  };
 
   const assetStats = [
     { label: "Total Assets", value: stats?.total || 0, icon: <Package className="h-5 w-5" /> },
@@ -48,7 +101,7 @@ const Assets = () => {
             <h2 className="text-2xl font-bold text-foreground">Asset Management</h2>
             <p className="text-muted-foreground">Track and manage company assets</p>
           </div>
-          <Button>
+          <Button onClick={() => setIsAddDialogOpen(true)}>
             <Plus className="mr-2 h-4 w-4" />
             Add Asset
           </Button>
@@ -123,7 +176,7 @@ const Assets = () => {
                   : "No assets match your search criteria"}
               </p>
               {assets.length === 0 && (
-                <Button className="mt-4">
+                <Button className="mt-4" onClick={() => setIsAddDialogOpen(true)}>
                   <Plus className="mr-2 h-4 w-4" />
                   Add Asset
                 </Button>
@@ -138,6 +191,90 @@ const Assets = () => {
           </div>
         )}
       </div>
+
+      {/* Add Asset Dialog */}
+      <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add New Asset</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="name">Asset Name *</Label>
+              <Input
+                id="name"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                placeholder="e.g., MacBook Pro 16"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="category">Category</Label>
+              <Select
+                value={formData.category}
+                onValueChange={(value) => setFormData({ ...formData, category: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="laptop">Laptop</SelectItem>
+                  <SelectItem value="monitor">Monitor</SelectItem>
+                  <SelectItem value="phone">Phone</SelectItem>
+                  <SelectItem value="accessory">Accessory</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="serial_number">Serial Number</Label>
+              <Input
+                id="serial_number"
+                value={formData.serial_number}
+                onChange={(e) => setFormData({ ...formData, serial_number: e.target.value })}
+                placeholder="e.g., ABC123XYZ"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="purchase_date">Purchase Date</Label>
+                <Input
+                  id="purchase_date"
+                  type="date"
+                  value={formData.purchase_date}
+                  onChange={(e) => setFormData({ ...formData, purchase_date: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="purchase_cost">Cost</Label>
+                <Input
+                  id="purchase_cost"
+                  type="number"
+                  value={formData.purchase_cost}
+                  onChange={(e) => setFormData({ ...formData, purchase_cost: e.target.value })}
+                  placeholder="0.00"
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="vendor">Vendor</Label>
+              <Input
+                id="vendor"
+                value={formData.vendor}
+                onChange={(e) => setFormData({ ...formData, vendor: e.target.value })}
+                placeholder="e.g., Apple Store"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleAddAsset} disabled={createAsset.isPending}>
+              {createAsset.isPending ? "Adding..." : "Add Asset"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </DashboardLayout>
   );
 };
