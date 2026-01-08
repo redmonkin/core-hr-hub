@@ -186,3 +186,69 @@ export function useDeleteAsset() {
     },
   });
 }
+
+export interface AssignAssetData {
+  assetId: string;
+  employeeId: string;
+  notes?: string;
+}
+
+export function useAssignAsset() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ assetId, employeeId, notes }: AssignAssetData) => {
+      // Create assignment record
+      const { error: assignError } = await supabase
+        .from("asset_assignments")
+        .insert({
+          asset_id: assetId,
+          employee_id: employeeId,
+          notes: notes || null,
+        });
+
+      if (assignError) throw assignError;
+
+      // Update asset status to assigned
+      const { error: updateError } = await supabase
+        .from("assets")
+        .update({ status: "assigned" })
+        .eq("id", assetId);
+
+      if (updateError) throw updateError;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["assets"] });
+      queryClient.invalidateQueries({ queryKey: ["asset-stats"] });
+    },
+  });
+}
+
+export function useReturnAsset() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (assetId: string) => {
+      // Update assignment record with returned date
+      const { error: assignError } = await supabase
+        .from("asset_assignments")
+        .update({ returned_date: new Date().toISOString().split("T")[0] })
+        .eq("asset_id", assetId)
+        .is("returned_date", null);
+
+      if (assignError) throw assignError;
+
+      // Update asset status to available
+      const { error: updateError } = await supabase
+        .from("assets")
+        .update({ status: "available" })
+        .eq("id", assetId);
+
+      if (updateError) throw updateError;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["assets"] });
+      queryClient.invalidateQueries({ queryKey: ["asset-stats"] });
+    },
+  });
+}
