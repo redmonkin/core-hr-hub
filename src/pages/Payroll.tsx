@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { PayrollTable } from "@/components/payroll/PayrollTable";
+import { SalaryStructureManager } from "@/components/payroll/SalaryStructureManager";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -234,57 +235,7 @@ const Payroll = () => {
           </TabsContent>
 
           <TabsContent value="salary" className="mt-6">
-            <div className="grid gap-6 lg:grid-cols-2">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Salary Components</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {[
-                    { name: "Basic Salary", description: "Base salary component", percentage: "50%" },
-                    { name: "HRA", description: "House Rent Allowance", percentage: "20%" },
-                    { name: "Special Allowance", description: "Performance based", percentage: "15%" },
-                    { name: "Transport", description: "Commute allowance", percentage: "10%" },
-                    { name: "Medical", description: "Health benefits", percentage: "5%" },
-                  ].map((component) => (
-                    <div
-                      key={component.name}
-                      className="flex items-center justify-between rounded-xl bg-muted/50 p-4"
-                    >
-                      <div>
-                        <p className="font-medium text-foreground">{component.name}</p>
-                        <p className="text-sm text-muted-foreground">{component.description}</p>
-                      </div>
-                      <span className="font-semibold text-primary">{component.percentage}</span>
-                    </div>
-                  ))}
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle>Deductions</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {[
-                    { name: "Tax", description: "Income tax deduction", percentage: "10%" },
-                    { name: "Insurance", description: "Health & life insurance", percentage: "3%" },
-                    { name: "Provident Fund", description: "Retirement savings", percentage: "5%" },
-                  ].map((deduction) => (
-                    <div
-                      key={deduction.name}
-                      className="flex items-center justify-between rounded-xl bg-muted/50 p-4"
-                    >
-                      <div>
-                        <p className="font-medium text-foreground">{deduction.name}</p>
-                        <p className="text-sm text-muted-foreground">{deduction.description}</p>
-                      </div>
-                      <span className="font-semibold text-destructive">-{deduction.percentage}</span>
-                    </div>
-                  ))}
-                </CardContent>
-              </Card>
-            </div>
+            <SalaryStructureManager />
           </TabsContent>
         </Tabs>
       </div>

@@ -187,3 +187,152 @@ export function useGeneratePayroll() {
     },
   });
 }
+
+export interface SalaryStructure {
+  id: string;
+  employeeId: string;
+  employeeName: string;
+  employeeEmail: string;
+  employeeAvatar?: string;
+  basicSalary: number;
+  hra: number;
+  transportAllowance: number;
+  medicalAllowance: number;
+  otherAllowances: number;
+  taxDeduction: number;
+  otherDeductions: number;
+  effectiveFrom: string;
+  totalAllowances: number;
+  totalDeductions: number;
+  netSalary: number;
+}
+
+export function useSalaryStructures() {
+  return useQuery({
+    queryKey: ["salary-structures"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("salary_structures")
+        .select(`
+          id,
+          employee_id,
+          basic_salary,
+          hra,
+          transport_allowance,
+          medical_allowance,
+          other_allowances,
+          tax_deduction,
+          other_deductions,
+          effective_from,
+          employee:employees(
+            first_name,
+            last_name,
+            email,
+            avatar_url
+          )
+        `)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+
+      return (data || []).map((structure): SalaryStructure => {
+        const totalAllowances =
+          Number(structure.hra || 0) +
+          Number(structure.transport_allowance || 0) +
+          Number(structure.medical_allowance || 0) +
+          Number(structure.other_allowances || 0);
+
+        const totalDeductions =
+          Number(structure.tax_deduction || 0) +
+          Number(structure.other_deductions || 0);
+
+        const netSalary =
+          Number(structure.basic_salary) + totalAllowances - totalDeductions;
+
+        return {
+          id: structure.id,
+          employeeId: structure.employee_id,
+          employeeName: `${structure.employee?.first_name} ${structure.employee?.last_name}`,
+          employeeEmail: structure.employee?.email || "",
+          employeeAvatar: structure.employee?.avatar_url || undefined,
+          basicSalary: Number(structure.basic_salary),
+          hra: Number(structure.hra || 0),
+          transportAllowance: Number(structure.transport_allowance || 0),
+          medicalAllowance: Number(structure.medical_allowance || 0),
+          otherAllowances: Number(structure.other_allowances || 0),
+          taxDeduction: Number(structure.tax_deduction || 0),
+          otherDeductions: Number(structure.other_deductions || 0),
+          effectiveFrom: structure.effective_from,
+          totalAllowances,
+          totalDeductions,
+          netSalary,
+        };
+      });
+    },
+  });
+}
+
+export interface CreateSalaryStructureData {
+  employee_id: string;
+  basic_salary: number;
+  hra?: number;
+  transport_allowance?: number;
+  medical_allowance?: number;
+  other_allowances?: number;
+  tax_deduction?: number;
+  other_deductions?: number;
+  effective_from: string;
+}
+
+export function useCreateSalaryStructure() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: CreateSalaryStructureData) => {
+      const { error } = await supabase
+        .from("salary_structures")
+        .upsert(data, { onConflict: "employee_id" });
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["salary-structures"] });
+    },
+  });
+}
+
+export function useUpdateSalaryStructure() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ id, ...data }: { id: string } & Partial<CreateSalaryStructureData>) => {
+      const { error } = await supabase
+        .from("salary_structures")
+        .update(data)
+        .eq("id", id);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["salary-structures"] });
+    },
+  });
+}
+
+export function useDeleteSalaryStructure() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from("salary_structures")
+        .delete()
+        .eq("id", id);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["salary-structures"] });
+    },
+  });
+}
