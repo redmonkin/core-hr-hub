@@ -16,7 +16,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Search, FileText, IndianRupee, TrendingUp, Users, Loader2, ShieldAlert } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { usePayrollRecords, usePayrollStats, useGeneratePayroll } from "@/hooks/usePayroll";
+import { usePayrollRecords, usePayrollStats, useGeneratePayroll, useUpdatePayrollStatus, type PayrollRecord } from "@/hooks/usePayroll";
 import { useIsAdminOrHR } from "@/hooks/useUserRole";
 
 const Payroll = () => {
@@ -35,6 +35,7 @@ const Payroll = () => {
   );
   const { data: stats } = usePayrollStats();
   const generatePayroll = useGeneratePayroll();
+  const updateStatus = useUpdatePayrollStatus();
 
   const handleGeneratePayroll = () => {
     generatePayroll.mutate(
@@ -94,6 +95,69 @@ const Payroll = () => {
       title: "View Payslip",
       description: `Opening payslip for ${record.employee.name}`,
     });
+  };
+
+  const handleMarkProcessed = (record: PayrollRecord) => {
+    updateStatus.mutate(
+      { id: record.id, status: "processed" },
+      {
+        onSuccess: () => {
+          toast({
+            title: "Status Updated",
+            description: `Payroll for ${record.employee.name} marked as processed.`,
+          });
+        },
+        onError: () => {
+          toast({
+            title: "Update Failed",
+            description: "Failed to update payroll status",
+            variant: "destructive",
+          });
+        },
+      }
+    );
+  };
+
+  const handleMarkPaid = (record: PayrollRecord) => {
+    updateStatus.mutate(
+      { id: record.id, status: "paid" },
+      {
+        onSuccess: () => {
+          toast({
+            title: "Status Updated",
+            description: `Payroll for ${record.employee.name} marked as paid.`,
+          });
+        },
+        onError: () => {
+          toast({
+            title: "Update Failed",
+            description: "Failed to update payroll status",
+            variant: "destructive",
+          });
+        },
+      }
+    );
+  };
+
+  const handleRevertToPending = (record: PayrollRecord) => {
+    updateStatus.mutate(
+      { id: record.id, status: "draft" },
+      {
+        onSuccess: () => {
+          toast({
+            title: "Status Updated",
+            description: `Payroll for ${record.employee.name} reverted to pending.`,
+          });
+        },
+        onError: () => {
+          toast({
+            title: "Update Failed",
+            description: "Failed to update payroll status",
+            variant: "destructive",
+          });
+        },
+      }
+    );
   };
 
   const filteredRecords = records.filter((record) => {
@@ -217,6 +281,9 @@ const Payroll = () => {
                 records={filteredRecords}
                 onView={handleView}
                 onDownload={handleDownload}
+                onMarkProcessed={handleMarkProcessed}
+                onMarkPaid={handleMarkPaid}
+                onRevertToPending={handleRevertToPending}
               />
             )}
           </TabsContent>

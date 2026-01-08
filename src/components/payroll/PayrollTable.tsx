@@ -9,7 +9,19 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Download, Eye } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { Download, Eye, MoreVertical, CheckCircle, Clock, CreditCard, CalendarCheck } from "lucide-react";
 
 export interface PayrollRecord {
   id: string;
@@ -24,12 +36,16 @@ export interface PayrollRecord {
   deductions: number;
   netSalary: number;
   status: "paid" | "pending" | "processing";
+  paidAt?: string;
 }
 
 interface PayrollTableProps {
   records: PayrollRecord[];
   onView?: (record: PayrollRecord) => void;
   onDownload?: (record: PayrollRecord) => void;
+  onMarkProcessed?: (record: PayrollRecord) => void;
+  onMarkPaid?: (record: PayrollRecord) => void;
+  onRevertToPending?: (record: PayrollRecord) => void;
 }
 
 const statusStyles = {
@@ -38,7 +54,20 @@ const statusStyles = {
   processing: "bg-primary/10 text-primary border-primary/20",
 };
 
-export function PayrollTable({ records, onView, onDownload }: PayrollTableProps) {
+const statusIcons = {
+  paid: <CheckCircle className="mr-1 h-3 w-3" />,
+  pending: <Clock className="mr-1 h-3 w-3" />,
+  processing: <CreditCard className="mr-1 h-3 w-3" />,
+};
+
+export function PayrollTable({ 
+  records, 
+  onView, 
+  onDownload,
+  onMarkProcessed,
+  onMarkPaid,
+  onRevertToPending,
+}: PayrollTableProps) {
   return (
     <div className="rounded-xl border border-border bg-card">
       <Table>
@@ -85,9 +114,23 @@ export function PayrollTable({ records, onView, onDownload }: PayrollTableProps)
                 ₹{record.netSalary.toLocaleString('en-IN')}
               </TableCell>
               <TableCell>
-                <Badge variant="outline" className={statusStyles[record.status]}>
-                  {record.status}
-                </Badge>
+                <div className="flex flex-col gap-1">
+                  <Badge variant="outline" className={`${statusStyles[record.status]} inline-flex items-center`}>
+                    {statusIcons[record.status]}
+                    {record.status}
+                  </Badge>
+                  {record.paidAt && (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="inline-flex items-center text-xs text-muted-foreground cursor-help">
+                          <CalendarCheck className="mr-1 h-3 w-3" />
+                          {record.paidAt}
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent>Paid on {record.paidAt}</TooltipContent>
+                    </Tooltip>
+                  )}
+                </div>
               </TableCell>
               <TableCell className="text-right">
                 <div className="flex items-center justify-end gap-1">
@@ -107,6 +150,39 @@ export function PayrollTable({ records, onView, onDownload }: PayrollTableProps)
                   >
                     <Download className="h-4 w-4" />
                   </Button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-8 w-8">
+                        <MoreVertical className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      {record.status === "pending" && (
+                        <DropdownMenuItem onClick={() => onMarkProcessed?.(record)}>
+                          <CreditCard className="mr-2 h-4 w-4" />
+                          Mark as Processed
+                        </DropdownMenuItem>
+                      )}
+                      {(record.status === "pending" || record.status === "processing") && (
+                        <DropdownMenuItem onClick={() => onMarkPaid?.(record)}>
+                          <CheckCircle className="mr-2 h-4 w-4" />
+                          Mark as Paid
+                        </DropdownMenuItem>
+                      )}
+                      {(record.status === "processing" || record.status === "paid") && (
+                        <>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem 
+                            onClick={() => onRevertToPending?.(record)}
+                            className="text-amber-600"
+                          >
+                            <Clock className="mr-2 h-4 w-4" />
+                            Revert to Pending
+                          </DropdownMenuItem>
+                        </>
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
               </TableCell>
             </TableRow>

@@ -15,6 +15,7 @@ export interface PayrollRecord {
   deductions: number;
   netSalary: number;
   status: "pending" | "processing" | "paid";
+  paidAt?: string;
 }
 
 const MONTH_NAMES = [
@@ -37,6 +38,7 @@ export function usePayrollRecords(month?: number, year?: number) {
           total_deductions,
           net_salary,
           status,
+          paid_at,
           employee:employees(
             first_name,
             last_name,
@@ -70,6 +72,7 @@ export function usePayrollRecords(month?: number, year?: number) {
         deductions: Number(record.total_deductions),
         netSalary: Number(record.net_salary),
         status: record.status === "draft" ? "pending" : record.status === "processed" ? "processing" : "paid",
+        paidAt: record.paid_at ? format(new Date(record.paid_at), "MMM d, yyyy") : undefined,
       }));
     },
   });
@@ -180,6 +183,63 @@ export function useGeneratePayroll() {
       if (insertError) throw insertError;
 
       return { count: payrollRecords.length };
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["payroll-records"] });
+      queryClient.invalidateQueries({ queryKey: ["payroll-stats"] });
+    },
+  });
+}
+
+export function useUpdatePayrollStatus() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ id, status }: { id: string; status: "draft" | "processed" | "paid" }) => {
+      const updateData: { status: "draft" | "processed" | "paid"; paid_at?: string | null } = { status };
+      
+      // Set paid_at when marking as paid, clear it otherwise
+      if (status === "paid") {
+        updateData.paid_at = new Date().toISOString();
+      } else {
+        updateData.paid_at = null;
+      }
+
+      const { error } = await supabase
+        .from("payroll_records")
+        .update(updateData)
+        .eq("id", id);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["payroll-records"] });
+      queryClient.invalidateQueries({ queryKey: ["payroll-stats"] });
+    },
+  });
+}
+
+export function useBulkUpdatePayrollStatus() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ ids, status }: { ids: string[]; status: "draft" | "processed" | "paid" }) => {
+      const updateData: { status: "draft" | "processed" | "paid"; paid_at?: string | null } = { status };
+      
+      if (status === "paid") {
+        updateData.paid_at = new Date().toISOString();
+      } else {
+        updateData.paid_at = null;
+      }
+
+      const { error } = await supabase
+        .from("payroll_records")
+        .update(updateData)
+        .in("id", ids);
+
+      if (error) throw error;
+      
+      return { count: ids.length };
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["payroll-records"] });
