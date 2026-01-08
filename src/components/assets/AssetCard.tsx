@@ -19,6 +19,7 @@ export interface Asset {
   purchaseDate: string;
   cost: number;
   status: "available" | "assigned" | "maintenance" | "retired";
+  notes?: string;
   assignedTo?: {
     name: string;
     avatar?: string;
@@ -94,6 +95,10 @@ export function AssetCard({ asset, onAssign, onReturn, onEdit, onDelete }: Asset
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
+
+        {asset.notes && (
+          <p className="mt-3 text-sm text-muted-foreground line-clamp-2">{asset.notes}</p>
+        )}
 
         <div className="mt-4 flex items-center justify-between">
           <div className="space-y-1">
