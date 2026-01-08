@@ -16,7 +16,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Search, FileText, IndianRupee, TrendingUp, Users, Loader2, ShieldAlert } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { usePayrollRecords, usePayrollStats, useGeneratePayroll, useUpdatePayrollStatus, type PayrollRecord } from "@/hooks/usePayroll";
+import { usePayrollRecords, usePayrollStats, useGeneratePayroll, useUpdatePayrollStatus, useBulkUpdatePayrollStatus, type PayrollRecord } from "@/hooks/usePayroll";
 import { useIsAdminOrHR } from "@/hooks/useUserRole";
 
 const Payroll = () => {
@@ -36,6 +36,7 @@ const Payroll = () => {
   const { data: stats } = usePayrollStats();
   const generatePayroll = useGeneratePayroll();
   const updateStatus = useUpdatePayrollStatus();
+  const bulkUpdateStatus = useBulkUpdatePayrollStatus();
 
   const handleGeneratePayroll = () => {
     generatePayroll.mutate(
@@ -140,6 +141,69 @@ const Payroll = () => {
           toast({
             title: "Status Updated",
             description: `Payroll for ${record.employee.name} reverted to pending.`,
+          });
+        },
+        onError: () => {
+          toast({
+            title: "Update Failed",
+            description: "Failed to update payroll status",
+            variant: "destructive",
+          });
+        },
+      }
+    );
+  };
+
+  const handleBulkMarkProcessed = (ids: string[]) => {
+    bulkUpdateStatus.mutate(
+      { ids, status: "processed" },
+      {
+        onSuccess: (data) => {
+          toast({
+            title: "Bulk Update Successful",
+            description: `${data.count} records marked as processed.`,
+          });
+        },
+        onError: () => {
+          toast({
+            title: "Update Failed",
+            description: "Failed to update payroll status",
+            variant: "destructive",
+          });
+        },
+      }
+    );
+  };
+
+  const handleBulkMarkPaid = (ids: string[]) => {
+    bulkUpdateStatus.mutate(
+      { ids, status: "paid" },
+      {
+        onSuccess: (data) => {
+          toast({
+            title: "Bulk Update Successful",
+            description: `${data.count} records marked as paid.`,
+          });
+        },
+        onError: () => {
+          toast({
+            title: "Update Failed",
+            description: "Failed to update payroll status",
+            variant: "destructive",
+          });
+        },
+      }
+    );
+  };
+
+  const handleBulkRevertToPending = (ids: string[]) => {
+    bulkUpdateStatus.mutate(
+      { ids, status: "draft" },
+      {
+        onSuccess: (data) => {
+          toast({
+            title: "Bulk Update Successful",
+            description: `${data.count} records reverted to pending.`,
           });
         },
         onError: () => {
@@ -276,6 +340,10 @@ const Payroll = () => {
                 onMarkProcessed={handleMarkProcessed}
                 onMarkPaid={handleMarkPaid}
                 onRevertToPending={handleRevertToPending}
+                onBulkMarkProcessed={handleBulkMarkProcessed}
+                onBulkMarkPaid={handleBulkMarkPaid}
+                onBulkRevertToPending={handleBulkRevertToPending}
+                isBulkUpdating={bulkUpdateStatus.isPending}
               />
             )}
           </TabsContent>
