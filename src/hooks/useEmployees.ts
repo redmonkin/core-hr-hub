@@ -44,7 +44,7 @@ export function useEmployees() {
           hire_date,
           status,
           avatar_url,
-          department:departments(name)
+          department:departments!employees_department_id_fkey(name)
         `)
         .order("created_at", { ascending: false });
 
