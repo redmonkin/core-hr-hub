@@ -1,3 +1,4 @@
+import { useQuery } from "@tanstack/react-query";
 import {
   Dialog,
   DialogContent,
@@ -7,8 +8,9 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { Mail, Building2, Briefcase, Calendar } from "lucide-react";
+import { Mail, Building2, Briefcase, Calendar, UserCheck, Crown } from "lucide-react";
 import { Employee } from "./EmployeeTable";
+import { supabase } from "@/integrations/supabase/client";
 
 interface EmployeeViewDialogProps {
   employee: Employee | null;
@@ -24,7 +26,52 @@ const statusStyles = {
 };
 
 export function EmployeeViewDialog({ employee, open, onOpenChange }: EmployeeViewDialogProps) {
+  // Fetch extended employee details including manager and department head
+  const { data: extendedDetails } = useQuery({
+    queryKey: ["employee-extended-details", employee?.id],
+    queryFn: async () => {
+      if (!employee?.id) return null;
+      const { data, error } = await supabase
+        .from("employees")
+        .select(`
+          id,
+          department_id,
+          manager_id,
+          manager:employees!employees_manager_id_fkey(first_name, last_name),
+          department:departments!employees_department_id_fkey(
+            name,
+            manager_id,
+            department_head:employees!departments_manager_id_fkey(first_name, last_name)
+          )
+        `)
+        .eq("id", employee.id)
+        .maybeSingle();
+
+      if (error) throw error;
+      return data;
+    },
+    enabled: open && !!employee?.id,
+  });
+
   if (!employee) return null;
+
+  const manager = extendedDetails?.manager;
+  const managerName = manager 
+    ? Array.isArray(manager) && manager.length > 0
+      ? `${manager[0].first_name} ${manager[0].last_name}`
+      : !Array.isArray(manager)
+        ? `${(manager as { first_name: string; last_name: string }).first_name} ${(manager as { first_name: string; last_name: string }).last_name}`
+        : null
+    : null;
+  
+  const departmentHead = extendedDetails?.department?.department_head;
+  const departmentHeadName = departmentHead 
+    ? Array.isArray(departmentHead) && departmentHead.length > 0
+      ? `${departmentHead[0].first_name} ${departmentHead[0].last_name}`
+      : !Array.isArray(departmentHead)
+        ? `${(departmentHead as { first_name: string; last_name: string }).first_name} ${(departmentHead as { first_name: string; last_name: string }).last_name}`
+        : null
+    : null;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -68,6 +115,18 @@ export function EmployeeViewDialog({ employee, open, onOpenChange }: EmployeeVie
                 <Calendar className="h-4 w-4 text-muted-foreground" />
                 <span className="text-muted-foreground">Joined {employee.joinDate}</span>
               </div>
+              {managerName && (
+                <div className="flex items-center gap-3 text-sm">
+                  <UserCheck className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-muted-foreground">Reports to {managerName}</span>
+                </div>
+              )}
+              {departmentHeadName && (
+                <div className="flex items-center gap-3 text-sm">
+                  <Crown className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-muted-foreground">Dept. Head: {departmentHeadName}</span>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
