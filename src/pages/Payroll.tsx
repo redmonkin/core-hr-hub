@@ -15,7 +15,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Search, FileText, IndianRupee, TrendingUp, Users, Loader2, ShieldAlert } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { usePayrollRecords, usePayrollStats } from "@/hooks/usePayroll";
+import { usePayrollRecords, usePayrollStats, useGeneratePayroll } from "@/hooks/usePayroll";
 import { useIsAdminOrHR } from "@/hooks/useUserRole";
 
 const Payroll = () => {
@@ -33,6 +33,28 @@ const Payroll = () => {
     monthFilter === "current" ? currentYear : undefined
   );
   const { data: stats } = usePayrollStats();
+  const generatePayroll = useGeneratePayroll();
+
+  const handleGeneratePayroll = () => {
+    generatePayroll.mutate(
+      { month: currentMonth, year: currentYear },
+      {
+        onSuccess: (data) => {
+          toast({
+            title: "Payroll Generated",
+            description: `Successfully generated payroll for ${data.count} employees.`,
+          });
+        },
+        onError: (error) => {
+          toast({
+            title: "Failed to Generate Payroll",
+            description: error instanceof Error ? error.message : "An error occurred",
+            variant: "destructive",
+          });
+        },
+      }
+    );
+  };
 
   // Show loading while checking role
   if (roleLoading) {
@@ -110,7 +132,16 @@ const Payroll = () => {
               <FileText className="mr-2 h-4 w-4" />
               Export All
             </Button>
-            <Button>Generate Payroll</Button>
+            <Button onClick={handleGeneratePayroll} disabled={generatePayroll.isPending}>
+              {generatePayroll.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Generating...
+                </>
+              ) : (
+                "Generate Payroll"
+              )}
+            </Button>
           </div>
         </div>
 

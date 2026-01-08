@@ -109,3 +109,81 @@ export function usePayrollStats() {
     },
   });
 }
+
+export function useGeneratePayroll() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ month, year }: { month: number; year: number }) => {
+      // Check if payroll already exists for this month
+      const { data: existingRecords } = await supabase
+        .from("payroll_records")
+        .select("id")
+        .eq("month", month)
+        .eq("year", year);
+
+      if (existingRecords && existingRecords.length > 0) {
+        throw new Error("Payroll already exists for this month");
+      }
+
+      // Get all active employees with their salary structures
+      const { data: salaryStructures, error: salaryError } = await supabase
+        .from("salary_structures")
+        .select(`
+          employee_id,
+          basic_salary,
+          hra,
+          transport_allowance,
+          medical_allowance,
+          other_allowances,
+          tax_deduction,
+          other_deductions
+        `);
+
+      if (salaryError) throw salaryError;
+
+      if (!salaryStructures || salaryStructures.length === 0) {
+        throw new Error("No salary structures found. Please set up salary structures for employees first.");
+      }
+
+      // Generate payroll records
+      const payrollRecords = salaryStructures.map((salary) => {
+        const totalAllowances =
+          Number(salary.hra || 0) +
+          Number(salary.transport_allowance || 0) +
+          Number(salary.medical_allowance || 0) +
+          Number(salary.other_allowances || 0);
+
+        const totalDeductions =
+          Number(salary.tax_deduction || 0) +
+          Number(salary.other_deductions || 0);
+
+        const netSalary =
+          Number(salary.basic_salary) + totalAllowances - totalDeductions;
+
+        return {
+          employee_id: salary.employee_id,
+          month,
+          year,
+          basic_salary: salary.basic_salary,
+          total_allowances: totalAllowances,
+          total_deductions: totalDeductions,
+          net_salary: netSalary,
+          status: "draft" as const,
+        };
+      });
+
+      const { error: insertError } = await supabase
+        .from("payroll_records")
+        .insert(payrollRecords);
+
+      if (insertError) throw insertError;
+
+      return { count: payrollRecords.length };
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["payroll-records"] });
+      queryClient.invalidateQueries({ queryKey: ["payroll-stats"] });
+    },
+  });
+}
