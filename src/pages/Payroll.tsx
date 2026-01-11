@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { PayrollTable } from "@/components/payroll/PayrollTable";
 import { PayslipViewDialog } from "@/components/payroll/PayslipViewDialog";
@@ -15,14 +15,34 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, FileText, IndianRupee, TrendingUp, Users, Loader2, ShieldAlert } from "lucide-react";
+import { Search, FileText, IndianRupee, TrendingUp, Users, Loader2, ShieldAlert, Calendar } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { usePayrollRecords, usePayrollStats, useGeneratePayroll, useUpdatePayrollStatus, useBulkUpdatePayrollStatus, type PayrollRecord } from "@/hooks/usePayroll";
 import { useIsAdminOrHR } from "@/hooks/useUserRole";
 
+const months = [
+  { value: "1", label: "January" },
+  { value: "2", label: "February" },
+  { value: "3", label: "March" },
+  { value: "4", label: "April" },
+  { value: "5", label: "May" },
+  { value: "6", label: "June" },
+  { value: "7", label: "July" },
+  { value: "8", label: "August" },
+  { value: "9", label: "September" },
+  { value: "10", label: "October" },
+  { value: "11", label: "November" },
+  { value: "12", label: "December" },
+];
+
 const Payroll = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [monthFilter, setMonthFilter] = useState("current");
+  
+  // History tab filters
+  const [historySearchQuery, setHistorySearchQuery] = useState("");
+  const [historyMonth, setHistoryMonth] = useState<string>("all");
+  const [historyYear, setHistoryYear] = useState<string>("all");
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
   const [selectedRecord, setSelectedRecord] = useState<PayrollRecord | null>(null);
   const { toast } = useToast();
@@ -36,7 +56,35 @@ const Payroll = () => {
     monthFilter === "current" ? currentMonth : undefined,
     monthFilter === "current" ? currentYear : undefined
   );
+  
+  // Fetch all records for history tab
+  const { data: allRecords = [], isLoading: isLoadingHistory } = usePayrollRecords();
+  
   const { data: stats } = usePayrollStats();
+  
+  // Generate available years from records
+  const availableYears = useMemo(() => {
+    const years = new Set<number>();
+    allRecords.forEach(record => {
+      if (record.year) years.add(record.year);
+    });
+    return Array.from(years).sort((a, b) => b - a);
+  }, [allRecords]);
+  
+  // Filter history records
+  const filteredHistoryRecords = useMemo(() => {
+    return allRecords.filter((record) => {
+      const matchesSearch =
+        record.employee.name.toLowerCase().includes(historySearchQuery.toLowerCase()) ||
+        record.employee.email.toLowerCase().includes(historySearchQuery.toLowerCase()) ||
+        record.employeeCode.toLowerCase().includes(historySearchQuery.toLowerCase());
+      
+      const matchesMonth = historyMonth === "all" || record.monthNum === parseInt(historyMonth);
+      const matchesYear = historyYear === "all" || record.year === parseInt(historyYear);
+      
+      return matchesSearch && matchesMonth && matchesYear;
+    });
+  }, [allRecords, historySearchQuery, historyMonth, historyYear]);
   const generatePayroll = useGeneratePayroll();
   const updateStatus = useUpdatePayrollStatus();
   const bulkUpdateStatus = useBulkUpdatePayrollStatus();
@@ -349,17 +397,78 @@ const Payroll = () => {
             )}
           </TabsContent>
 
-          <TabsContent value="history" className="mt-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Payroll History</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <p className="text-muted-foreground">Payroll history will be displayed here once records are generated.</p>
-                </div>
-              </CardContent>
-            </Card>
+          <TabsContent value="history" className="mt-6 space-y-4">
+            {/* History Filters */}
+            <div className="flex flex-col gap-4 sm:flex-row">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  placeholder="Search by name, email, or employee code..."
+                  className="pl-10"
+                  value={historySearchQuery}
+                  onChange={(e) => setHistorySearchQuery(e.target.value)}
+                />
+              </div>
+              <Select value={historyMonth} onValueChange={setHistoryMonth}>
+                <SelectTrigger className="w-full sm:w-[150px]">
+                  <Calendar className="mr-2 h-4 w-4" />
+                  <SelectValue placeholder="Month" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Months</SelectItem>
+                  {months.map((month) => (
+                    <SelectItem key={month.value} value={month.value}>
+                      {month.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={historyYear} onValueChange={setHistoryYear}>
+                <SelectTrigger className="w-full sm:w-[120px]">
+                  <SelectValue placeholder="Year" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Years</SelectItem>
+                  {availableYears.map((year) => (
+                    <SelectItem key={year} value={String(year)}>
+                      {year}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {isLoadingHistory ? (
+              <div className="space-y-4">
+                {[1, 2, 3, 4, 5].map((i) => (
+                  <Skeleton key={i} className="h-16 w-full rounded-lg" />
+                ))}
+              </div>
+            ) : filteredHistoryRecords.length === 0 ? (
+              <Card>
+                <CardContent className="flex flex-col items-center justify-center py-12">
+                  <FileText className="mb-4 h-12 w-12 text-muted-foreground" />
+                  <h3 className="text-lg font-semibold text-foreground">No Records Found</h3>
+                  <p className="text-muted-foreground">
+                    {allRecords.length === 0
+                      ? "No payroll history available yet"
+                      : "No records match your filter criteria"}
+                  </p>
+                </CardContent>
+              </Card>
+            ) : (
+              <PayrollTable
+                records={filteredHistoryRecords}
+                onView={handleView}
+                onMarkProcessed={handleMarkProcessed}
+                onMarkPaid={handleMarkPaid}
+                onRevertToPending={handleRevertToPending}
+                onBulkMarkProcessed={handleBulkMarkProcessed}
+                onBulkMarkPaid={handleBulkMarkPaid}
+                onBulkRevertToPending={handleBulkRevertToPending}
+                isBulkUpdating={bulkUpdateStatus.isPending}
+              />
+            )}
           </TabsContent>
 
           <TabsContent value="salary" className="mt-6">
