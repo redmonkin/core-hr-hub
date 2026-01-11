@@ -4,6 +4,18 @@ import { createClient } from "npm:@supabase/supabase-js@2.87.1";
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+
+// HTML escape utility to prevent XSS in email templates
+const escapeHtml = (text: string | null | undefined): string => {
+  if (!text) return '';
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+};
 
 const sendEmail = async (to: string[], subject: string, html: string) => {
   const res = await fetch("https://api.resend.com/emails", {
@@ -40,10 +52,56 @@ serve(async (req) => {
   }
 
   try {
+    // Verify authentication
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
+      console.error("No authorization header provided");
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Create client with user's auth token
+    const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } }
+    });
+
+    // Verify the token and get claims
+    const token = authHeader.replace('Bearer ', '');
+    const { data: claimsData, error: claimsError } = await supabaseAuth.auth.getClaims(token);
+    if (claimsError || !claimsData?.claims) {
+      console.error("Invalid token:", claimsError);
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const userId = claimsData.claims.sub;
+    console.log("Authenticated user:", userId);
+
+    // Use service role for data operations
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
     const payload: LeaveStatusNotificationRequest = await req.json();
 
     console.log("Processing leave status notification:", payload);
+
+    // Verify the caller is authorized (must be HR/admin or the manager of the employee)
+    const { data: callerEmployee } = await supabase
+      .from('employees')
+      .select('id')
+      .eq('user_id', userId)
+      .single();
+
+    // Check if user is admin/HR
+    const { data: userRoles } = await supabase
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', userId)
+      .in('role', ['admin', 'hr']);
+
+    const isAdminOrHr = userRoles && userRoles.length > 0;
 
     // Get leave request with employee and leave type details
     const { data: leaveRequest, error: requestError } = await supabase
@@ -62,6 +120,23 @@ serve(async (req) => {
     if (requestError || !leaveRequest) {
       console.error("Error fetching leave request:", requestError);
       throw new Error("Leave request not found");
+    }
+
+    // Get the employee who made the leave request to check if caller is their manager
+    const { data: requestEmployee } = await supabase
+      .from('employees')
+      .select('manager_id')
+      .eq('id', leaveRequest.employee_id)
+      .single();
+
+    const isManagerOfEmployee = callerEmployee && requestEmployee?.manager_id === callerEmployee.id;
+
+    if (!isAdminOrHr && !isManagerOfEmployee) {
+      console.error("User not authorized to send this notification");
+      return new Response(
+        JSON.stringify({ error: 'Forbidden - You are not authorized to send this notification' }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     // Get leave type name
@@ -103,6 +178,12 @@ serve(async (req) => {
     const statusColor = payload.status === "approved" ? "#4caf50" : "#f44336";
     const leaveTypeName = leaveType?.name || "Leave";
 
+    // Escape user-provided data for HTML
+    const safeFirstName = escapeHtml(employee.first_name);
+    const safeReviewerName = escapeHtml(payload.reviewer_name);
+    const safeLeaveTypeName = escapeHtml(leaveTypeName);
+    const safeReviewNotes = escapeHtml(payload.review_notes);
+
     // Create in-app notification (always send in-app notifications)
     if (employee.user_id) {
       const { error: notifError } = await supabase
@@ -126,19 +207,19 @@ serve(async (req) => {
     if (wantsLeaveStatusNotifications) {
       const emailResult = await sendEmail(
         [employee.email],
-        `Leave Request ${statusText} - ${leaveTypeName}`,
+        `Leave Request ${statusText} - ${safeLeaveTypeName}`,
         `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
             <h2 style="color: #333;">Leave Request ${statusText}</h2>
-            <p>Hi ${employee.first_name},</p>
-            <p>Your leave request has been <strong style="color: ${statusColor};">${payload.status}</strong> by ${payload.reviewer_name}.</p>
+            <p>Hi ${safeFirstName},</p>
+            <p>Your leave request has been <strong style="color: ${statusColor};">${payload.status}</strong> by ${safeReviewerName}.</p>
             
             <div style="background-color: #f5f5f5; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid ${statusColor};">
-              <p style="margin: 0;"><strong>Leave Type:</strong> ${leaveTypeName}</p>
+              <p style="margin: 0;"><strong>Leave Type:</strong> ${safeLeaveTypeName}</p>
               <p style="margin: 10px 0 0;"><strong>Duration:</strong> ${leaveRequest.days_count} day(s)</p>
               <p style="margin: 10px 0 0;"><strong>Dates:</strong> ${leaveRequest.start_date} to ${leaveRequest.end_date}</p>
               <p style="margin: 10px 0 0;"><strong>Status:</strong> ${statusText}</p>
-              ${payload.review_notes ? `<p style="margin: 10px 0 0;"><strong>Notes:</strong> ${payload.review_notes}</p>` : ""}
+              ${safeReviewNotes ? `<p style="margin: 10px 0 0;"><strong>Notes:</strong> ${safeReviewNotes}</p>` : ""}
             </div>
             
             <p>Log in to your HR portal to view more details.</p>

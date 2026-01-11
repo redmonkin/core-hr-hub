@@ -8,6 +8,17 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// HTML escape utility to prevent XSS in email templates
+const escapeHtml = (text: string | null | undefined): string => {
+  if (!text) return '';
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+};
+
 const sendEmail = async (to: string[], subject: string, html: string) => {
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
@@ -25,6 +36,8 @@ const sendEmail = async (to: string[], subject: string, html: string) => {
   return res.json();
 };
 
+// Note: This function is designed to be called by a cron job, not directly by users
+// The verify_jwt = false in config.toml is appropriate for cron-triggered functions
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -71,6 +84,8 @@ serve(async (req) => {
 
     for (const employee of onboardingEmployees) {
       const employeeName = `${employee.first_name} ${employee.last_name}`;
+      const safeFirstName = escapeHtml(employee.first_name);
+      const safeEmployeeName = escapeHtml(employeeName);
       const hireDate = new Date(employee.hire_date);
       const today = new Date();
       const daysUntilStart = Math.ceil((hireDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
@@ -82,7 +97,7 @@ serve(async (req) => {
             [employee.email],
             "Onboarding Reminder - Complete Your Setup",
             `
-              <h2>Welcome to the Team, ${employee.first_name}!</h2>
+              <h2>Welcome to the Team, ${safeFirstName}!</h2>
               <p>This is a friendly reminder that your onboarding process is still in progress.</p>
               ${daysUntilStart > 0 
                 ? `<p>Your start date is <strong>${hireDate.toLocaleDateString()}</strong> (${daysUntilStart} days away).</p>`
@@ -145,14 +160,14 @@ serve(async (req) => {
 
     if (hrUsers && hrUsers.length > 0) {
       const employeeList = onboardingEmployees
-        .map((e) => `${e.first_name} ${e.last_name}`)
+        .map((e) => escapeHtml(`${e.first_name} ${e.last_name}`))
         .join(", ");
 
       for (const hrUser of hrUsers) {
         await supabase.from("notifications").insert({
           user_id: hrUser.user_id,
           title: "Daily Onboarding Summary",
-          message: `${onboardingEmployees.length} employee(s) pending onboarding: ${employeeList}`,
+          message: `${onboardingEmployees.length} employee(s) pending onboarding: ${onboardingEmployees.map(e => `${e.first_name} ${e.last_name}`).join(", ")}`,
           type: "summary",
           link: "/onboarding",
         });
@@ -183,7 +198,7 @@ serve(async (req) => {
                   <tbody>
                     ${onboardingEmployees.map((e) => `
                       <tr>
-                        <td style="padding: 8px; border: 1px solid #ddd;">${e.first_name} ${e.last_name}</td>
+                        <td style="padding: 8px; border: 1px solid #ddd;">${escapeHtml(e.first_name)} ${escapeHtml(e.last_name)}</td>
                         <td style="padding: 8px; border: 1px solid #ddd;">-</td>
                         <td style="padding: 8px; border: 1px solid #ddd;">${new Date(e.hire_date).toLocaleDateString()}</td>
                       </tr>

@@ -8,6 +8,17 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// HTML escape utility to prevent XSS in email templates
+const escapeHtml = (text: string | null | undefined): string => {
+  if (!text) return '';
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+};
+
 interface OnboardingNotificationRequest {
   employee_id: string;
   employee_name: string;
@@ -43,7 +54,54 @@ serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+
+    // Verify authentication
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
+      console.error("No authorization header provided");
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Create client with user's auth token
+    const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } }
+    });
+
+    // Verify the token and get claims
+    const token = authHeader.replace('Bearer ', '');
+    const { data: claimsData, error: claimsError } = await supabaseAuth.auth.getClaims(token);
+    if (claimsError || !claimsData?.claims) {
+      console.error("Invalid token:", claimsError);
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const userId = claimsData.claims.sub;
+    console.log("Authenticated user:", userId);
+
+    // Use service role for data operations
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Verify the caller is HR or admin
+    const { data: userRoles } = await supabase
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', userId)
+      .in('role', ['admin', 'hr']);
+
+    if (!userRoles || userRoles.length === 0) {
+      console.error("User not authorized - must be HR or admin");
+      return new Response(
+        JSON.stringify({ error: 'Forbidden - Only HR or admin can send onboarding notifications' }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     const payload: OnboardingNotificationRequest = await req.json();
     console.log("Onboarding notification payload:", payload);
@@ -56,6 +114,13 @@ serve(async (req) => {
       join_date,
       manager_id,
     } = payload;
+
+    // Escape user-provided data for HTML
+    const safeEmployeeName = escapeHtml(employee_name);
+    const safeEmployeeEmail = escapeHtml(employee_email);
+    const safeDesignation = escapeHtml(designation);
+    const safeDepartmentName = escapeHtml(department_name);
+    const safeJoinDate = escapeHtml(join_date);
 
     // Get HR users to notify
     const { data: hrUsers, error: hrError } = await supabase
@@ -115,16 +180,16 @@ serve(async (req) => {
           try {
             const result = await sendEmail(
               [hrProfile.email],
-              `New Employee Onboarding: ${employee_name}`,
+              `New Employee Onboarding: ${safeEmployeeName}`,
               `
                 <h2>New Employee Added for Onboarding</h2>
                 <p>A new employee has been added to the system and is ready for onboarding:</p>
                 <ul>
-                  <li><strong>Name:</strong> ${employee_name}</li>
-                  <li><strong>Email:</strong> ${employee_email}</li>
-                  <li><strong>Designation:</strong> ${designation}</li>
-                  ${department_name ? `<li><strong>Department:</strong> ${department_name}</li>` : ""}
-                  <li><strong>Join Date:</strong> ${join_date}</li>
+                  <li><strong>Name:</strong> ${safeEmployeeName}</li>
+                  <li><strong>Email:</strong> ${safeEmployeeEmail}</li>
+                  <li><strong>Designation:</strong> ${safeDesignation}</li>
+                  ${safeDepartmentName ? `<li><strong>Department:</strong> ${safeDepartmentName}</li>` : ""}
+                  <li><strong>Join Date:</strong> ${safeJoinDate}</li>
                 </ul>
                 <p>Please ensure all onboarding tasks are completed before the join date.</p>
                 <p style="color: #999; font-size: 12px; margin-top: 30px;">You can manage your notification preferences in your profile settings.</p>
@@ -156,6 +221,8 @@ serve(async (req) => {
 
         const wantsOnboardingNotifications = managerPrefs?.onboarding_notifications ?? true;
 
+        const safeManagerFirstName = escapeHtml(manager.first_name);
+
         // In-app notification for manager (always send)
         const { error: notifError } = await supabase
           .from("notifications")
@@ -176,17 +243,17 @@ serve(async (req) => {
           try {
             const result = await sendEmail(
               [manager.email],
-              `New Team Member: ${employee_name}`,
+              `New Team Member: ${safeEmployeeName}`,
               `
                 <h2>New Team Member Joining</h2>
-                <p>Hi ${manager.first_name},</p>
+                <p>Hi ${safeManagerFirstName},</p>
                 <p>A new team member will be reporting to you:</p>
                 <ul>
-                  <li><strong>Name:</strong> ${employee_name}</li>
-                  <li><strong>Email:</strong> ${employee_email}</li>
-                  <li><strong>Designation:</strong> ${designation}</li>
-                  ${department_name ? `<li><strong>Department:</strong> ${department_name}</li>` : ""}
-                  <li><strong>Join Date:</strong> ${join_date}</li>
+                  <li><strong>Name:</strong> ${safeEmployeeName}</li>
+                  <li><strong>Email:</strong> ${safeEmployeeEmail}</li>
+                  <li><strong>Designation:</strong> ${safeDesignation}</li>
+                  ${safeDepartmentName ? `<li><strong>Department:</strong> ${safeDepartmentName}</li>` : ""}
+                  <li><strong>Join Date:</strong> ${safeJoinDate}</li>
                 </ul>
                 <p>Please prepare for their arrival and help them get started.</p>
                 <p style="color: #999; font-size: 12px; margin-top: 30px;">You can manage your notification preferences in your profile settings.</p>

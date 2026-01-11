@@ -5,6 +5,17 @@ const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
+// HTML escape utility to prevent XSS in email templates
+const escapeHtml = (text: string | null | undefined): string => {
+  if (!text) return '';
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+};
+
 const sendEmail = async (to: string[], subject: string, html: string) => {
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
@@ -45,6 +56,8 @@ interface GoalRow {
   employees: Employee;
 }
 
+// Note: This function is designed to be called by a cron job, not directly by users
+// The verify_jwt = false in config.toml is appropriate for cron-triggered functions
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -157,6 +170,10 @@ serve(async (req) => {
 
         console.log(`Processing reminder for ${employee.email} for goal: ${goal.title}`);
 
+        // Escape user-provided data for HTML
+        const safeFirstName = escapeHtml(employee.first_name);
+        const safeGoalTitle = escapeHtml(goal.title);
+
         // Add in-app notification (always send)
         notifications.push({
           user_id: employee.user_id,
@@ -176,12 +193,12 @@ serve(async (req) => {
               [employee.email],
               title,
               `
-                <h2>${title}</h2>
-                <p>Hi ${employee.first_name},</p>
-                <p>${message}</p>
+                <h2>${escapeHtml(title)}</h2>
+                <p>Hi ${safeFirstName},</p>
+                <p>${escapeHtml(message)}</p>
                 <p>Please update your progress or complete this goal before the deadline.</p>
                 <p style="margin-top: 20px;">
-                  <strong>Goal:</strong> ${goal.title}<br>
+                  <strong>Goal:</strong> ${safeGoalTitle}<br>
                   <strong>Due Date:</strong> ${new Date(goal.due_date).toLocaleDateString()}<br>
                   <strong>Current Progress:</strong> ${goal.progress}%
                 </p>

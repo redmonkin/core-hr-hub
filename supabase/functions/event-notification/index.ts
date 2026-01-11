@@ -8,6 +8,17 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// HTML escape utility to prevent XSS in email templates
+const escapeHtml = (text: string | null | undefined): string => {
+  if (!text) return '';
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+};
+
 interface CompanyEvent {
   id: string;
   title: string;
@@ -25,6 +36,8 @@ interface Employee {
   user_id: string | null;
 }
 
+// Note: This function is designed to be called by a cron job, not directly by users
+// The verify_jwt = false in config.toml is appropriate for cron-triggered functions
 const handler = async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -107,7 +120,7 @@ const handler = async (req: Request): Promise<Response> => {
 
     console.log(`Found preferences for ${preferencesMap.size} users`);
 
-    // Build event list HTML generator
+    // Build event list HTML generator with HTML escaping
     const buildEventListHtml = (eventList: CompanyEvent[]) => {
       return eventList
         .map((event: CompanyEvent) => {
@@ -118,15 +131,17 @@ const handler = async (req: Request): Promise<Response> => {
             day: "numeric",
           });
           const typeLabel = event.is_holiday ? "🎉 Holiday" : "📅 Event";
+          const safeTitle = escapeHtml(event.title);
+          const safeDescription = escapeHtml(event.description);
           return `
             <tr>
               <td style="padding: 12px; border-bottom: 1px solid #eee;">
-                <strong>${event.title}</strong>
+                <strong>${safeTitle}</strong>
                 <br>
                 <span style="color: #666; font-size: 14px;">${eventDate}</span>
                 <br>
                 <span style="background: ${event.is_holiday ? "#fee2e2" : "#dbeafe"}; color: ${event.is_holiday ? "#dc2626" : "#2563eb"}; padding: 2px 8px; border-radius: 4px; font-size: 12px;">${typeLabel}</span>
-                ${event.description ? `<br><span style="color: #888; font-size: 13px; margin-top: 4px; display: inline-block;">${event.description}</span>` : ""}
+                ${safeDescription ? `<br><span style="color: #888; font-size: 13px; margin-top: 4px; display: inline-block;">${safeDescription}</span>` : ""}
               </td>
             </tr>
           `;
@@ -162,6 +177,7 @@ const handler = async (req: Request): Promise<Response> => {
         eventsToNotify.sort((a, b) => new Date(a.event_date).getTime() - new Date(b.event_date).getTime());
 
         const eventListHtml = buildEventListHtml(eventsToNotify);
+        const safeFirstName = escapeHtml(employee.first_name);
 
         const emailResponse = await fetch("https://api.resend.com/emails", {
           method: "POST",
@@ -183,7 +199,7 @@ const handler = async (req: Request): Promise<Response> => {
               <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
                 <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; border-radius: 12px 12px 0 0;">
                   <h1 style="color: white; margin: 0; font-size: 24px;">📅 Upcoming Events</h1>
-                  <p style="color: rgba(255,255,255,0.9); margin: 10px 0 0 0;">Hello ${employee.first_name},</p>
+                  <p style="color: rgba(255,255,255,0.9); margin: 10px 0 0 0;">Hello ${safeFirstName},</p>
                 </div>
                 
                 <div style="background: #fff; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 12px 12px; padding: 20px;">
