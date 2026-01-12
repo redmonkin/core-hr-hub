@@ -16,6 +16,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { MoreHorizontal, Eye, Edit, Trash2, FileText } from "lucide-react";
+import { SortableTableHead } from "@/components/ui/sortable-table-head";
+import { SortDirection } from "@/hooks/useSorting";
 
 export interface Employee {
   id: string;
@@ -35,6 +37,9 @@ interface EmployeeTableProps {
   onDelete?: (employee: Employee) => void;
   onManageDocuments?: (employee: Employee) => void;
   isAdminOrHR?: boolean;
+  sortKey?: keyof Employee | null;
+  sortDirection?: SortDirection;
+  onSort?: (key: keyof Employee) => void;
 }
 
 const statusStyles = {
@@ -43,17 +48,79 @@ const statusStyles = {
   onboarding: "bg-primary/10 text-primary border-primary/20",
 };
 
-export function EmployeeTable({ employees, onView, onEdit, onDelete, onManageDocuments, isAdminOrHR = false }: EmployeeTableProps) {
+export function EmployeeTable({ 
+  employees, 
+  onView, 
+  onEdit, 
+  onDelete, 
+  onManageDocuments, 
+  isAdminOrHR = false,
+  sortKey,
+  sortDirection,
+  onSort,
+}: EmployeeTableProps) {
+  const handleSort = (key: string) => {
+    onSort?.(key as keyof Employee);
+  };
+
   return (
     <div className="rounded-xl border border-border bg-card">
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead className="w-[300px]">Employee</TableHead>
-            <TableHead>Department</TableHead>
-            <TableHead>Designation</TableHead>
-            <TableHead>Join Date</TableHead>
-            <TableHead>Status</TableHead>
+            {onSort ? (
+              <>
+                <SortableTableHead
+                  sortKey="name"
+                  currentSortKey={sortKey ?? null}
+                  direction={sortKey === "name" ? sortDirection ?? null : null}
+                  onSort={handleSort}
+                  className="w-[300px]"
+                >
+                  Employee
+                </SortableTableHead>
+                <SortableTableHead
+                  sortKey="department"
+                  currentSortKey={sortKey ?? null}
+                  direction={sortKey === "department" ? sortDirection ?? null : null}
+                  onSort={handleSort}
+                >
+                  Department
+                </SortableTableHead>
+                <SortableTableHead
+                  sortKey="designation"
+                  currentSortKey={sortKey ?? null}
+                  direction={sortKey === "designation" ? sortDirection ?? null : null}
+                  onSort={handleSort}
+                >
+                  Designation
+                </SortableTableHead>
+                <SortableTableHead
+                  sortKey="joinDate"
+                  currentSortKey={sortKey ?? null}
+                  direction={sortKey === "joinDate" ? sortDirection ?? null : null}
+                  onSort={handleSort}
+                >
+                  Join Date
+                </SortableTableHead>
+                <SortableTableHead
+                  sortKey="status"
+                  currentSortKey={sortKey ?? null}
+                  direction={sortKey === "status" ? sortDirection ?? null : null}
+                  onSort={handleSort}
+                >
+                  Status
+                </SortableTableHead>
+              </>
+            ) : (
+              <>
+                <TableHead className="w-[300px]">Employee</TableHead>
+                <TableHead>Department</TableHead>
+                <TableHead>Designation</TableHead>
+                <TableHead>Join Date</TableHead>
+                <TableHead>Status</TableHead>
+              </>
+            )}
             <TableHead className="text-right">Actions</TableHead>
           </TableRow>
         </TableHeader>
