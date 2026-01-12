@@ -53,6 +53,7 @@ const Employees = () => {
   const [documentsEmployee, setDocumentsEmployee] = useState<Employee | null>(null);
   const [viewEmployee, setViewEmployee] = useState<Employee | null>(null);
   const [editEmployee, setEditEmployee] = useState<Employee | null>(null);
+  const [selectedEmployeeIds, setSelectedEmployeeIds] = useState<string[]>([]);
 
   const { data: employees = [], isLoading: isLoadingEmployees } = useEmployees();
   const { data: departments = [] } = useDepartments();
@@ -166,6 +167,62 @@ const Employees = () => {
     toast.success(`${dataToExport.length} employees exported to PDF`);
   };
 
+  const handleBulkAction = (action: string, ids: string[]) => {
+    const selectedEmployees = employees.filter(e => ids.includes(e.id));
+    
+    switch (action) {
+      case 'export':
+        // Export selected employees to CSV
+        const headers = ["Name", "Email", "Department", "Designation", "Status", "Join Date"];
+        const csvContent = [
+          headers.join(","),
+          ...selectedEmployees.map((emp) =>
+            [
+              `"${emp.name}"`,
+              `"${emp.email}"`,
+              `"${emp.department}"`,
+              `"${emp.designation}"`,
+              `"${emp.status}"`,
+              `"${emp.joinDate}"`,
+            ].join(",")
+          ),
+        ].join("\n");
+
+        const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(blob);
+        link.download = `selected-employees-${new Date().toISOString().split("T")[0]}.csv`;
+        link.click();
+        toast.success(`${selectedEmployees.length} employees exported`);
+        setSelectedEmployeeIds([]);
+        break;
+        
+      case 'email':
+        // Copy emails to clipboard
+        const emails = selectedEmployees.map(e => e.email).join(', ');
+        navigator.clipboard.writeText(emails);
+        toast.success(`${selectedEmployees.length} email addresses copied to clipboard`);
+        break;
+        
+      case 'activate':
+        toast.info(`Bulk activation for ${ids.length} employees would be processed here`);
+        setSelectedEmployeeIds([]);
+        break;
+        
+      case 'deactivate':
+        toast.info(`Bulk deactivation for ${ids.length} employees would be processed here`);
+        setSelectedEmployeeIds([]);
+        break;
+        
+      case 'delete':
+        toast.error(`Bulk delete for ${ids.length} employees requires confirmation dialog`);
+        break;
+        
+      default:
+        break;
+    }
+  };
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
@@ -263,6 +320,9 @@ const Employees = () => {
               sortKey={sortConfig.key}
               sortDirection={sortConfig.direction}
               onSort={requestSort}
+              selectedIds={selectedEmployeeIds}
+              onSelectionChange={setSelectedEmployeeIds}
+              onBulkAction={handleBulkAction}
             />
             
             {/* Pagination Controls */}
