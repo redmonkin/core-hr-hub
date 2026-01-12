@@ -23,6 +23,7 @@ import {
   Building2,
   CalendarDays,
   Bell,
+  User,
 } from "lucide-react";
 import hrHubLogo from "@/assets/hr-hub-logo.svg";
 import { Button } from "@/components/ui/button";
@@ -241,7 +242,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                 <DropdownMenuSeparator />
                 <DropdownMenuItem asChild>
                   <Link to="/profile">
-                    <Settings className="mr-2 h-4 w-4" />
+                    <User className="mr-2 h-4 w-4" />
                     Profile Settings
                   </Link>
                 </DropdownMenuItem>
