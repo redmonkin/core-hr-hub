@@ -253,7 +253,10 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                 </DropdownMenuItem>
                 {isAdminOrHR && (
                   <DropdownMenuItem asChild>
-                    <Link to="/settings">Settings</Link>
+                    <Link to="/settings">
+                      <Settings className="mr-2 h-4 w-4" />
+                      Account Settings
+                    </Link>
                   </DropdownMenuItem>
                 )}
                 <DropdownMenuSeparator />
