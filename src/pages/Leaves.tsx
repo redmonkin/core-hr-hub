@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader as ModalHeader, 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Calendar, Plus, Clock, CheckCircle, XCircle, ArrowUpDown, Download, FileSpreadsheet, FileText } from "lucide-react";
+import { Calendar, Plus, Clock, CheckCircle, XCircle, ArrowUpDown } from "lucide-react";
 import { usePagination } from "@/hooks/usePagination";
 import { useSorting } from "@/hooks/useSorting";
 import {
@@ -41,6 +41,8 @@ import { useLeaveRequests, useLeaveStats, useUpdateLeaveStatus } from "@/hooks/u
 import { useIsAdminOrHR } from "@/hooks/useUserRole";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { DateRangeExportDialog } from "@/components/export/DateRangeExportDialog";
+import { format, parseISO, isWithinInterval, isAfter, isBefore } from "date-fns";
 
 const Leaves = () => {
   const { user } = useAuth();
@@ -113,12 +115,28 @@ const Leaves = () => {
     );
   };
 
-  const exportToCSV = () => {
+  const filterByDateRange = (items: LeaveRequest[], startDate?: Date, endDate?: Date) => {
+    if (!startDate && !endDate) return items;
+    
+    return items.filter((req) => {
+      const leaveStartDate = parseISO(req.startDate);
+      
+      if (startDate && endDate) {
+        return isWithinInterval(leaveStartDate, { start: startDate, end: endDate });
+      }
+      if (startDate) return isAfter(leaveStartDate, startDate) || leaveStartDate.getTime() === startDate.getTime();
+      if (endDate) return isBefore(leaveStartDate, endDate) || leaveStartDate.getTime() === endDate.getTime();
+      return true;
+    });
+  };
+
+  const exportToCSV = (startDate?: Date, endDate?: Date) => {
     const allRequests = [...pendingRequests, ...processedRequests];
+    const filteredRequests = filterByDateRange(allRequests, startDate, endDate);
     const headers = ["Employee", "Department", "Type", "Start Date", "End Date", "Days", "Status", "Reason"];
     const csvContent = [
       headers.join(","),
-      ...allRequests.map((req) =>
+      ...filteredRequests.map((req) =>
         [
           `"${req.employee.name}"`,
           `"${req.employee.department}"`,
@@ -135,28 +153,35 @@ const Leaves = () => {
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
-    link.download = `leave-requests-${new Date().toISOString().split("T")[0]}.csv`;
+    const dateRange = startDate || endDate ? `-${startDate ? format(startDate, "yyyy-MM-dd") : "start"}-to-${endDate ? format(endDate, "yyyy-MM-dd") : "end"}` : "";
+    link.download = `leave-requests${dateRange}-${new Date().toISOString().split("T")[0]}.csv`;
     link.click();
     toast({
       title: "Export Complete",
-      description: "Leave requests exported to CSV",
+      description: `${filteredRequests.length} leave requests exported to CSV`,
     });
   };
 
-  const exportToPDF = () => {
+  const exportToPDF = (startDate?: Date, endDate?: Date) => {
     const allRequests = [...pendingRequests, ...processedRequests];
+    const filteredRequests = filterByDateRange(allRequests, startDate, endDate);
     const doc = new jsPDF();
     
     doc.setFontSize(18);
     doc.text("Leave Requests Report", 14, 22);
     doc.setFontSize(10);
     doc.text(`Generated on ${new Date().toLocaleDateString()}`, 14, 30);
-    doc.text(`Total Requests: ${allRequests.length} | Pending: ${pendingRequests.length} | Processed: ${processedRequests.length}`, 14, 36);
+    if (startDate || endDate) {
+      doc.text(`Date Range: ${startDate ? format(startDate, "PP") : "Start"} - ${endDate ? format(endDate, "PP") : "End"}`, 14, 36);
+      doc.text(`Total Requests: ${filteredRequests.length}`, 14, 42);
+    } else {
+      doc.text(`Total Requests: ${filteredRequests.length} | Pending: ${pendingRequests.length} | Processed: ${processedRequests.length}`, 14, 36);
+    }
 
     autoTable(doc, {
-      startY: 44,
+      startY: startDate || endDate ? 50 : 44,
       head: [["Employee", "Department", "Type", "Start Date", "End Date", "Days", "Status"]],
-      body: allRequests.map((req) => [
+      body: filteredRequests.map((req) => [
         req.employee.name,
         req.employee.department,
         req.type,
@@ -169,10 +194,11 @@ const Leaves = () => {
       headStyles: { fillColor: [59, 130, 246] },
     });
 
-    doc.save(`leave-requests-${new Date().toISOString().split("T")[0]}.pdf`);
+    const dateRange = startDate || endDate ? `-${startDate ? format(startDate, "yyyy-MM-dd") : "start"}-to-${endDate ? format(endDate, "yyyy-MM-dd") : "end"}` : "";
+    doc.save(`leave-requests${dateRange}-${new Date().toISOString().split("T")[0]}.pdf`);
     toast({
       title: "Export Complete",
-      description: "Leave requests exported to PDF",
+      description: `${filteredRequests.length} leave requests exported to PDF`,
     });
   };
 
@@ -309,25 +335,19 @@ const Leaves = () => {
             <p className="text-muted-foreground">Manage and track leave requests</p>
           </div>
           <div className="flex gap-3">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline">
-                  <Download className="mr-2 h-4 w-4" />
-                  Export
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent>
-                <DropdownMenuItem onClick={exportToCSV}>
-                  <FileSpreadsheet className="mr-2 h-4 w-4" />
-                  Export as CSV
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={exportToPDF}>
-                  <FileText className="mr-2 h-4 w-4" />
-                  Export as PDF
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <DateRangeExportDialog
+              title="Export Leave Requests"
+              description="Export leave requests with optional date range filter based on leave start date."
+              onExportCSV={exportToCSV}
+              onExportPDF={exportToPDF}
+            />
             <Dialog open={isNewRequestOpen} onOpenChange={setIsNewRequestOpen}>
+              <DialogTrigger asChild>
+                <Button>
+                  <Plus className="mr-2 h-4 w-4" />
+                  New Leave Request
+                </Button>
+              </DialogTrigger>
               <DialogTrigger asChild>
                 <Button>
                   <Plus className="mr-2 h-4 w-4" />
