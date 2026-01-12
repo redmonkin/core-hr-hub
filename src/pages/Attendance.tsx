@@ -6,13 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Clock, LogIn, LogOut, Calendar, Download, FileSpreadsheet, FileText } from "lucide-react";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { Clock, LogIn, LogOut, Calendar } from "lucide-react";
 import { usePagination } from "@/hooks/usePagination";
 import { useSorting } from "@/hooks/useSorting";
 import { SortableTableHead } from "@/components/ui/sortable-table-head";
@@ -33,6 +27,7 @@ import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { DateRangeExportDialog } from "@/components/export/DateRangeExportDialog";
 
 const MONTHS = [
   { value: "0", label: "January" },
@@ -128,7 +123,7 @@ const Attendance = () => {
     }
   };
 
-  const exportToCSV = () => {
+  const exportToCSV = (startDate?: Date, endDate?: Date) => {
     if (!reportData || reportData.length === 0) return;
 
     const monthName = MONTHS[parseInt(selectedMonth)].label;
@@ -150,12 +145,15 @@ const Attendance = () => {
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
-    link.download = `attendance-report-${monthName.toLowerCase()}-${selectedYear}.csv`;
+    const dateRange = startDate || endDate 
+      ? `-${startDate ? format(startDate, "yyyy-MM-dd") : "start"}-to-${endDate ? format(endDate, "yyyy-MM-dd") : "end"}` 
+      : `-${monthName.toLowerCase()}-${selectedYear}`;
+    link.download = `attendance-report${dateRange}.csv`;
     link.click();
-    toast.success("Attendance report exported to CSV");
+    toast.success(`${reportData.length} attendance records exported to CSV`);
   };
 
-  const exportToPDF = () => {
+  const exportToPDF = (startDate?: Date, endDate?: Date) => {
     if (!reportData || reportData.length === 0) return;
 
     const doc = new jsPDF();
@@ -166,7 +164,11 @@ const Attendance = () => {
     doc.text("Attendance Report", pageWidth / 2, 20, { align: "center" });
 
     doc.setFontSize(12);
-    doc.text(`${monthName} ${selectedYear}`, pageWidth / 2, 28, { align: "center" });
+    if (startDate || endDate) {
+      doc.text(`${startDate ? format(startDate, "PP") : "Start"} - ${endDate ? format(endDate, "PP") : "End"}`, pageWidth / 2, 28, { align: "center" });
+    } else {
+      doc.text(`${monthName} ${selectedYear}`, pageWidth / 2, 28, { align: "center" });
+    }
 
     doc.setFontSize(10);
     doc.text(`Generated: ${new Date().toLocaleDateString()}`, pageWidth / 2, 35, { align: "center" });
@@ -186,8 +188,11 @@ const Attendance = () => {
       headStyles: { fillColor: [59, 130, 246] },
     });
 
-    doc.save(`attendance-report-${monthName.toLowerCase()}-${selectedYear}.pdf`);
-    toast.success("Attendance report exported to PDF");
+    const dateRange = startDate || endDate 
+      ? `-${startDate ? format(startDate, "yyyy-MM-dd") : "start"}-to-${endDate ? format(endDate, "yyyy-MM-dd") : "end"}` 
+      : `-${monthName.toLowerCase()}-${selectedYear}`;
+    doc.save(`attendance-report${dateRange}.pdf`);
+    toast.success(`${reportData.length} attendance records exported to PDF`);
   };
 
   const currentTime = new Date();
@@ -306,24 +311,13 @@ const Attendance = () => {
                 </CardDescription>
               </div>
             </div>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" disabled={reportLoading || !reportData?.length}>
-                  <Download className="mr-2 h-4 w-4" />
-                  Export
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent>
-                <DropdownMenuItem onClick={exportToCSV}>
-                  <FileSpreadsheet className="mr-2 h-4 w-4" />
-                  Export as CSV
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={exportToPDF}>
-                  <FileText className="mr-2 h-4 w-4" />
-                  Export as PDF
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <DateRangeExportDialog
+              title="Export Attendance Report"
+              description={`Export attendance report for ${MONTHS[parseInt(selectedMonth)].label} ${selectedYear}. Use date filters for custom range or leave empty to export the selected month.`}
+              onExportCSV={exportToCSV}
+              onExportPDF={exportToPDF}
+              disabled={reportLoading || !reportData?.length}
+            />
           </CardHeader>
           <CardContent>
             {reportLoading ? (

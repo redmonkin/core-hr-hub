@@ -22,7 +22,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { UserPlus, Search, Download, Users, FileSpreadsheet, FileText } from "lucide-react";
+import { UserPlus, Search, Users } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useEmployees, useDepartments } from "@/hooks/useEmployees";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -34,6 +34,8 @@ import { EmployeeEditDialog } from "@/components/employees/EmployeeEditDialog";
 import { toast } from "sonner";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { DateRangeExportDialog } from "@/components/export/DateRangeExportDialog";
+import { format, parseISO, isWithinInterval, isAfter, isBefore } from "date-fns";
 import { usePagination } from "@/hooks/usePagination";
 import { useSorting } from "@/hooks/useSorting";
 import {
@@ -88,11 +90,27 @@ const Employees = () => {
 
   const isLoading = isLoadingEmployees || isLoadingRole;
 
-  const exportToCSV = () => {
+  const filterByDateRange = (items: Employee[], startDate?: Date, endDate?: Date) => {
+    if (!startDate && !endDate) return items;
+    
+    return items.filter((emp) => {
+      const joinDate = parseISO(emp.joinDate);
+      
+      if (startDate && endDate) {
+        return isWithinInterval(joinDate, { start: startDate, end: endDate });
+      }
+      if (startDate) return isAfter(joinDate, startDate) || joinDate.getTime() === startDate.getTime();
+      if (endDate) return isBefore(joinDate, endDate) || joinDate.getTime() === endDate.getTime();
+      return true;
+    });
+  };
+
+  const exportToCSV = (startDate?: Date, endDate?: Date) => {
+    const dataToExport = filterByDateRange(sortedEmployees, startDate, endDate);
     const headers = ["Name", "Email", "Department", "Designation", "Status", "Join Date"];
     const csvContent = [
       headers.join(","),
-      ...filteredEmployees.map((emp) =>
+      ...dataToExport.map((emp) =>
         [
           `"${emp.name}"`,
           `"${emp.email}"`,
@@ -107,24 +125,31 @@ const Employees = () => {
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
-    link.download = `employee-directory-${new Date().toISOString().split("T")[0]}.csv`;
+    const dateRange = startDate || endDate ? `-${startDate ? format(startDate, "yyyy-MM-dd") : "start"}-to-${endDate ? format(endDate, "yyyy-MM-dd") : "end"}` : "";
+    link.download = `employee-directory${dateRange}-${new Date().toISOString().split("T")[0]}.csv`;
     link.click();
-    toast.success("Employee directory exported to CSV");
+    toast.success(`${dataToExport.length} employees exported to CSV`);
   };
 
-  const exportToPDF = () => {
+  const exportToPDF = (startDate?: Date, endDate?: Date) => {
+    const dataToExport = filterByDateRange(sortedEmployees, startDate, endDate);
     const doc = new jsPDF();
     
     doc.setFontSize(18);
     doc.text("Employee Directory", 14, 22);
     doc.setFontSize(10);
     doc.text(`Generated on ${new Date().toLocaleDateString()}`, 14, 30);
-    doc.text(`Total Employees: ${filteredEmployees.length}`, 14, 36);
+    if (startDate || endDate) {
+      doc.text(`Date Range: ${startDate ? format(startDate, "PP") : "Start"} - ${endDate ? format(endDate, "PP") : "End"}`, 14, 36);
+      doc.text(`Total Employees: ${dataToExport.length}`, 14, 42);
+    } else {
+      doc.text(`Total Employees: ${dataToExport.length}`, 14, 36);
+    }
 
     autoTable(doc, {
-      startY: 44,
+      startY: startDate || endDate ? 50 : 44,
       head: [["Name", "Email", "Department", "Designation", "Status", "Join Date"]],
-      body: filteredEmployees.map((emp) => [
+      body: dataToExport.map((emp) => [
         emp.name,
         emp.email,
         emp.department,
@@ -136,8 +161,9 @@ const Employees = () => {
       headStyles: { fillColor: [59, 130, 246] },
     });
 
-    doc.save(`employee-directory-${new Date().toISOString().split("T")[0]}.pdf`);
-    toast.success("Employee directory exported to PDF");
+    const dateRange = startDate || endDate ? `-${startDate ? format(startDate, "yyyy-MM-dd") : "start"}-to-${endDate ? format(endDate, "yyyy-MM-dd") : "end"}` : "";
+    doc.save(`employee-directory${dateRange}-${new Date().toISOString().split("T")[0]}.pdf`);
+    toast.success(`${dataToExport.length} employees exported to PDF`);
   };
 
   return (
@@ -155,24 +181,12 @@ const Employees = () => {
           </div>
           {isAdminOrHR && (
             <div className="flex gap-3">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline">
-                    <Download className="mr-2 h-4 w-4" />
-                    Export
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent>
-                  <DropdownMenuItem onClick={exportToCSV}>
-                    <FileSpreadsheet className="mr-2 h-4 w-4" />
-                    Export as CSV
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={exportToPDF}>
-                    <FileText className="mr-2 h-4 w-4" />
-                    Export as PDF
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+              <DateRangeExportDialog
+                title="Export Employee Directory"
+                description="Export employee directory with optional date range filter based on join date."
+                onExportCSV={exportToCSV}
+                onExportPDF={exportToPDF}
+              />
               <Link to="/onboarding">
                 <Button>
                   <UserPlus className="mr-2 h-4 w-4" />

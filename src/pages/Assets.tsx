@@ -32,7 +32,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
-import { Plus, Search, Package, Laptop, Monitor, Smartphone, ArrowUpDown, Download, FileSpreadsheet, FileText } from "lucide-react";
+import { Plus, Search, Package, Laptop, Monitor, Smartphone, ArrowUpDown } from "lucide-react";
 import { usePagination } from "@/hooks/usePagination";
 import { useSorting } from "@/hooks/useSorting";
 import {
@@ -40,12 +40,6 @@ import {
   DropdownMenuContent as SortDropdownMenuContent,
   DropdownMenuItem as SortDropdownMenuItem,
   DropdownMenuTrigger as SortDropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
   Pagination,
@@ -64,6 +58,8 @@ import { useEmployees } from "@/hooks/useEmployees";
 import { toast } from "sonner";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { DateRangeExportDialog } from "@/components/export/DateRangeExportDialog";
+import { format, parseISO, isWithinInterval, isAfter, isBefore } from "date-fns";
 
 const Assets = () => {
   const [searchQuery, setSearchQuery] = useState("");
@@ -135,17 +131,35 @@ const Assets = () => {
     canGoPrevious,
   } = usePagination(sortedAssets, { initialPageSize: 12 });
 
-  const exportToCSV = () => {
-    const headers = ["Name", "Category", "Serial Number", "Status", "Cost", "Assigned To"];
+  const filterByDateRange = (items: Asset[], startDate?: Date, endDate?: Date) => {
+    if (!startDate && !endDate) return items;
+    
+    return items.filter((asset) => {
+      const purchaseDate = asset.purchaseDate ? parseISO(asset.purchaseDate) : null;
+      if (!purchaseDate) return !startDate && !endDate;
+      
+      if (startDate && endDate) {
+        return isWithinInterval(purchaseDate, { start: startDate, end: endDate });
+      }
+      if (startDate) return isAfter(purchaseDate, startDate) || purchaseDate.getTime() === startDate.getTime();
+      if (endDate) return isBefore(purchaseDate, endDate) || purchaseDate.getTime() === endDate.getTime();
+      return true;
+    });
+  };
+
+  const exportToCSV = (startDate?: Date, endDate?: Date) => {
+    const dataToExport = filterByDateRange(sortedAssets, startDate, endDate);
+    const headers = ["Name", "Category", "Serial Number", "Status", "Cost", "Purchase Date", "Assigned To"];
     const csvContent = [
       headers.join(","),
-      ...sortedAssets.map((asset) =>
+      ...dataToExport.map((asset) =>
         [
           `"${asset.name}"`,
           `"${asset.type}"`,
           `"${asset.serialNumber}"`,
           `"${asset.status}"`,
           `"${asset.cost}"`,
+          `"${asset.purchaseDate || ''}"`,
           `"${asset.assignedTo?.name || 'Unassigned'}"`,
         ].join(",")
       ),
@@ -154,24 +168,31 @@ const Assets = () => {
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
-    link.download = `assets-${new Date().toISOString().split("T")[0]}.csv`;
+    const dateRange = startDate || endDate ? `-${startDate ? format(startDate, "yyyy-MM-dd") : "start"}-to-${endDate ? format(endDate, "yyyy-MM-dd") : "end"}` : "";
+    link.download = `assets${dateRange}-${new Date().toISOString().split("T")[0]}.csv`;
     link.click();
-    toast.success("Assets exported to CSV");
+    toast.success(`${dataToExport.length} assets exported to CSV`);
   };
 
-  const exportToPDF = () => {
+  const exportToPDF = (startDate?: Date, endDate?: Date) => {
+    const dataToExport = filterByDateRange(sortedAssets, startDate, endDate);
     const doc = new jsPDF();
     
     doc.setFontSize(18);
     doc.text("Asset Inventory", 14, 22);
     doc.setFontSize(10);
     doc.text(`Generated on ${new Date().toLocaleDateString()}`, 14, 30);
-    doc.text(`Total Assets: ${sortedAssets.length}`, 14, 36);
+    if (startDate || endDate) {
+      doc.text(`Date Range: ${startDate ? format(startDate, "PP") : "Start"} - ${endDate ? format(endDate, "PP") : "End"}`, 14, 36);
+      doc.text(`Total Assets: ${dataToExport.length}`, 14, 42);
+    } else {
+      doc.text(`Total Assets: ${dataToExport.length}`, 14, 36);
+    }
 
     autoTable(doc, {
-      startY: 44,
+      startY: startDate || endDate ? 50 : 44,
       head: [["Name", "Category", "Serial Number", "Status", "Cost", "Assigned To"]],
-      body: sortedAssets.map((asset) => [
+      body: dataToExport.map((asset) => [
         asset.name,
         asset.type,
         asset.serialNumber,
@@ -183,8 +204,9 @@ const Assets = () => {
       headStyles: { fillColor: [59, 130, 246] },
     });
 
-    doc.save(`assets-${new Date().toISOString().split("T")[0]}.pdf`);
-    toast.success("Assets exported to PDF");
+    const dateRange = startDate || endDate ? `-${startDate ? format(startDate, "yyyy-MM-dd") : "start"}-to-${endDate ? format(endDate, "yyyy-MM-dd") : "end"}` : "";
+    doc.save(`assets${dateRange}-${new Date().toISOString().split("T")[0]}.pdf`);
+    toast.success(`${dataToExport.length} assets exported to PDF`);
   };
 
   const handleAddAsset = () => {
@@ -352,24 +374,12 @@ const Assets = () => {
             <p className="text-muted-foreground">Track and manage company assets</p>
           </div>
           <div className="flex gap-3">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline">
-                  <Download className="mr-2 h-4 w-4" />
-                  Export
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent>
-                <DropdownMenuItem onClick={exportToCSV}>
-                  <FileSpreadsheet className="mr-2 h-4 w-4" />
-                  Export as CSV
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={exportToPDF}>
-                  <FileText className="mr-2 h-4 w-4" />
-                  Export as PDF
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <DateRangeExportDialog
+              title="Export Assets"
+              description="Export asset inventory with optional date range filter based on purchase date."
+              onExportCSV={exportToCSV}
+              onExportPDF={exportToPDF}
+            />
             <Button onClick={() => setIsAddDialogOpen(true)}>
               <Plus className="mr-2 h-4 w-4" />
               Add Asset
