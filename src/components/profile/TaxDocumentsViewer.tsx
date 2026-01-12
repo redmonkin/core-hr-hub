@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -12,8 +13,9 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Download, FileText, Files } from "lucide-react";
+import { Download, FileText, Files, Eye } from "lucide-react";
 import { format } from "date-fns";
+import { DocumentViewerDialog } from "@/components/documents/DocumentViewerDialog";
 
 interface TaxDocumentsViewerProps {
   employeeId: string;
@@ -22,6 +24,14 @@ interface TaxDocumentsViewerProps {
 const TAX_DOCUMENT_TYPES = ["W-2", "1099", "Tax Statement", "Tax Certificate"];
 
 export function TaxDocumentsViewer({ employeeId }: TaxDocumentsViewerProps) {
+  const [viewingDocument, setViewingDocument] = useState<{
+    id: string;
+    document_name: string;
+    document_type: string;
+    file_url: string;
+    uploaded_at: string;
+  } | null>(null);
+
   // Fetch tax-related documents for the employee
   const { data: documents, isLoading } = useQuery({
     queryKey: ["my-tax-documents", employeeId],
@@ -127,14 +137,26 @@ export function TaxDocumentsViewer({ employeeId }: TaxDocumentsViewerProps) {
                       {format(new Date(doc.uploaded_at), "MMM d, yyyy")}
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleDownload(doc.file_url, doc.document_name)}
-                      >
-                        <Download className="h-4 w-4 mr-1" />
-                        Download
-                      </Button>
+                      <div className="flex justify-end gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setViewingDocument(doc)}
+                          title="View document"
+                        >
+                          <Eye className="h-4 w-4 mr-1" />
+                          View
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDownload(doc.file_url, doc.document_name)}
+                          title="Download document"
+                        >
+                          <Download className="h-4 w-4 mr-1" />
+                          Download
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -160,6 +182,13 @@ export function TaxDocumentsViewer({ employeeId }: TaxDocumentsViewerProps) {
             </Badge>
           ))}
         </div>
+
+        {/* Document Viewer Dialog */}
+        <DocumentViewerDialog
+          open={!!viewingDocument}
+          onOpenChange={(open) => !open && setViewingDocument(null)}
+          documentInfo={viewingDocument}
+        />
       </CardContent>
     </Card>
   );

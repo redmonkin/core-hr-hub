@@ -5,10 +5,11 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Upload, FileText, Trash2, Download, Loader2 } from "lucide-react";
+import { Upload, FileText, Trash2, Download, Loader2, Eye } from "lucide-react";
 import { useEmployeeDocuments, useUploadDocument, useDeleteDocument } from "@/hooks/useEmployeeDocuments";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
+import { DocumentViewerDialog } from "./DocumentViewerDialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -38,6 +39,13 @@ interface EmployeeDocumentsProps {
 export function EmployeeDocuments({ employeeId, canUpload = true, canDelete = true }: EmployeeDocumentsProps) {
   const [selectedType, setSelectedType] = useState<string>("contract");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [viewingDocument, setViewingDocument] = useState<{
+    id: string;
+    document_name: string;
+    document_type: string;
+    file_url: string;
+    uploaded_at: string;
+  } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { data: documents, isLoading } = useEmployeeDocuments(employeeId);
@@ -179,7 +187,16 @@ export function EmployeeDocuments({ employeeId, canUpload = true, canDelete = tr
                       <Button
                         variant="ghost"
                         size="icon"
+                        onClick={() => setViewingDocument(doc)}
+                        title="View document"
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
                         onClick={() => handleDownload(doc.file_url, doc.document_name)}
+                        title="Download document"
                       >
                         <Download className="h-4 w-4" />
                       </Button>
@@ -226,6 +243,13 @@ export function EmployeeDocuments({ employeeId, canUpload = true, canDelete = tr
           </div>
         )}
       </CardContent>
+
+      {/* Document Viewer Dialog */}
+      <DocumentViewerDialog
+        open={!!viewingDocument}
+        onOpenChange={(open) => !open && setViewingDocument(null)}
+        documentInfo={viewingDocument}
+      />
     </Card>
   );
 }
