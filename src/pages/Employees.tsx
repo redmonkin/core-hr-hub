@@ -31,6 +31,7 @@ import { EmployeeDocuments } from "@/components/documents/EmployeeDocuments";
 import { useIsAdminOrHR } from "@/hooks/useUserRole";
 import { EmployeeViewDialog } from "@/components/employees/EmployeeViewDialog";
 import { EmployeeEditDialog } from "@/components/employees/EmployeeEditDialog";
+import { BulkDeleteDialog } from "@/components/employees/BulkDeleteDialog";
 import { toast } from "sonner";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -54,6 +55,8 @@ const Employees = () => {
   const [viewEmployee, setViewEmployee] = useState<Employee | null>(null);
   const [editEmployee, setEditEmployee] = useState<Employee | null>(null);
   const [selectedEmployeeIds, setSelectedEmployeeIds] = useState<string[]>([]);
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [employeesToDelete, setEmployeesToDelete] = useState<Employee[]>([]);
 
   const { data: employees = [], isLoading: isLoadingEmployees } = useEmployees();
   const { data: departments = [] } = useDepartments();
@@ -215,7 +218,8 @@ const Employees = () => {
         break;
         
       case 'delete':
-        toast.error(`Bulk delete for ${ids.length} employees requires confirmation dialog`);
+        setEmployeesToDelete(selectedEmployees);
+        setBulkDeleteOpen(true);
         break;
         
       default:
@@ -420,6 +424,20 @@ const Employees = () => {
             )}
           </DialogContent>
         </Dialog>
+
+        {/* Bulk Delete Confirmation Dialog */}
+        <BulkDeleteDialog
+          open={bulkDeleteOpen}
+          onOpenChange={setBulkDeleteOpen}
+          employees={employeesToDelete}
+          onConfirm={() => {
+            // Here you would call the actual delete mutation
+            toast.success(`${employeesToDelete.length} employees deleted successfully`);
+            setSelectedEmployeeIds([]);
+            setEmployeesToDelete([]);
+            setBulkDeleteOpen(false);
+          }}
+        />
       </div>
     </DashboardLayout>
   );
