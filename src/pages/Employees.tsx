@@ -35,6 +35,7 @@ import { toast } from "sonner";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { usePagination } from "@/hooks/usePagination";
+import { useSorting } from "@/hooks/useSorting";
 import {
   Pagination,
   PaginationContent,
@@ -64,6 +65,13 @@ const Employees = () => {
     return matchesSearch && matchesDepartment;
   });
 
+  // Apply sorting
+  const {
+    sortedItems: sortedEmployees,
+    sortConfig,
+    requestSort,
+  } = useSorting<Employee>(filteredEmployees);
+
   const {
     currentPage,
     pageSize,
@@ -76,7 +84,7 @@ const Employees = () => {
     goToPreviousPage,
     canGoNext,
     canGoPrevious,
-  } = usePagination(filteredEmployees, { initialPageSize: 10 });
+  } = usePagination(sortedEmployees, { initialPageSize: 10 });
 
   const isLoading = isLoadingEmployees || isLoadingRole;
 
@@ -238,6 +246,9 @@ const Employees = () => {
               onEdit={isAdminOrHR ? (employee) => setEditEmployee(employee) : undefined}
               onManageDocuments={isAdminOrHR ? (employee) => setDocumentsEmployee(employee) : undefined}
               isAdminOrHR={isAdminOrHR}
+              sortKey={sortConfig.key}
+              sortDirection={sortConfig.direction}
+              onSort={requestSort}
             />
             
             {/* Pagination Controls */}

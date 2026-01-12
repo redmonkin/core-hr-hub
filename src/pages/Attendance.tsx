@@ -8,6 +8,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Skeleton } from "@/components/ui/skeleton";
 import { Clock, LogIn, LogOut, Calendar, Download } from "lucide-react";
 import { usePagination } from "@/hooks/usePagination";
+import { useSorting } from "@/hooks/useSorting";
+import { SortableTableHead } from "@/components/ui/sortable-table-head";
 import {
   Pagination,
   PaginationContent,
@@ -80,11 +82,17 @@ const Attendance = () => {
     enabled: !!user,
   });
 
-  // Pagination for report data
-  const reportPagination = usePagination(reportData || [], { initialPageSize: 10 });
+  // Sorting for report data
+  const reportSorting = useSorting(reportData || []);
   
-  // Pagination for attendance history
-  const historyPagination = usePagination(attendanceRecords || [], { initialPageSize: 10 });
+  // Sorting for attendance history
+  const historySorting = useSorting(attendanceRecords || []);
+
+  // Pagination for report data (uses sorted items)
+  const reportPagination = usePagination(reportSorting.sortedItems, { initialPageSize: 10 });
+  
+  // Pagination for attendance history (uses sorted items)
+  const historyPagination = usePagination(historySorting.sortedItems, { initialPageSize: 10 });
 
   const handleClockIn = async () => {
     if (!currentEmployee) {
@@ -278,11 +286,46 @@ const Attendance = () => {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Employee Code</TableHead>
-                      <TableHead>Name</TableHead>
-                      <TableHead>Department</TableHead>
-                      <TableHead>Present Days</TableHead>
-                      <TableHead>Total Hours</TableHead>
+                      <SortableTableHead
+                        sortKey="employeeCode"
+                        currentSortKey={reportSorting.sortConfig.key as string | null}
+                        direction={reportSorting.sortConfig.key === "employeeCode" ? reportSorting.sortConfig.direction : null}
+                        onSort={(key) => reportSorting.requestSort(key as keyof typeof reportSorting.sortedItems[0])}
+                      >
+                        Employee Code
+                      </SortableTableHead>
+                      <SortableTableHead
+                        sortKey="employeeName"
+                        currentSortKey={reportSorting.sortConfig.key as string | null}
+                        direction={reportSorting.sortConfig.key === "employeeName" ? reportSorting.sortConfig.direction : null}
+                        onSort={(key) => reportSorting.requestSort(key as keyof typeof reportSorting.sortedItems[0])}
+                      >
+                        Name
+                      </SortableTableHead>
+                      <SortableTableHead
+                        sortKey="department"
+                        currentSortKey={reportSorting.sortConfig.key as string | null}
+                        direction={reportSorting.sortConfig.key === "department" ? reportSorting.sortConfig.direction : null}
+                        onSort={(key) => reportSorting.requestSort(key as keyof typeof reportSorting.sortedItems[0])}
+                      >
+                        Department
+                      </SortableTableHead>
+                      <SortableTableHead
+                        sortKey="presentDays"
+                        currentSortKey={reportSorting.sortConfig.key as string | null}
+                        direction={reportSorting.sortConfig.key === "presentDays" ? reportSorting.sortConfig.direction : null}
+                        onSort={(key) => reportSorting.requestSort(key as keyof typeof reportSorting.sortedItems[0])}
+                      >
+                        Present Days
+                      </SortableTableHead>
+                      <SortableTableHead
+                        sortKey="totalHours"
+                        currentSortKey={reportSorting.sortConfig.key as string | null}
+                        direction={reportSorting.sortConfig.key === "totalHours" ? reportSorting.sortConfig.direction : null}
+                        onSort={(key) => reportSorting.requestSort(key as keyof typeof reportSorting.sortedItems[0])}
+                      >
+                        Total Hours
+                      </SortableTableHead>
                       <TableHead>Avg Hours/Day</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -393,11 +436,32 @@ const Attendance = () => {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Date</TableHead>
+                      <SortableTableHead
+                        sortKey="date"
+                        currentSortKey={historySorting.sortConfig.key as string | null}
+                        direction={historySorting.sortConfig.key === "date" ? historySorting.sortConfig.direction : null}
+                        onSort={(key) => historySorting.requestSort(key as keyof typeof historySorting.sortedItems[0])}
+                      >
+                        Date
+                      </SortableTableHead>
                       <TableHead>Clock In</TableHead>
                       <TableHead>Clock Out</TableHead>
-                      <TableHead>Total Hours</TableHead>
-                      <TableHead>Status</TableHead>
+                      <SortableTableHead
+                        sortKey="total_hours"
+                        currentSortKey={historySorting.sortConfig.key as string | null}
+                        direction={historySorting.sortConfig.key === "total_hours" ? historySorting.sortConfig.direction : null}
+                        onSort={(key) => historySorting.requestSort(key as keyof typeof historySorting.sortedItems[0])}
+                      >
+                        Total Hours
+                      </SortableTableHead>
+                      <SortableTableHead
+                        sortKey="status"
+                        currentSortKey={historySorting.sortConfig.key as string | null}
+                        direction={historySorting.sortConfig.key === "status" ? historySorting.sortConfig.direction : null}
+                        onSort={(key) => historySorting.requestSort(key as keyof typeof historySorting.sortedItems[0])}
+                      >
+                        Status
+                      </SortableTableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>

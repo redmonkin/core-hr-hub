@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
-import { LeaveRequestCard } from "@/components/leaves/LeaveRequestCard";
+import { LeaveRequestCard, LeaveRequest } from "@/components/leaves/LeaveRequestCard";
 import { LeaveRequestForm } from "@/components/profile/LeaveRequestForm";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,8 +9,9 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader as ModalHeader, 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Calendar, Plus, Clock, CheckCircle, XCircle } from "lucide-react";
+import { Calendar, Plus, Clock, CheckCircle, XCircle, ArrowUpDown } from "lucide-react";
 import { usePagination } from "@/hooks/usePagination";
+import { useSorting } from "@/hooks/useSorting";
 import {
   Pagination,
   PaginationContent,
@@ -27,6 +28,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -107,14 +114,51 @@ const Leaves = () => {
   const pendingRequests = requests.filter((r) => r.status === "pending");
   const processedRequests = requests.filter((r) => r.status !== "pending");
 
-  const pendingPagination = usePagination(pendingRequests, { initialPageSize: 10 });
-  const processedPagination = usePagination(processedRequests, { initialPageSize: 10 });
+  // Sorting for pending requests
+  const pendingSorting = useSorting<LeaveRequest>(pendingRequests);
+  // Sorting for processed requests  
+  const processedSorting = useSorting<LeaveRequest>(processedRequests);
+
+  const pendingPagination = usePagination(pendingSorting.sortedItems, { initialPageSize: 10 });
+  const processedPagination = usePagination(processedSorting.sortedItems, { initialPageSize: 10 });
 
   const leaveStats = [
     { label: "Pending", value: stats?.pending || 0, icon: <Clock className="h-5 w-5" />, color: "text-amber-600" },
     { label: "Approved", value: stats?.approved || 0, icon: <CheckCircle className="h-5 w-5" />, color: "text-emerald-600" },
     { label: "Rejected", value: stats?.rejected || 0, icon: <XCircle className="h-5 w-5" />, color: "text-destructive" },
   ];
+
+  const sortOptions = [
+    { key: "startDate", label: "Date" },
+    { key: "days", label: "Duration" },
+    { key: "type", label: "Type" },
+  ] as const;
+
+  const renderSortDropdown = (sorting: ReturnType<typeof useSorting<LeaveRequest>>) => (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="outline" size="sm" className="gap-2">
+          <ArrowUpDown className="h-4 w-4" />
+          Sort by {sorting.sortConfig.key ? sortOptions.find(o => o.key === sorting.sortConfig.key)?.label : "..."}
+          {sorting.sortConfig.direction && (sorting.sortConfig.direction === "asc" ? " ↑" : " ↓")}
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        {sortOptions.map((option) => (
+          <DropdownMenuItem
+            key={option.key}
+            onClick={() => sorting.requestSort(option.key as keyof LeaveRequest)}
+            className={sorting.sortConfig.key === option.key ? "bg-accent" : ""}
+          >
+            {option.label}
+            {sorting.sortConfig.key === option.key && (
+              <span className="ml-2">{sorting.sortConfig.direction === "asc" ? "↑" : "↓"}</span>
+            )}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
 
   const renderPaginationControls = (pagination: ReturnType<typeof usePagination>) => {
     if (pagination.totalPages <= 1) return null;
@@ -272,6 +316,9 @@ const Leaves = () => {
               </Card>
             ) : (
               <>
+                <div className="flex justify-end">
+                  {renderSortDropdown(pendingSorting)}
+                </div>
                 {pendingPagination.paginatedItems.map((request) => (
                   <LeaveRequestCard
                     key={request.id}
@@ -302,6 +349,9 @@ const Leaves = () => {
               </Card>
             ) : (
               <>
+                <div className="flex justify-end">
+                  {renderSortDropdown(processedSorting)}
+                </div>
                 {processedPagination.paginatedItems.map((request) => (
                   <LeaveRequestCard key={request.id} request={request} />
                 ))}

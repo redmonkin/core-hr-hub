@@ -32,8 +32,15 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
-import { Plus, Search, Package, Laptop, Monitor, Smartphone } from "lucide-react";
+import { Plus, Search, Package, Laptop, Monitor, Smartphone, ArrowUpDown } from "lucide-react";
 import { usePagination } from "@/hooks/usePagination";
+import { useSorting } from "@/hooks/useSorting";
+import {
+  DropdownMenu as SortDropdownMenu,
+  DropdownMenuContent as SortDropdownMenuContent,
+  DropdownMenuItem as SortDropdownMenuItem,
+  DropdownMenuTrigger as SortDropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Pagination,
   PaginationContent,
@@ -92,6 +99,20 @@ const Assets = () => {
     return matchesSearch && matchesType && matchesStatus;
   });
 
+  // Apply sorting
+  const {
+    sortedItems: sortedAssets,
+    sortConfig,
+    requestSort,
+  } = useSorting(filteredAssets);
+
+  const sortOptions = [
+    { key: "name", label: "Name" },
+    { key: "type", label: "Type" },
+    { key: "status", label: "Status" },
+    { key: "cost", label: "Cost" },
+  ] as const;
+
   const {
     paginatedItems: paginatedAssets,
     currentPage,
@@ -104,7 +125,7 @@ const Assets = () => {
     goToPreviousPage,
     canGoNext,
     canGoPrevious,
-  } = usePagination(filteredAssets, { initialPageSize: 12 });
+  } = usePagination(sortedAssets, { initialPageSize: 12 });
 
   const handleAddAsset = () => {
     if (!formData.name.trim()) {
@@ -325,6 +346,29 @@ const Assets = () => {
               <SelectItem value="maintenance">Maintenance</SelectItem>
             </SelectContent>
           </Select>
+          <SortDropdownMenu>
+            <SortDropdownMenuTrigger asChild>
+              <Button variant="outline" className="gap-2">
+                <ArrowUpDown className="h-4 w-4" />
+                Sort: {sortConfig.key ? sortOptions.find(o => o.key === sortConfig.key)?.label : "None"}
+                {sortConfig.direction && (sortConfig.direction === "asc" ? " ↑" : " ↓")}
+              </Button>
+            </SortDropdownMenuTrigger>
+            <SortDropdownMenuContent align="end">
+              {sortOptions.map((option) => (
+                <SortDropdownMenuItem
+                  key={option.key}
+                  onClick={() => requestSort(option.key as keyof Asset)}
+                  className={sortConfig.key === option.key ? "bg-accent" : ""}
+                >
+                  {option.label}
+                  {sortConfig.key === option.key && (
+                    <span className="ml-2">{sortConfig.direction === "asc" ? "↑" : "↓"}</span>
+                  )}
+                </SortDropdownMenuItem>
+              ))}
+            </SortDropdownMenuContent>
+          </SortDropdownMenu>
         </div>
 
         {/* Asset Grid */}
