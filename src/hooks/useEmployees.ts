@@ -98,3 +98,39 @@ export function useDepartments() {
     },
   });
 }
+
+export function useBulkDeleteEmployees() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (employeeIds: string[]) => {
+      // Delete in sequence to handle any cascading properly
+      const errors: string[] = [];
+      
+      for (const id of employeeIds) {
+        const { error } = await supabase
+          .from("employees")
+          .delete()
+          .eq("id", id);
+        
+        if (error) {
+          errors.push(`Failed to delete employee ${id}: ${error.message}`);
+        }
+      }
+
+      if (errors.length > 0) {
+        throw new Error(errors.join("; "));
+      }
+
+      return { deletedCount: employeeIds.length };
+    },
+    onSuccess: () => {
+      // Invalidate related queries
+      queryClient.invalidateQueries({ queryKey: ["employees"] });
+      queryClient.invalidateQueries({ queryKey: ["employee-stats"] });
+      queryClient.invalidateQueries({ queryKey: ["attendance"] });
+      queryClient.invalidateQueries({ queryKey: ["leave-requests"] });
+      queryClient.invalidateQueries({ queryKey: ["payroll"] });
+    },
+  });
+}
