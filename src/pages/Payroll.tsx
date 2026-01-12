@@ -15,10 +15,20 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
 import { Search, FileText, IndianRupee, TrendingUp, Users, Loader2, ShieldAlert, Calendar } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { usePayrollRecords, usePayrollStats, useGeneratePayroll, useUpdatePayrollStatus, useBulkUpdatePayrollStatus, type PayrollRecord } from "@/hooks/usePayroll";
 import { useIsAdminOrHR } from "@/hooks/useUserRole";
+import { usePagination } from "@/hooks/usePagination";
 
 const months = [
   { value: "1", label: "January" },
@@ -85,6 +95,20 @@ const Payroll = () => {
       return matchesSearch && matchesMonth && matchesYear;
     });
   }, [allRecords, historySearchQuery, historyMonth, historyYear]);
+
+  // Pagination for history records
+  const {
+    currentPage,
+    pageSize,
+    totalPages,
+    totalItems,
+    paginatedItems: paginatedHistoryRecords,
+    setPage,
+    setPageSize,
+    canGoNext,
+    canGoPrevious,
+  } = usePagination(filteredHistoryRecords, { initialPageSize: 10 });
+
   const generatePayroll = useGeneratePayroll();
   const updateStatus = useUpdatePayrollStatus();
   const bulkUpdateStatus = useBulkUpdatePayrollStatus();
@@ -457,17 +481,116 @@ const Payroll = () => {
                 </CardContent>
               </Card>
             ) : (
-              <PayrollTable
-                records={filteredHistoryRecords}
-                onView={handleView}
-                onMarkProcessed={handleMarkProcessed}
-                onMarkPaid={handleMarkPaid}
-                onRevertToPending={handleRevertToPending}
-                onBulkMarkProcessed={handleBulkMarkProcessed}
-                onBulkMarkPaid={handleBulkMarkPaid}
-                onBulkRevertToPending={handleBulkRevertToPending}
-                isBulkUpdating={bulkUpdateStatus.isPending}
-              />
+              <div className="space-y-4">
+                <PayrollTable
+                  records={paginatedHistoryRecords}
+                  onView={handleView}
+                  onMarkProcessed={handleMarkProcessed}
+                  onMarkPaid={handleMarkPaid}
+                  onRevertToPending={handleRevertToPending}
+                  onBulkMarkProcessed={handleBulkMarkProcessed}
+                  onBulkMarkPaid={handleBulkMarkPaid}
+                  onBulkRevertToPending={handleBulkRevertToPending}
+                  isBulkUpdating={bulkUpdateStatus.isPending}
+                />
+                
+                {/* Pagination Controls */}
+                {totalPages > 1 && (
+                  <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4">
+                    <div className="flex items-center gap-4">
+                      <p className="text-sm text-muted-foreground">
+                        Showing {((currentPage - 1) * pageSize) + 1} to {Math.min(currentPage * pageSize, totalItems)} of {totalItems} records
+                      </p>
+                      <Select value={String(pageSize)} onValueChange={(value) => setPageSize(Number(value))}>
+                        <SelectTrigger className="w-[100px]">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="5">5 / page</SelectItem>
+                          <SelectItem value="10">10 / page</SelectItem>
+                          <SelectItem value="20">20 / page</SelectItem>
+                          <SelectItem value="50">50 / page</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
+                    <Pagination>
+                      <PaginationContent>
+                        <PaginationItem>
+                          <PaginationPrevious
+                            onClick={() => canGoPrevious && setPage(currentPage - 1)}
+                            className={!canGoPrevious ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                          />
+                        </PaginationItem>
+                        
+                        {/* First page */}
+                        {currentPage > 2 && (
+                          <PaginationItem>
+                            <PaginationLink onClick={() => setPage(1)} className="cursor-pointer">
+                              1
+                            </PaginationLink>
+                          </PaginationItem>
+                        )}
+                        
+                        {/* Ellipsis before current */}
+                        {currentPage > 3 && (
+                          <PaginationItem>
+                            <PaginationEllipsis />
+                          </PaginationItem>
+                        )}
+                        
+                        {/* Previous page */}
+                        {currentPage > 1 && (
+                          <PaginationItem>
+                            <PaginationLink onClick={() => setPage(currentPage - 1)} className="cursor-pointer">
+                              {currentPage - 1}
+                            </PaginationLink>
+                          </PaginationItem>
+                        )}
+                        
+                        {/* Current page */}
+                        <PaginationItem>
+                          <PaginationLink isActive className="cursor-pointer">
+                            {currentPage}
+                          </PaginationLink>
+                        </PaginationItem>
+                        
+                        {/* Next page */}
+                        {currentPage < totalPages && (
+                          <PaginationItem>
+                            <PaginationLink onClick={() => setPage(currentPage + 1)} className="cursor-pointer">
+                              {currentPage + 1}
+                            </PaginationLink>
+                          </PaginationItem>
+                        )}
+                        
+                        {/* Ellipsis after current */}
+                        {currentPage < totalPages - 2 && (
+                          <PaginationItem>
+                            <PaginationEllipsis />
+                          </PaginationItem>
+                        )}
+                        
+                        {/* Last page */}
+                        {currentPage < totalPages - 1 && (
+                          <PaginationItem>
+                            <PaginationLink onClick={() => setPage(totalPages)} className="cursor-pointer">
+                              {totalPages}
+                            </PaginationLink>
+                          </PaginationItem>
+                        )}
+                        
+                        <PaginationItem>
+                          <PaginationNext
+                            onClick={() => canGoNext && setPage(currentPage + 1)}
+                            className={!canGoNext ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                          />
+                        </PaginationItem>
+                      </PaginationContent>
+                    </Pagination>
+                  </div>
+                )}
+              </div>
             )}
           </TabsContent>
 
