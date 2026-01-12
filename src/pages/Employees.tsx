@@ -34,6 +34,15 @@ import { EmployeeEditDialog } from "@/components/employees/EmployeeEditDialog";
 import { toast } from "sonner";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { usePagination } from "@/hooks/usePagination";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
 
 const Employees = () => {
   const [searchQuery, setSearchQuery] = useState("");
@@ -54,6 +63,20 @@ const Employees = () => {
       departmentFilter === "all" || employee.department === departmentFilter;
     return matchesSearch && matchesDepartment;
   });
+
+  const {
+    currentPage,
+    pageSize,
+    totalPages,
+    totalItems,
+    paginatedItems: paginatedEmployees,
+    setPage,
+    setPageSize,
+    goToNextPage,
+    goToPreviousPage,
+    canGoNext,
+    canGoPrevious,
+  } = usePagination(filteredEmployees, { initialPageSize: 10 });
 
   const isLoading = isLoadingEmployees || isLoadingRole;
 
@@ -208,13 +231,83 @@ const Employees = () => {
             </CardContent>
           </Card>
         ) : (
-          <EmployeeTable 
-            employees={filteredEmployees} 
-            onView={(employee) => setViewEmployee(employee)}
-            onEdit={isAdminOrHR ? (employee) => setEditEmployee(employee) : undefined}
-            onManageDocuments={isAdminOrHR ? (employee) => setDocumentsEmployee(employee) : undefined}
-            isAdminOrHR={isAdminOrHR}
-          />
+          <div className="space-y-4">
+            <EmployeeTable 
+              employees={paginatedEmployees} 
+              onView={(employee) => setViewEmployee(employee)}
+              onEdit={isAdminOrHR ? (employee) => setEditEmployee(employee) : undefined}
+              onManageDocuments={isAdminOrHR ? (employee) => setDocumentsEmployee(employee) : undefined}
+              isAdminOrHR={isAdminOrHR}
+            />
+            
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <span>
+                    Showing {((currentPage - 1) * pageSize) + 1} to {Math.min(currentPage * pageSize, totalItems)} of {totalItems} employees
+                  </span>
+                  <Select
+                    value={pageSize.toString()}
+                    onValueChange={(value) => setPageSize(Number(value))}
+                  >
+                    <SelectTrigger className="w-[70px] h-8">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="5">5</SelectItem>
+                      <SelectItem value="10">10</SelectItem>
+                      <SelectItem value="20">20</SelectItem>
+                      <SelectItem value="50">50</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <span>per page</span>
+                </div>
+                
+                <Pagination>
+                  <PaginationContent>
+                    <PaginationItem>
+                      <PaginationPrevious 
+                        onClick={() => canGoPrevious && goToPreviousPage()}
+                        className={!canGoPrevious ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                      />
+                    </PaginationItem>
+                    
+                    {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                      let pageNum: number;
+                      if (totalPages <= 5) {
+                        pageNum = i + 1;
+                      } else if (currentPage <= 3) {
+                        pageNum = i + 1;
+                      } else if (currentPage >= totalPages - 2) {
+                        pageNum = totalPages - 4 + i;
+                      } else {
+                        pageNum = currentPage - 2 + i;
+                      }
+                      return (
+                        <PaginationItem key={pageNum}>
+                          <PaginationLink
+                            onClick={() => setPage(pageNum)}
+                            isActive={currentPage === pageNum}
+                            className="cursor-pointer"
+                          >
+                            {pageNum}
+                          </PaginationLink>
+                        </PaginationItem>
+                      );
+                    })}
+                    
+                    <PaginationItem>
+                      <PaginationNext 
+                        onClick={() => canGoNext && goToNextPage()}
+                        className={!canGoNext ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                      />
+                    </PaginationItem>
+                  </PaginationContent>
+                </Pagination>
+              </div>
+            )}
+          </div>
         )}
 
         {/* View Profile Dialog */}
