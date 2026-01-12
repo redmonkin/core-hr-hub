@@ -24,7 +24,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { UserPlus, Search, Users } from "lucide-react";
 import { Link } from "react-router-dom";
-import { useEmployees, useDepartments } from "@/hooks/useEmployees";
+import { useEmployees, useDepartments, useBulkDeleteEmployees } from "@/hooks/useEmployees";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent } from "@/components/ui/card";
 import { EmployeeDocuments } from "@/components/documents/EmployeeDocuments";
@@ -61,6 +61,7 @@ const Employees = () => {
   const { data: employees = [], isLoading: isLoadingEmployees } = useEmployees();
   const { data: departments = [] } = useDepartments();
   const { isAdminOrHR, isLoading: isLoadingRole } = useIsAdminOrHR();
+  const bulkDeleteMutation = useBulkDeleteEmployees();
 
   const filteredEmployees = employees.filter((employee) => {
     const matchesSearch =
@@ -428,14 +429,26 @@ const Employees = () => {
         {/* Bulk Delete Confirmation Dialog */}
         <BulkDeleteDialog
           open={bulkDeleteOpen}
-          onOpenChange={setBulkDeleteOpen}
+          onOpenChange={(open) => {
+            if (!bulkDeleteMutation.isPending) {
+              setBulkDeleteOpen(open);
+            }
+          }}
           employees={employeesToDelete}
+          isDeleting={bulkDeleteMutation.isPending}
           onConfirm={() => {
-            // Here you would call the actual delete mutation
-            toast.success(`${employeesToDelete.length} employees deleted successfully`);
-            setSelectedEmployeeIds([]);
-            setEmployeesToDelete([]);
-            setBulkDeleteOpen(false);
+            const idsToDelete = employeesToDelete.map(e => e.id);
+            bulkDeleteMutation.mutate(idsToDelete, {
+              onSuccess: ({ deletedCount }) => {
+                toast.success(`${deletedCount} employee${deletedCount > 1 ? 's' : ''} deleted successfully`);
+                setSelectedEmployeeIds([]);
+                setEmployeesToDelete([]);
+                setBulkDeleteOpen(false);
+              },
+              onError: (error) => {
+                toast.error(`Failed to delete employees: ${error.message}`);
+              },
+            });
           }}
         />
       </div>
