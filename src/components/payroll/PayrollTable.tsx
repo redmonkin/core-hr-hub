@@ -24,8 +24,7 @@ import {
 } from "@/components/ui/tooltip";
 import { Download, Eye, MoreVertical, CheckCircle, Clock, CreditCard, CalendarCheck, Loader2, X } from "lucide-react";
 import { useState } from "react";
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
+import { downloadPayslip } from "@/lib/payslipPdfGenerator";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
@@ -169,110 +168,29 @@ export function PayrollTable({
         .limit(1)
         .maybeSingle();
 
-      const doc = new jsPDF();
-      const pageWidth = doc.internal.pageSize.getWidth();
       const monthName = MONTH_NAMES[record.monthNum - 1] || "";
 
-      // Header
-      doc.setFontSize(20);
-      doc.setFont("helvetica", "bold");
-      doc.text("PAYSLIP", pageWidth / 2, 25, { align: "center" });
-
-      doc.setFontSize(12);
-      doc.setFont("helvetica", "normal");
-      doc.text(`${monthName} ${record.year}`, pageWidth / 2, 35, { align: "center" });
-
-      // Employee Details
-      doc.setFontSize(10);
-      doc.setFont("helvetica", "bold");
-      doc.text("Employee Details", 14, 50);
-      doc.setFont("helvetica", "normal");
-      doc.text(`Name: ${record.employee.name}`, 14, 58);
-      doc.text(`Employee Code: ${record.employeeCode}`, 14, 65);
-      doc.text(`Email: ${record.employee.email}`, 14, 72);
-      doc.text(`Pay Period: ${monthName} ${record.year}`, 14, 79);
-      doc.text(`Payment Status: ${record.status.charAt(0).toUpperCase() + record.status.slice(1)}`, 14, 86);
-
-      // Earnings section
-      const earningsBody: [string, string][] = [
-        ["Basic Salary", formatCurrency(record.basic)],
-      ];
-      
-      if (salaryStructure) {
-        if (salaryStructure.hra) earningsBody.push(["House Rent Allowance (HRA)", formatCurrency(salaryStructure.hra)]);
-        if (salaryStructure.transport_allowance) earningsBody.push(["Transport Allowance", formatCurrency(salaryStructure.transport_allowance)]);
-        if (salaryStructure.medical_allowance) earningsBody.push(["Medical Allowance", formatCurrency(salaryStructure.medical_allowance)]);
-        if (salaryStructure.other_allowances) earningsBody.push(["Other Allowances", formatCurrency(salaryStructure.other_allowances)]);
-      } else {
-        earningsBody.push(["Total Allowances", formatCurrency(record.allowances)]);
-      }
-
-      const grossSalary = record.basic + record.allowances;
-      earningsBody.push(["Gross Salary", formatCurrency(grossSalary)]);
-
-      autoTable(doc, {
-        startY: 95,
-        head: [["Earnings", "Amount"]],
-        body: earningsBody,
-        theme: "grid",
-        headStyles: { fillColor: [34, 197, 94] },
-        styles: { fontSize: 10 },
-        columnStyles: {
-          0: { cellWidth: 100 },
-          1: { cellWidth: 60, halign: "right" },
-        },
-      });
-
-      const earningsY = (doc as any).lastAutoTable.finalY + 10;
-
-      // Deductions section
-      const deductionsBody: [string, string][] = [];
-      
-      if (salaryStructure) {
-        if (salaryStructure.tax_deduction) deductionsBody.push(["Tax Deduction", formatCurrency(salaryStructure.tax_deduction)]);
-        if (salaryStructure.other_deductions) deductionsBody.push(["Other Deductions", formatCurrency(salaryStructure.other_deductions)]);
-      }
-      deductionsBody.push(["Total Deductions", formatCurrency(record.deductions)]);
-
-      autoTable(doc, {
-        startY: earningsY,
-        head: [["Deductions", "Amount"]],
-        body: deductionsBody,
-        theme: "grid",
-        headStyles: { fillColor: [239, 68, 68] },
-        styles: { fontSize: 10 },
-        columnStyles: {
-          0: { cellWidth: 100 },
-          1: { cellWidth: 60, halign: "right" },
-        },
-      });
-
-      const deductionsY = (doc as any).lastAutoTable.finalY + 10;
-
-      // Net Pay section
-      autoTable(doc, {
-        startY: deductionsY,
-        head: [["Net Pay", "Amount"]],
-        body: [["Total Net Salary", formatCurrency(record.netSalary)]],
-        theme: "grid",
-        headStyles: { fillColor: [59, 130, 246] },
-        styles: { fontSize: 11, fontStyle: "bold" },
-        columnStyles: {
-          0: { cellWidth: 100 },
-          1: { cellWidth: 60, halign: "right" },
-        },
-      });
-
-      // Footer
-      const footerY = (doc as any).lastAutoTable.finalY + 20;
-      doc.setFontSize(8);
-      doc.setFont("helvetica", "italic");
-      doc.text("This is a computer-generated payslip and does not require a signature.", pageWidth / 2, footerY, {
-        align: "center",
-      });
-      doc.text(`Generated on: ${new Date().toLocaleDateString()}`, pageWidth / 2, footerY + 6, { align: "center" });
-
-      doc.save(`Payslip_${record.employeeCode}_${monthName}_${record.year}.pdf`);
+      downloadPayslip({
+        employeeName: record.employee.name,
+        employeeCode: record.employeeCode,
+        employeeEmail: record.employee.email,
+        monthName,
+        year: record.year,
+        status: record.status,
+        paidAt: record.paidAt,
+        basicSalary: record.basic,
+        allowances: record.allowances,
+        deductions: record.deductions,
+        netSalary: record.netSalary,
+        salaryBreakdown: salaryStructure ? {
+          hra: salaryStructure.hra ?? undefined,
+          transport_allowance: salaryStructure.transport_allowance ?? undefined,
+          medical_allowance: salaryStructure.medical_allowance ?? undefined,
+          other_allowances: salaryStructure.other_allowances ?? undefined,
+          tax_deduction: salaryStructure.tax_deduction ?? undefined,
+          other_deductions: salaryStructure.other_deductions ?? undefined,
+        } : undefined,
+      }, `Payslip_${record.employeeCode}_${monthName}_${record.year}.pdf`);
       
       toast({
         title: "Payslip Downloaded",
