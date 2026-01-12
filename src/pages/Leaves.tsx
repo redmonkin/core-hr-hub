@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader as ModalHeader, 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Calendar, Plus, Clock, CheckCircle, XCircle, ArrowUpDown } from "lucide-react";
+import { Calendar, Plus, Clock, CheckCircle, XCircle, ArrowUpDown, Tag } from "lucide-react";
 import { usePagination } from "@/hooks/usePagination";
 import { useSorting } from "@/hooks/useSorting";
 import {
@@ -220,9 +220,9 @@ const Leaves = () => {
   ];
 
   const sortOptions = [
-    { key: "startDate", label: "Date" },
-    { key: "days", label: "Duration" },
-    { key: "type", label: "Type" },
+    { key: "startDate", label: "Date", icon: Calendar },
+    { key: "days", label: "Duration", icon: Clock },
+    { key: "type", label: "Type", icon: Tag },
   ] as const;
 
   const renderSortDropdown = (sorting: ReturnType<typeof useSorting<LeaveRequest>>) => (
@@ -235,18 +235,22 @@ const Leaves = () => {
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        {sortOptions.map((option) => (
-          <DropdownMenuItem
-            key={option.key}
-            onClick={() => sorting.requestSort(option.key as keyof LeaveRequest)}
-            className={sorting.sortConfig.key === option.key ? "bg-accent" : ""}
-          >
-            {option.label}
-            {sorting.sortConfig.key === option.key && (
-              <span className="ml-2">{sorting.sortConfig.direction === "asc" ? "↑" : "↓"}</span>
-            )}
-          </DropdownMenuItem>
-        ))}
+        {sortOptions.map((option) => {
+          const Icon = option.icon;
+          return (
+            <DropdownMenuItem
+              key={option.key}
+              onClick={() => sorting.requestSort(option.key as keyof LeaveRequest)}
+              className={sorting.sortConfig.key === option.key ? "bg-accent" : ""}
+            >
+              <Icon className="mr-2 h-4 w-4" />
+              {option.label}
+              {sorting.sortConfig.key === option.key && (
+                <span className="ml-2">{sorting.sortConfig.direction === "asc" ? "↑" : "↓"}</span>
+              )}
+            </DropdownMenuItem>
+          );
+        })}
       </DropdownMenuContent>
     </DropdownMenu>
   );
