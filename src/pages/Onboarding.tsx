@@ -1550,6 +1550,31 @@ const Onboarding = () => {
                       </div>
                     </div>
                   )}
+                  
+                  {/* Working Schedule */}
+                  <div className="flex items-start gap-3">
+                    <Clock className="h-4 w-4 text-muted-foreground mt-0.5" />
+                    <div className="space-y-1">
+                      <p className="text-xs text-muted-foreground">Working Schedule</p>
+                      <p className="text-sm font-medium">
+                        {selectedEmployee.working_hours_start?.substring(0, 5) || '09:00'} - {selectedEmployee.working_hours_end?.substring(0, 5) || '18:00'}
+                      </p>
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {WEEKDAYS.map((day) => {
+                          const isWorkingDay = (selectedEmployee.working_days || [1, 2, 3, 4, 5]).includes(day.value);
+                          return (
+                            <Badge
+                              key={day.value}
+                              variant={isWorkingDay ? "default" : "outline"}
+                              className={`text-xs px-2 py-0 ${!isWorkingDay ? 'opacity-40' : ''}`}
+                            >
+                              {day.label}
+                            </Badge>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
                 </div>
                 
                 {/* Documents Section */}
