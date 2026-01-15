@@ -30,7 +30,8 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination";
-import { Search, FileText, IndianRupee, TrendingUp, Users, Loader2, ShieldAlert, Calendar, Download } from "lucide-react";
+import { Search, FileText, IndianRupee, TrendingUp, Users, Loader2, ShieldAlert, Calendar } from "lucide-react";
+import { DateRangeExportDialog } from "@/components/export/DateRangeExportDialog";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { format } from "date-fns";
@@ -315,12 +316,34 @@ const Payroll = () => {
     }).format(amount);
   };
 
-  const exportToCSV = () => {
-    const dataToExport = filteredHistoryRecords.length > 0 ? filteredHistoryRecords : allRecords;
+  const getFilteredByDateRange = (startDate: Date | undefined, endDate: Date | undefined) => {
+    const baseData = filteredHistoryRecords.length > 0 ? filteredHistoryRecords : allRecords;
+    
+    if (!startDate && !endDate) {
+      return baseData;
+    }
+
+    return baseData.filter((record) => {
+      // Create a date from month and year (use first day of month for comparison)
+      const recordDate = new Date(record.year, record.monthNum - 1, 1);
+      
+      if (startDate && endDate) {
+        return recordDate >= startDate && recordDate <= endDate;
+      } else if (startDate) {
+        return recordDate >= startDate;
+      } else if (endDate) {
+        return recordDate <= endDate;
+      }
+      return true;
+    });
+  };
+
+  const exportToCSV = (startDate: Date | undefined, endDate: Date | undefined) => {
+    const dataToExport = getFilteredByDateRange(startDate, endDate);
     if (dataToExport.length === 0) {
       toast({
         title: "No Data",
-        description: "No payroll records to export",
+        description: "No payroll records to export for the selected period",
         variant: "destructive",
       });
       return;
@@ -356,12 +379,12 @@ const Payroll = () => {
     });
   };
 
-  const exportToPDF = () => {
-    const dataToExport = filteredHistoryRecords.length > 0 ? filteredHistoryRecords : allRecords;
+  const exportToPDF = (startDate: Date | undefined, endDate: Date | undefined) => {
+    const dataToExport = getFilteredByDateRange(startDate, endDate);
     if (dataToExport.length === 0) {
       toast({
         title: "No Data",
-        description: "No payroll records to export",
+        description: "No payroll records to export for the selected period",
         variant: "destructive",
       });
       return;
@@ -375,13 +398,20 @@ const Payroll = () => {
 
     doc.setFontSize(10);
     doc.text(`Generated on: ${format(new Date(), "PPP")}`, 14, 30);
-    doc.text(`Total Records: ${dataToExport.length}`, 14, 36);
-
-    const totalNet = dataToExport.reduce((sum, r) => sum + r.netSalary, 0);
-    doc.text(`Total Net Salary: ${formatCurrency(totalNet)}`, 14, 42);
+    if (startDate || endDate) {
+      const dateRangeText = `Period: ${startDate ? format(startDate, "PP") : "Beginning"} - ${endDate ? format(endDate, "PP") : "Present"}`;
+      doc.text(dateRangeText, 14, 36);
+      doc.text(`Total Records: ${dataToExport.length}`, 14, 42);
+      const totalNet = dataToExport.reduce((sum, r) => sum + r.netSalary, 0);
+      doc.text(`Total Net Salary: ${formatCurrency(totalNet)}`, 14, 48);
+    } else {
+      doc.text(`Total Records: ${dataToExport.length}`, 14, 36);
+      const totalNet = dataToExport.reduce((sum, r) => sum + r.netSalary, 0);
+      doc.text(`Total Net Salary: ${formatCurrency(totalNet)}`, 14, 42);
+    }
 
     autoTable(doc, {
-      startY: 50,
+      startY: startDate || endDate ? 56 : 50,
       head: [["Emp Code", "Name", "Email", "Month", "Year", "Basic", "Allowances", "Deductions", "Net Salary", "Status"]],
       body: dataToExport.map((record) => [
         record.employeeCode,
@@ -423,24 +453,13 @@ const Payroll = () => {
             <p className="text-muted-foreground">Process and track employee payroll</p>
           </div>
           <div className="flex gap-3">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline">
-                  <Download className="mr-2 h-4 w-4" />
-                  Export
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={exportToCSV}>
-                  <FileText className="mr-2 h-4 w-4" />
-                  Export as CSV
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={exportToPDF}>
-                  <FileText className="mr-2 h-4 w-4" />
-                  Export as PDF
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <DateRangeExportDialog
+              title="Export Payroll"
+              description="Select a date range to export payroll records. Leave empty to export all records."
+              onExportCSV={exportToCSV}
+              onExportPDF={exportToPDF}
+              disabled={allRecords.length === 0}
+            />
             <Button onClick={handleGeneratePayroll} disabled={generatePayroll.isPending}>
               {generatePayroll.isPending ? (
                 <>
