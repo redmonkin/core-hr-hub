@@ -32,6 +32,7 @@ import { useIsAdminOrHR } from "@/hooks/useUserRole";
 import { EmployeeViewDialog } from "@/components/employees/EmployeeViewDialog";
 import { EmployeeEditDialog } from "@/components/employees/EmployeeEditDialog";
 import { BulkDeleteDialog } from "@/components/employees/BulkDeleteDialog";
+import { BulkAssignManagerDialog } from "@/components/employees/BulkAssignManagerDialog";
 import { toast } from "sonner";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -57,6 +58,8 @@ const Employees = () => {
   const [selectedEmployeeIds, setSelectedEmployeeIds] = useState<string[]>([]);
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [employeesToDelete, setEmployeesToDelete] = useState<Employee[]>([]);
+  const [bulkAssignManagerOpen, setBulkAssignManagerOpen] = useState(false);
+  const [employeesToAssignManager, setEmployeesToAssignManager] = useState<Employee[]>([]);
 
   const { data: employees = [], isLoading: isLoadingEmployees } = useEmployees();
   const { data: departments = [] } = useDepartments();
@@ -232,6 +235,11 @@ const Employees = () => {
       case 'delete':
         setEmployeesToDelete(selectedEmployees);
         setBulkDeleteOpen(true);
+        break;
+        
+      case 'assign-manager':
+        setEmployeesToAssignManager(selectedEmployees);
+        setBulkAssignManagerOpen(true);
         break;
         
       default:
@@ -460,6 +468,17 @@ const Employees = () => {
                 toast.error(`Failed to delete employees: ${error.message}`);
               },
             });
+          }}
+        />
+
+        {/* Bulk Assign Manager Dialog */}
+        <BulkAssignManagerDialog
+          open={bulkAssignManagerOpen}
+          onOpenChange={setBulkAssignManagerOpen}
+          employees={employeesToAssignManager}
+          onSuccess={() => {
+            setSelectedEmployeeIds([]);
+            setEmployeesToAssignManager([]);
           }}
         />
       </div>
