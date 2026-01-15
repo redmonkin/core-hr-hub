@@ -34,6 +34,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Database } from "@/integrations/supabase/types";
 
 type AppRole = Database["public"]["Enums"]["app_role"];
+type EmployeeStatus = Database["public"]["Enums"]["employee_status"];
 
 interface UserWithRole {
   id: string;
@@ -42,6 +43,7 @@ interface UserWithRole {
   avatar_url: string | null;
   role: AppRole | null;
   role_id: string | null;
+  employee_status: EmployeeStatus | null;
 }
 
 const roleLabels: Record<AppRole, string> = {
@@ -56,6 +58,20 @@ const roleBadgeVariant: Record<AppRole, "default" | "secondary" | "outline"> = {
   hr: "default",
   manager: "secondary",
   employee: "outline",
+};
+
+const statusLabels: Record<EmployeeStatus, string> = {
+  active: "Active",
+  inactive: "Inactive",
+  onboarding: "Onboarding",
+  offboarded: "Offboarded",
+};
+
+const statusBadgeVariant: Record<EmployeeStatus, "default" | "secondary" | "outline" | "destructive"> = {
+  active: "default",
+  inactive: "destructive",
+  onboarding: "secondary",
+  offboarded: "outline",
 };
 
 export function UserRolesManager() {
@@ -83,13 +99,22 @@ export function UserRolesManager() {
 
       if (rolesError) throw rolesError;
 
-      // Map roles to users
+      // Fetch employees to get status
+      const { data: employees, error: employeesError } = await supabase
+        .from('employees')
+        .select('user_id, status');
+
+      if (employeesError) throw employeesError;
+
+      // Map roles and status to users
       const usersWithRoles: UserWithRole[] = (profiles || []).map(profile => {
         const userRole = roles?.find(r => r.user_id === profile.id);
+        const employee = employees?.find(e => e.user_id === profile.id);
         return {
           ...profile,
           role: userRole?.role as AppRole | null,
           role_id: userRole?.id || null,
+          employee_status: employee?.status as EmployeeStatus | null,
         };
       });
 
@@ -163,6 +188,7 @@ export function UserRolesManager() {
               <TableRow>
                 <TableHead>User</TableHead>
                 <TableHead>Email</TableHead>
+                <TableHead>Status</TableHead>
                 <TableHead>Role</TableHead>
                 <TableHead className="w-24">Actions</TableHead>
               </TableRow>
@@ -180,6 +206,15 @@ export function UserRolesManager() {
                     </div>
                   </TableCell>
                   <TableCell className="text-muted-foreground">{user.email}</TableCell>
+                  <TableCell>
+                    {user.employee_status ? (
+                      <Badge variant={statusBadgeVariant[user.employee_status]}>
+                        {statusLabels[user.employee_status]}
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline">Not Linked</Badge>
+                    )}
+                  </TableCell>
                   <TableCell>
                     {user.role ? (
                       <Badge variant={roleBadgeVariant[user.role]}>

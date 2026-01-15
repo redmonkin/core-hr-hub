@@ -63,7 +63,7 @@ interface LeaveTypeForm {
 }
 
 const Settings = () => {
-  const [activeTab, setActiveTab] = useState("departments");
+  const [activeTab, setActiveTab] = useState("user-roles");
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { isAdminOrHR, isLoading: roleLoading, role } = useIsAdminOrHR();
@@ -279,6 +279,16 @@ const Settings = () => {
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="grid h-auto w-full grid-cols-2 gap-1 sm:inline-flex sm:h-10 sm:w-auto">
+            {isAdmin && (
+              <TabsTrigger
+                value="user-roles"
+                className="w-full justify-center gap-2 sm:w-auto"
+              >
+                <Users className="h-4 w-4" />
+                <span className="hidden sm:inline">Users</span>
+                <span className="sm:hidden">Users</span>
+              </TabsTrigger>
+            )}
             <TabsTrigger value="departments" className="w-full justify-center gap-2 sm:w-auto">
               <Building2 className="h-4 w-4" />
               <span className="hidden sm:inline">Departments</span>
@@ -289,16 +299,6 @@ const Settings = () => {
               <span className="hidden sm:inline">Leave Types</span>
               <span className="sm:hidden">Leaves</span>
             </TabsTrigger>
-            {isAdmin && (
-              <TabsTrigger
-                value="user-roles"
-                className="col-span-2 w-full justify-center gap-2 sm:col-span-1 sm:w-auto"
-              >
-                <Users className="h-4 w-4" />
-                <span className="hidden sm:inline">User Roles</span>
-                <span className="sm:hidden">Roles</span>
-              </TabsTrigger>
-            )}
           </TabsList>
 
           {/* Departments Tab */}
