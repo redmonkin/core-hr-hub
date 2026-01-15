@@ -181,7 +181,20 @@ interface FormData {
   salary: string;
   isDepartmentManager: boolean;
   linkedUserId: string;
+  workingHoursStart: string;
+  workingHoursEnd: string;
+  workingDays: number[];
 }
+
+const WEEKDAYS = [
+  { value: 0, label: 'Sun' },
+  { value: 1, label: 'Mon' },
+  { value: 2, label: 'Tue' },
+  { value: 3, label: 'Wed' },
+  { value: 4, label: 'Thu' },
+  { value: 5, label: 'Fri' },
+  { value: 6, label: 'Sat' },
+];
 
 const initialFormData: FormData = {
   firstName: '',
@@ -196,6 +209,9 @@ const initialFormData: FormData = {
   salary: '',
   isDepartmentManager: false,
   linkedUserId: '',
+  workingHoursStart: '09:00',
+  workingHoursEnd: '18:00',
+  workingDays: [1, 2, 3, 4, 5], // Mon-Fri
 };
 
 const REQUIRED_DOCUMENT_TYPES = [
@@ -419,6 +435,9 @@ const Onboarding = () => {
           hire_date: data.joinDate,
           status: 'onboarding',
           user_id: linkedUserId || null,
+          working_hours_start: data.workingHoursStart ? `${data.workingHoursStart}:00` : '09:00:00',
+          working_hours_end: data.workingHoursEnd ? `${data.workingHoursEnd}:00` : '18:00:00',
+          working_days: data.workingDays,
         })
         .select()
         .single();
@@ -1056,6 +1075,61 @@ const Onboarding = () => {
                           onChange={(e) => handleInputChange('salary', e.target.value)}
                           disabled={isSubmitting}
                         />
+                      </div>
+                    </div>
+                    
+                    {/* Working Hours Section */}
+                    <div className="space-y-4 rounded-lg border border-border p-4">
+                      <div className="flex items-center gap-2">
+                        <Clock className="h-4 w-4 text-primary" />
+                        <Label className="text-base font-medium">Working Schedule</Label>
+                      </div>
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        <div className="space-y-2">
+                          <Label htmlFor="workingHoursStart">Start Time</Label>
+                          <Input 
+                            id="workingHoursStart" 
+                            type="time" 
+                            value={formData.workingHoursStart}
+                            onChange={(e) => handleInputChange('workingHoursStart', e.target.value)}
+                            disabled={isSubmitting}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="workingHoursEnd">End Time</Label>
+                          <Input 
+                            id="workingHoursEnd" 
+                            type="time" 
+                            value={formData.workingHoursEnd}
+                            onChange={(e) => handleInputChange('workingHoursEnd', e.target.value)}
+                            disabled={isSubmitting}
+                          />
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Working Days</Label>
+                        <div className="flex flex-wrap gap-2">
+                          {WEEKDAYS.map((day) => (
+                            <Button
+                              key={day.value}
+                              type="button"
+                              variant={formData.workingDays.includes(day.value) ? "default" : "outline"}
+                              size="sm"
+                              disabled={isSubmitting}
+                              onClick={() => {
+                                const newDays = formData.workingDays.includes(day.value)
+                                  ? formData.workingDays.filter(d => d !== day.value)
+                                  : [...formData.workingDays, day.value].sort((a, b) => a - b);
+                                setFormData(prev => ({ ...prev, workingDays: newDays }));
+                              }}
+                            >
+                              {day.label}
+                            </Button>
+                          ))}
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Select the days this employee will work
+                        </p>
                       </div>
                     </div>
                   </CardContent>
