@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Clock, LogIn, LogOut, Calendar, Briefcase, Timer } from "lucide-react";
+import { Clock, LogIn, LogOut, Calendar, Briefcase, Timer, AlertTriangle } from "lucide-react";
 import { usePagination } from "@/hooks/usePagination";
 import { useSorting } from "@/hooks/useSorting";
 import { SortableTableHead } from "@/components/ui/sortable-table-head";
@@ -126,6 +126,39 @@ const Attendance = () => {
   const calculateMonthlyOvertime = (): number => {
     if (!attendanceRecords) return 0;
     return attendanceRecords.reduce((total, record) => total + calculateOvertime(record), 0);
+  };
+
+  // Calculate late arrival in minutes
+  const calculateLateArrival = (clockIn: string | null): number => {
+    if (!currentEmployee || !clockIn) return 0;
+    
+    const workStart = currentEmployee.working_hours_start || "09:00:00";
+    const [startHour, startMin] = workStart.split(':').map(Number);
+    
+    const clockInDate = new Date(clockIn);
+    const clockInHour = clockInDate.getHours();
+    const clockInMinute = clockInDate.getMinutes();
+    
+    // Calculate minutes late
+    const scheduledMinutes = startHour * 60 + startMin;
+    const actualMinutes = clockInHour * 60 + clockInMinute;
+    const lateMinutes = actualMinutes - scheduledMinutes;
+    
+    return lateMinutes > 0 ? lateMinutes : 0;
+  };
+
+  // Format late duration for display
+  const formatLateDuration = (minutes: number): string => {
+    if (minutes < 60) return `${minutes} min`;
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
+  };
+
+  // Count late arrivals for the month
+  const countLateArrivals = (): number => {
+    if (!attendanceRecords) return 0;
+    return attendanceRecords.filter(record => calculateLateArrival(record.clock_in) > 0).length;
   };
 
   // Sorting for report data
@@ -293,14 +326,22 @@ const Attendance = () => {
             ) : (
               <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
                 <div className="flex flex-col gap-2 text-center sm:text-left">
-                  <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-4 flex-wrap">
                     <div>
                       <p className="text-sm text-muted-foreground">Clock In</p>
-                      <p className="text-lg font-semibold">
-                        {todayRecord?.clock_in
-                          ? format(new Date(todayRecord.clock_in), "hh:mm a")
-                          : "--:--"}
-                      </p>
+                      <div className="flex items-center gap-2">
+                        <p className="text-lg font-semibold">
+                          {todayRecord?.clock_in
+                            ? format(new Date(todayRecord.clock_in), "hh:mm a")
+                            : "--:--"}
+                        </p>
+                        {todayRecord?.clock_in && calculateLateArrival(todayRecord.clock_in) > 0 && (
+                          <Badge variant="outline" className="bg-red-50 text-red-600 border-red-200 text-xs">
+                            <AlertTriangle className="h-3 w-3 mr-1" />
+                            {formatLateDuration(calculateLateArrival(todayRecord.clock_in))} late
+                          </Badge>
+                        )}
+                      </div>
                     </div>
                     <div>
                       <p className="text-sm text-muted-foreground">Clock Out</p>
@@ -570,17 +611,28 @@ const Attendance = () => {
 
         {/* My Attendance History */}
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
+          <CardHeader className="flex flex-row items-center justify-between flex-wrap gap-4">
             <div>
               <CardTitle>My Attendance History</CardTitle>
               <CardDescription>Your attendance records for {MONTHS[parseInt(selectedMonth)].label}</CardDescription>
             </div>
             {attendanceRecords && attendanceRecords.length > 0 && (
-              <div className="flex items-center gap-2 rounded-lg bg-muted px-3 py-2">
-                <Timer className="h-4 w-4 text-orange-500" />
-                <div className="text-sm">
-                  <span className="text-muted-foreground">Monthly Overtime: </span>
-                  <span className="font-semibold text-orange-600">{calculateMonthlyOvertime().toFixed(2)} hrs</span>
+              <div className="flex flex-wrap items-center gap-3">
+                {countLateArrivals() > 0 && (
+                  <div className="flex items-center gap-2 rounded-lg bg-red-50 px-3 py-2 border border-red-100">
+                    <AlertTriangle className="h-4 w-4 text-red-500" />
+                    <div className="text-sm">
+                      <span className="text-muted-foreground">Late Arrivals: </span>
+                      <span className="font-semibold text-red-600">{countLateArrivals()}</span>
+                    </div>
+                  </div>
+                )}
+                <div className="flex items-center gap-2 rounded-lg bg-muted px-3 py-2">
+                  <Timer className="h-4 w-4 text-orange-500" />
+                  <div className="text-sm">
+                    <span className="text-muted-foreground">Overtime: </span>
+                    <span className="font-semibold text-orange-600">{calculateMonthlyOvertime().toFixed(2)} hrs</span>
+                  </div>
                 </div>
               </div>
             )}
@@ -626,11 +678,20 @@ const Attendance = () => {
                   <TableBody>
                     {historyPagination.paginatedItems.map((record) => {
                       const overtime = calculateOvertime(record);
+                      const lateMinutes = calculateLateArrival(record.clock_in);
                       return (
                         <TableRow key={record.id}>
                           <TableCell>{format(new Date(record.date), "MMM d, yyyy")}</TableCell>
                           <TableCell>
-                            {record.clock_in ? format(new Date(record.clock_in), "hh:mm a") : "-"}
+                            <div className="flex items-center gap-2">
+                              {record.clock_in ? format(new Date(record.clock_in), "hh:mm a") : "-"}
+                              {lateMinutes > 0 && (
+                                <Badge variant="outline" className="bg-red-50 text-red-600 border-red-200 text-xs">
+                                  <AlertTriangle className="h-3 w-3 mr-1" />
+                                  {formatLateDuration(lateMinutes)} late
+                                </Badge>
+                              )}
+                            </div>
                           </TableCell>
                           <TableCell>
                             {record.clock_out ? format(new Date(record.clock_out), "hh:mm a") : "-"}
