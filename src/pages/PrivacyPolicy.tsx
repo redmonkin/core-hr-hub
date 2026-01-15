@@ -79,26 +79,24 @@ const PrivacyPolicy = () => {
   return (
     <div className="min-h-screen bg-background">
       {/* Navigation */}
-      <nav className="sticky top-0 z-50 bg-background/80 backdrop-blur-md border-b">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <Link to="/" className="flex items-center gap-2">
-              <img src={hrHubLogo} alt="Peoplo" className="h-8 w-auto" />
-              <span className="text-xl font-bold">Peoplo</span>
+      <nav className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50">
+        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
+          <Link to="/" className="flex items-center gap-2">
+            <img src={hrHubLogo} alt="Peoplo" className="h-8 w-auto" />
+            <span className="text-xl font-bold">Peoplo</span>
+          </Link>
+          <div className="hidden md:flex items-center gap-8">
+            <Link to="/features" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Features</Link>
+            <Link to="/how-it-works" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">How It Works</Link>
+            <Link to="/pricing" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Pricing</Link>
+          </div>
+          <div className="flex items-center gap-3">
+            <Link to="/auth">
+              <Button variant="ghost" size="sm">Sign In</Button>
             </Link>
-            <div className="hidden md:flex items-center gap-8">
-              <Link to="/features" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Features</Link>
-              <Link to="/how-it-works" className="text-sm text-muted-foreground hover:text-foreground transition-colors">How It Works</Link>
-              <Link to="/pricing" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Pricing</Link>
-            </div>
-            <div className="flex items-center gap-3">
-              <Button variant="ghost" size="sm" asChild>
-                <Link to="/auth">Sign In</Link>
-              </Button>
-              <Button size="sm" asChild>
-                <Link to="/auth">Get Started</Link>
-              </Button>
-            </div>
+            <a href="https://cal.com/littlemissbot/business-consultancy" target="_blank" rel="noopener noreferrer">
+              <Button size="sm">Request Demo</Button>
+            </a>
           </div>
         </div>
       </nav>
