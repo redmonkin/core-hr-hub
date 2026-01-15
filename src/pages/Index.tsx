@@ -13,13 +13,27 @@ import { useEmployeeStatus } from "@/hooks/useEmployeeStatus";
 import { useIsAdminOrHR } from "@/hooks/useUserRole";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
 
 const Index = () => {
   const { data: stats, isLoading } = useDashboardStats();
   const { data: employeeStatus, isLoading: isEmployeeStatusLoading } = useEmployeeStatus();
   const { isAdminOrHR, isLoading: isRoleLoading } = useIsAdminOrHR();
+  const { user } = useAuth();
   const navigate = useNavigate();
   const hasPendingApprovals = (stats?.pendingApprovals ?? 0) > 0;
+
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return "Good morning";
+    if (hour < 17) return "Good afternoon";
+    return "Good evening";
+  };
+
+  const getUserFirstName = () => {
+    const fullName = user?.user_metadata?.full_name || user?.email || "User";
+    return fullName.split(" ")[0];
+  };
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("en-IN", {
@@ -57,6 +71,11 @@ const Index = () => {
   return (
     <DashboardLayout>
       <div className="space-y-6">
+        {/* Greeting */}
+        <h1 className="text-2xl font-semibold text-foreground">
+          {getGreeting()}, {getUserFirstName()}
+        </h1>
+
         {/* Stats Grid */}
         <div className={`grid gap-4 sm:grid-cols-2 ${hasPendingApprovals ? 'lg:grid-cols-5' : 'lg:grid-cols-4'}`}>
           {isLoading ? (
