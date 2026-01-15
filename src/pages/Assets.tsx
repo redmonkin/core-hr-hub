@@ -34,6 +34,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { Plus, Search, Package, Laptop, Monitor, Smartphone, ArrowUpDown } from "lucide-react";
 import { usePagination } from "@/hooks/usePagination";
+import { useIsAdminOrHR } from "@/hooks/useUserRole";
 import { useSorting } from "@/hooks/useSorting";
 import {
   DropdownMenu as SortDropdownMenu,
@@ -87,6 +88,7 @@ const Assets = () => {
   const { data: assets = [], isLoading } = useAssets();
   const { data: stats } = useAssetStats();
   const { data: employees = [] } = useEmployees();
+  const { isAdminOrHR } = useIsAdminOrHR();
   const createAsset = useCreateAsset();
   const updateAsset = useUpdateAsset();
   const deleteAsset = useDeleteAsset();
@@ -374,16 +376,20 @@ const Assets = () => {
             <p className="text-muted-foreground">Track and manage company assets</p>
           </div>
           <div className="flex gap-3">
-            <DateRangeExportDialog
-              title="Export Assets"
-              description="Export asset inventory with optional date range filter based on purchase date."
-              onExportCSV={exportToCSV}
-              onExportPDF={exportToPDF}
-            />
-            <Button onClick={() => setIsAddDialogOpen(true)}>
-              <Plus className="mr-2 h-4 w-4" />
-              Add Asset
-            </Button>
+            {isAdminOrHR && (
+              <>
+                <DateRangeExportDialog
+                  title="Export Assets"
+                  description="Export asset inventory with optional date range filter based on purchase date."
+                  onExportCSV={exportToCSV}
+                  onExportPDF={exportToPDF}
+                />
+                <Button onClick={() => setIsAddDialogOpen(true)}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add Asset
+                </Button>
+              </>
+            )}
           </div>
         </div>
 
@@ -478,7 +484,7 @@ const Assets = () => {
                   ? "Start by adding your first asset"
                   : "No assets match your search criteria"}
               </p>
-              {assets.length === 0 && (
+              {assets.length === 0 && isAdminOrHR && (
                 <Button className="mt-4" onClick={() => setIsAddDialogOpen(true)}>
                   <Plus className="mr-2 h-4 w-4" />
                   Add Asset
@@ -498,6 +504,7 @@ const Assets = () => {
                   onAssign={handleAssignAsset}
                   onReturn={handleReturnAsset}
                   onViewHistory={handleViewHistory}
+                  showAdminActions={isAdminOrHR}
                 />
               ))}
             </div>

@@ -33,6 +33,7 @@ interface AssetCardProps {
   onEdit?: (asset: Asset) => void;
   onDelete?: (asset: Asset) => void;
   onViewHistory?: (asset: Asset) => void;
+  showAdminActions?: boolean;
 }
 
 const typeIcons = {
@@ -48,7 +49,7 @@ const statusStyles = {
   maintenance: "bg-amber-500/10 text-amber-600 border-amber-500/20",
 };
 
-export function AssetCard({ asset, onAssign, onReturn, onEdit, onDelete, onViewHistory }: AssetCardProps) {
+export function AssetCard({ asset, onAssign, onReturn, onEdit, onDelete, onViewHistory, showAdminActions = true }: AssetCardProps) {
   return (
     <Card className="overflow-hidden transition-all duration-300 hover:shadow-lg">
       <CardContent className="p-6">
@@ -62,43 +63,45 @@ export function AssetCard({ asset, onAssign, onReturn, onEdit, onDelete, onViewH
               <p className="text-sm text-muted-foreground">SN: {asset.serialNumber}</p>
             </div>
           </div>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8">
-                <MoreVertical className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => onEdit?.(asset)}>
-                <Edit className="mr-2 h-4 w-4" />
-                Edit Asset
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => onViewHistory?.(asset)}>
-                <History className="mr-2 h-4 w-4" />
-                View History
-              </DropdownMenuItem>
-              {asset.status === "available" && (
-                <DropdownMenuItem onClick={() => onAssign?.(asset)}>
-                  <UserPlus className="mr-2 h-4 w-4" />
-                  Assign to Employee
+          {showAdminActions && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-8 w-8">
+                  <MoreVertical className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => onEdit?.(asset)}>
+                  <Edit className="mr-2 h-4 w-4" />
+                  Edit Asset
                 </DropdownMenuItem>
-              )}
-              {asset.status === "assigned" && (
-                <DropdownMenuItem onClick={() => onReturn?.(asset)}>
-                  <RotateCcw className="mr-2 h-4 w-4" />
-                  Mark as Returned
+                <DropdownMenuItem onClick={() => onViewHistory?.(asset)}>
+                  <History className="mr-2 h-4 w-4" />
+                  View History
                 </DropdownMenuItem>
-              )}
-              <DropdownMenuSeparator />
-              <DropdownMenuItem 
-                onClick={() => onDelete?.(asset)}
-                className="text-destructive focus:text-destructive"
-              >
-                <Trash2 className="mr-2 h-4 w-4" />
-                Delete Asset
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+                {asset.status === "available" && (
+                  <DropdownMenuItem onClick={() => onAssign?.(asset)}>
+                    <UserPlus className="mr-2 h-4 w-4" />
+                    Assign to Employee
+                  </DropdownMenuItem>
+                )}
+                {asset.status === "assigned" && (
+                  <DropdownMenuItem onClick={() => onReturn?.(asset)}>
+                    <RotateCcw className="mr-2 h-4 w-4" />
+                    Mark as Returned
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuSeparator />
+                <DropdownMenuItem 
+                  onClick={() => onDelete?.(asset)}
+                  className="text-destructive focus:text-destructive"
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Delete Asset
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
         </div>
 
         {asset.notes && (
