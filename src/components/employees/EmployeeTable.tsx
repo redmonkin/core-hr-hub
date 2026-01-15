@@ -26,7 +26,8 @@ import {
   UserX,
   UserCheck,
   Mail,
-  Download
+  Download,
+  UserCog
 } from "lucide-react";
 import { SortableTableHead } from "@/components/ui/sortable-table-head";
 import { SortDirection } from "@/hooks/useSorting";
@@ -128,6 +129,11 @@ export function EmployeeTable({
                 <DropdownMenuItem onClick={() => onBulkAction?.('email', selectedIds)}>
                   <Mail className="mr-2 h-4 w-4" />
                   Send Email
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => onBulkAction?.('assign-manager', selectedIds)}>
+                  <UserCog className="mr-2 h-4 w-4" />
+                  Assign Manager
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => onBulkAction?.('activate', selectedIds)}>
