@@ -74,6 +74,9 @@ const useOnboardingEmployees = () => {
           department_id,
           manager_id,
           user_id,
+          working_hours_start,
+          working_hours_end,
+          working_days,
           departments (name)
         `)
         .eq('status', 'onboarding');
@@ -249,6 +252,9 @@ const Onboarding = () => {
     designation: '',
     managerId: '',
     joinDate: '',
+    workingHoursStart: '09:00',
+    workingHoursEnd: '18:00',
+    workingDays: [1, 2, 3, 4, 5] as number[],
   });
   const [formData, setFormData] = useState<FormData>(initialFormData);
   const [documents, setDocuments] = useState<Record<string, DocumentUpload>>(initialDocuments);
@@ -579,6 +585,9 @@ const Onboarding = () => {
           designation: data.designation.trim(),
           manager_id: data.managerId || null,
           hire_date: data.joinDate,
+          working_hours_start: data.workingHoursStart ? `${data.workingHoursStart}:00` : '09:00:00',
+          working_hours_end: data.workingHoursEnd ? `${data.workingHoursEnd}:00` : '18:00:00',
+          working_days: data.workingDays,
         })
         .eq('id', data.id);
       
@@ -718,6 +727,12 @@ const Onboarding = () => {
   };
 
   const openEditMode = (employee: any) => {
+    // Parse working hours from TIME format (HH:MM:SS) to input format (HH:MM)
+    const parseTime = (time: string | null) => {
+      if (!time) return '09:00';
+      return time.substring(0, 5); // Extract HH:MM from HH:MM:SS
+    };
+    
     setEditFormData({
       firstName: employee.first_name || '',
       lastName: employee.last_name || '',
@@ -728,6 +743,9 @@ const Onboarding = () => {
       designation: employee.designation || '',
       managerId: employee.manager_id || '',
       joinDate: employee.hire_date || '',
+      workingHoursStart: parseTime(employee.working_hours_start),
+      workingHoursEnd: parseTime(employee.working_hours_end),
+      workingDays: employee.working_days || [1, 2, 3, 4, 5],
     });
     setIsEditing(true);
   };
@@ -1789,6 +1807,58 @@ const Onboarding = () => {
                     disabled={updateEmployeeMutation.isPending}
                     rows={2}
                   />
+                </div>
+                
+                {/* Working Hours Section */}
+                <div className="space-y-4 rounded-lg border border-border p-4">
+                  <div className="flex items-center gap-2">
+                    <Clock className="h-4 w-4 text-primary" />
+                    <Label className="text-base font-medium">Working Schedule</Label>
+                  </div>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-workingHoursStart">Start Time</Label>
+                      <Input 
+                        id="edit-workingHoursStart" 
+                        type="time" 
+                        value={editFormData.workingHoursStart}
+                        onChange={(e) => setEditFormData({ ...editFormData, workingHoursStart: e.target.value })}
+                        disabled={updateEmployeeMutation.isPending}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-workingHoursEnd">End Time</Label>
+                      <Input 
+                        id="edit-workingHoursEnd" 
+                        type="time" 
+                        value={editFormData.workingHoursEnd}
+                        onChange={(e) => setEditFormData({ ...editFormData, workingHoursEnd: e.target.value })}
+                        disabled={updateEmployeeMutation.isPending}
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Working Days</Label>
+                    <div className="flex flex-wrap gap-2">
+                      {WEEKDAYS.map((day) => (
+                        <Button
+                          key={day.value}
+                          type="button"
+                          variant={editFormData.workingDays.includes(day.value) ? "default" : "outline"}
+                          size="sm"
+                          disabled={updateEmployeeMutation.isPending}
+                          onClick={() => {
+                            const newDays = editFormData.workingDays.includes(day.value)
+                              ? editFormData.workingDays.filter(d => d !== day.value)
+                              : [...editFormData.workingDays, day.value].sort((a, b) => a - b);
+                            setEditFormData({ ...editFormData, workingDays: newDays });
+                          }}
+                        >
+                          {day.label}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
                 </div>
                 
                 <div className="flex justify-end gap-2 pt-2">
