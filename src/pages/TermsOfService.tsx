@@ -2,7 +2,7 @@ import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { FileText, Users, CreditCard, AlertTriangle, Scale, Ban } from "lucide-react";
-import logoLight from "@/assets/hr-hub-logo-light.svg";
+import hrHubLogo from "@/assets/hr-hub-logo.svg";
 import Footer from "@/components/layout/Footer";
 
 const TermsOfService = () => {
@@ -88,7 +88,8 @@ const TermsOfService = () => {
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <Link to="/" className="flex items-center gap-2">
-              <img src={logoLight} alt="Peoplo" className="h-8 w-auto" />
+              <img src={hrHubLogo} alt="Peoplo" className="h-8 w-auto" />
+              <span className="text-xl font-bold">Peoplo</span>
             </Link>
             <div className="hidden md:flex items-center gap-8">
               <Link to="/features" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Features</Link>
