@@ -36,7 +36,7 @@ import { toast } from "sonner";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { DateRangeExportDialog } from "@/components/export/DateRangeExportDialog";
-import { format, parseISO, isWithinInterval, isAfter, isBefore } from "date-fns";
+import { format, parseISO, isWithinInterval, parse } from "date-fns";
 import { usePagination } from "@/hooks/usePagination";
 import { useSorting } from "@/hooks/useSorting";
 import {
@@ -99,13 +99,24 @@ const Employees = () => {
     if (!startDate && !endDate) return items;
     
     return items.filter((emp) => {
-      const joinDate = parseISO(emp.joinDate);
+      // Parse the formatted date string "MMM d, yyyy" back to a Date object
+      const joinDate = parse(emp.joinDate, "MMM d, yyyy", new Date());
+      
+      if (isNaN(joinDate.getTime())) return true; // Skip invalid dates
       
       if (startDate && endDate) {
-        return isWithinInterval(joinDate, { start: startDate, end: endDate });
+        const endOfDay = new Date(endDate);
+        endOfDay.setHours(23, 59, 59, 999);
+        return isWithinInterval(joinDate, { start: startDate, end: endOfDay });
       }
-      if (startDate) return isAfter(joinDate, startDate) || joinDate.getTime() === startDate.getTime();
-      if (endDate) return isBefore(joinDate, endDate) || joinDate.getTime() === endDate.getTime();
+      if (startDate) {
+        return joinDate >= startDate;
+      }
+      if (endDate) {
+        const endOfDay = new Date(endDate);
+        endOfDay.setHours(23, 59, 59, 999);
+        return joinDate <= endOfDay;
+      }
       return true;
     });
   };
