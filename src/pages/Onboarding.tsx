@@ -637,6 +637,10 @@ const Onboarding = () => {
       toast({ title: "Error", description: "Join date is required", variant: "destructive" });
       return;
     }
+    if (!formData.isDepartmentManager && !formData.managerId) {
+      toast({ title: "Error", description: "Reporting manager is required for non-department managers", variant: "destructive" });
+      return;
+    }
 
     createEmployeeMutation.mutate(formData);
   };
@@ -817,7 +821,9 @@ const Onboarding = () => {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="manager">Reporting Manager</Label>
+                      <Label htmlFor="manager">
+                        Reporting Manager {!formData.isDepartmentManager && '*'}
+                      </Label>
                       <Select 
                         disabled={loadingManagers || isSubmitting}
                         value={formData.managerId}
@@ -834,6 +840,11 @@ const Onboarding = () => {
                           ))}
                         </SelectContent>
                       </Select>
+                      {!formData.isDepartmentManager && (
+                        <p className="text-xs text-muted-foreground">
+                          Required for employees who are not department managers
+                        </p>
+                      )}
                     </div>
                     <div className="grid gap-4 sm:grid-cols-2">
                       <div className="space-y-2">
