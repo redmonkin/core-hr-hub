@@ -99,12 +99,17 @@ export function EmployeeEditDialog({ employee, open, onOpenChange }: EmployeeEdi
     queryFn: async () => {
       const { data, error } = await supabase
         .from("departments")
-        .select("id, name")
+        .select("id, name, manager_id")
         .order("name");
       if (error) throw error;
       return data || [];
     },
   });
+
+  // Check if employee is a department manager
+  const isDepartmentManager = departments.some(
+    (dept) => dept.manager_id === employee?.id
+  );
 
   // Update form when employee details are loaded
   useEffect(() => {
@@ -154,6 +159,10 @@ export function EmployeeEditDialog({ employee, open, onOpenChange }: EmployeeEdi
     e.preventDefault();
     if (!formData.first_name || !formData.last_name || !formData.email || !formData.designation) {
       toast.error("Please fill in all required fields");
+      return;
+    }
+    if (!isDepartmentManager && !formData.manager_id) {
+      toast.error("Reporting manager is required for non-department managers");
       return;
     }
     updateMutation.mutate(formData);
@@ -244,7 +253,9 @@ export function EmployeeEditDialog({ employee, open, onOpenChange }: EmployeeEdi
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="manager">Reporting Manager</Label>
+              <Label htmlFor="manager">
+                Reporting Manager {!isDepartmentManager && '*'}
+              </Label>
               <Select
                 value={formData.manager_id}
                 onValueChange={(value) => setFormData({ ...formData, manager_id: value === "none" ? "" : value })}
@@ -253,7 +264,7 @@ export function EmployeeEditDialog({ employee, open, onOpenChange }: EmployeeEdi
                   <SelectValue placeholder="Select manager" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">No Manager</SelectItem>
+                  {isDepartmentManager && <SelectItem value="none">No Manager</SelectItem>}
                   {managers
                     .filter((mgr) => mgr.id !== employee?.id)
                     .map((mgr) => (
@@ -263,6 +274,11 @@ export function EmployeeEditDialog({ employee, open, onOpenChange }: EmployeeEdi
                     ))}
                 </SelectContent>
               </Select>
+              {!isDepartmentManager && (
+                <p className="text-xs text-muted-foreground">
+                  Required for employees who are not department managers
+                </p>
+              )}
             </div>
 
             <div className="space-y-2">
