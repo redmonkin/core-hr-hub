@@ -16,6 +16,12 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   Pagination,
   PaginationContent,
   PaginationEllipsis,
@@ -24,7 +30,10 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination";
-import { Search, FileText, IndianRupee, TrendingUp, Users, Loader2, ShieldAlert, Calendar } from "lucide-react";
+import { Search, FileText, IndianRupee, TrendingUp, Users, Loader2, ShieldAlert, Calendar, Download } from "lucide-react";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { usePayrollRecords, usePayrollStats, useGeneratePayroll, useUpdatePayrollStatus, useBulkUpdatePayrollStatus, type PayrollRecord } from "@/hooks/usePayroll";
 import { useIsAdminOrHR } from "@/hooks/useUserRole";
@@ -306,6 +315,97 @@ const Payroll = () => {
     }).format(amount);
   };
 
+  const exportToCSV = () => {
+    const dataToExport = filteredHistoryRecords.length > 0 ? filteredHistoryRecords : allRecords;
+    if (dataToExport.length === 0) {
+      toast({
+        title: "No Data",
+        description: "No payroll records to export",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const headers = ["Employee Code", "Employee Name", "Email", "Month", "Year", "Basic Salary", "Allowances", "Deductions", "Net Salary", "Status"];
+    const csvContent = [
+      headers.join(","),
+      ...dataToExport.map((record) =>
+        [
+          `"${record.employeeCode}"`,
+          `"${record.employee.name}"`,
+          `"${record.employee.email}"`,
+          `"${record.month}"`,
+          `"${record.year}"`,
+          `"${record.basic}"`,
+          `"${record.allowances}"`,
+          `"${record.deductions}"`,
+          `"${record.netSalary}"`,
+          `"${record.status}"`,
+        ].join(",")
+      ),
+    ].join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = `payroll-export-${format(new Date(), "yyyy-MM-dd")}.csv`;
+    link.click();
+    toast({
+      title: "Export Complete",
+      description: `${dataToExport.length} payroll records exported to CSV`,
+    });
+  };
+
+  const exportToPDF = () => {
+    const dataToExport = filteredHistoryRecords.length > 0 ? filteredHistoryRecords : allRecords;
+    if (dataToExport.length === 0) {
+      toast({
+        title: "No Data",
+        description: "No payroll records to export",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const doc = new jsPDF({ orientation: "landscape" });
+    const pageWidth = doc.internal.pageSize.getWidth();
+
+    doc.setFontSize(20);
+    doc.text("Payroll Report", pageWidth / 2, 20, { align: "center" });
+
+    doc.setFontSize(10);
+    doc.text(`Generated on: ${format(new Date(), "PPP")}`, 14, 30);
+    doc.text(`Total Records: ${dataToExport.length}`, 14, 36);
+
+    const totalNet = dataToExport.reduce((sum, r) => sum + r.netSalary, 0);
+    doc.text(`Total Net Salary: ${formatCurrency(totalNet)}`, 14, 42);
+
+    autoTable(doc, {
+      startY: 50,
+      head: [["Emp Code", "Name", "Email", "Month", "Year", "Basic", "Allowances", "Deductions", "Net Salary", "Status"]],
+      body: dataToExport.map((record) => [
+        record.employeeCode,
+        record.employee.name,
+        record.employee.email,
+        record.month,
+        record.year,
+        formatCurrency(record.basic),
+        formatCurrency(record.allowances),
+        formatCurrency(record.deductions),
+        formatCurrency(record.netSalary),
+        record.status.charAt(0).toUpperCase() + record.status.slice(1),
+      ]),
+      styles: { fontSize: 8 },
+      headStyles: { fillColor: [59, 130, 246] },
+    });
+
+    doc.save(`payroll-report-${format(new Date(), "yyyy-MM-dd")}.pdf`);
+    toast({
+      title: "Export Complete",
+      description: `${dataToExport.length} payroll records exported to PDF`,
+    });
+  };
+
   const payrollStats = [
     { label: "Total Payroll", value: formatCurrency(stats?.totalPayroll || 0), icon: <IndianRupee className="h-5 w-5" />, change: "" },
     { label: "Employees", value: String(stats?.employeeCount || 0), icon: <Users className="h-5 w-5" />, change: "" },
@@ -323,10 +423,24 @@ const Payroll = () => {
             <p className="text-muted-foreground">Process and track employee payroll</p>
           </div>
           <div className="flex gap-3">
-            <Button variant="outline">
-              <FileText className="mr-2 h-4 w-4" />
-              Export All
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline">
+                  <Download className="mr-2 h-4 w-4" />
+                  Export
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={exportToCSV}>
+                  <FileText className="mr-2 h-4 w-4" />
+                  Export as CSV
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={exportToPDF}>
+                  <FileText className="mr-2 h-4 w-4" />
+                  Export as PDF
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             <Button onClick={handleGeneratePayroll} disabled={generatePayroll.isPending}>
               {generatePayroll.isPending ? (
                 <>
