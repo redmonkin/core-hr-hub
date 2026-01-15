@@ -339,6 +339,36 @@ const Onboarding = () => {
     mutationFn: async (data: FormData) => {
       // Get department name for notification
       const selectedDept = departments.find(d => d.id === data.departmentId);
+      
+      let linkedUserId = data.linkedUserId;
+      let inviteSent = false;
+
+      // If no linked user, invite the employee via email
+      if (!linkedUserId) {
+        try {
+          const { data: inviteResult, error: inviteError } = await supabase.functions.invoke("invite-employee", {
+            body: {
+              email: data.email.trim(),
+              first_name: data.firstName.trim(),
+              last_name: data.lastName.trim(),
+              designation: data.designation.trim(),
+              department_name: selectedDept?.name,
+              redirect_url: `${window.location.origin}/`,
+            }
+          });
+
+          if (inviteError) {
+            console.error("Failed to invite employee:", inviteError);
+          } else if (inviteResult?.user_id) {
+            linkedUserId = inviteResult.user_id;
+            inviteSent = !inviteResult.already_exists;
+            console.log("Employee invited successfully:", inviteResult);
+          }
+        } catch (err) {
+          console.error("Error invoking invite-employee:", err);
+          // Continue with employee creation even if invite fails
+        }
+      }
 
       // Create employee
       const { data: employee, error: employeeError } = await supabase
@@ -355,7 +385,7 @@ const Onboarding = () => {
           manager_id: data.managerId || null,
           hire_date: data.joinDate,
           status: 'onboarding',
-          user_id: data.linkedUserId || null,
+          user_id: linkedUserId || null,
         })
         .select()
         .single();
@@ -402,9 +432,9 @@ const Onboarding = () => {
         console.error("Failed to send onboarding notification:", err);
       });
 
-      return employee;
+      return { employee, inviteSent };
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ['onboarding-employees'] });
       queryClient.invalidateQueries({ queryKey: ['employees'] });
       queryClient.invalidateQueries({ queryKey: ['unlinked-users'] });
@@ -413,7 +443,9 @@ const Onboarding = () => {
       setActiveTab('pending');
       toast({
         title: "Employee Added",
-        description: "New employee has been added to the onboarding queue.",
+        description: result.inviteSent 
+          ? "New employee has been added and an email invite has been sent to set up their account."
+          : "New employee has been added to the onboarding queue.",
       });
     },
     onError: (error: Error) => {
