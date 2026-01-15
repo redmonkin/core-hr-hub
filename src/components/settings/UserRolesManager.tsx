@@ -19,6 +19,16 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -27,11 +37,12 @@ import {
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Pencil, Loader2 } from "lucide-react";
+import { Pencil, Loader2, Ban, CheckCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Database } from "@/integrations/supabase/types";
+import { useAuth } from "@/contexts/AuthContext";
 
 type AppRole = Database["public"]["Enums"]["app_role"];
 type EmployeeStatus = Database["public"]["Enums"]["employee_status"];
@@ -44,6 +55,7 @@ interface UserWithRole {
   role: AppRole | null;
   role_id: string | null;
   employee_status: EmployeeStatus | null;
+  blocked: boolean;
 }
 
 const roleLabels: Record<AppRole, string> = {
@@ -77,7 +89,9 @@ const statusBadgeVariant: Record<EmployeeStatus, "default" | "secondary" | "outl
 export function UserRolesManager() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { user: currentUser } = useAuth();
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [blockDialogOpen, setBlockDialogOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<UserWithRole | null>(null);
   const [selectedRole, setSelectedRole] = useState<AppRole>("employee");
 
@@ -87,7 +101,7 @@ export function UserRolesManager() {
       // Fetch profiles with their roles
       const { data: profiles, error: profilesError } = await supabase
         .from('profiles')
-        .select('id, email, full_name, avatar_url')
+        .select('id, email, full_name, avatar_url, blocked')
         .order('full_name');
 
       if (profilesError) throw profilesError;
@@ -115,6 +129,7 @@ export function UserRolesManager() {
           role: userRole?.role as AppRole | null,
           role_id: userRole?.id || null,
           employee_status: employee?.status as EmployeeStatus | null,
+          blocked: profile.blocked ?? false,
         };
       });
 
@@ -151,10 +166,51 @@ export function UserRolesManager() {
     },
   });
 
+  const toggleBlockMutation = useMutation({
+    mutationFn: async ({ userId, block }: { userId: string; block: boolean }) => {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ 
+          blocked: block,
+          blocked_at: block ? new Date().toISOString() : null,
+          blocked_by: block ? currentUser?.id : null,
+        })
+        .eq('id', userId);
+      if (error) throw error;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['users-with-roles'] });
+      setBlockDialogOpen(false);
+      setSelectedUser(null);
+      toast({ 
+        title: variables.block ? "User blocked" : "User unblocked", 
+        description: variables.block 
+          ? "User has been blocked and can no longer login." 
+          : "User has been unblocked and can now login."
+      });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
   const handleEditRole = (user: UserWithRole) => {
     setSelectedUser(user);
     setSelectedRole(user.role || "employee");
     setDialogOpen(true);
+  };
+
+  const handleBlockClick = (user: UserWithRole) => {
+    setSelectedUser(user);
+    setBlockDialogOpen(true);
+  };
+
+  const handleToggleBlock = () => {
+    if (!selectedUser) return;
+    toggleBlockMutation.mutate({
+      userId: selectedUser.id,
+      block: !selectedUser.blocked,
+    });
   };
 
   const handleSaveRole = () => {
@@ -207,7 +263,9 @@ export function UserRolesManager() {
                   </TableCell>
                   <TableCell className="text-muted-foreground">{user.email}</TableCell>
                   <TableCell>
-                    {user.employee_status ? (
+                    {user.blocked ? (
+                      <Badge variant="destructive">Blocked</Badge>
+                    ) : user.employee_status ? (
                       <Badge variant={statusBadgeVariant[user.employee_status]}>
                         {statusLabels[user.employee_status]}
                       </Badge>
@@ -225,9 +283,21 @@ export function UserRolesManager() {
                     )}
                   </TableCell>
                   <TableCell>
-                    <Button variant="ghost" size="icon" onClick={() => handleEditRole(user)}>
-                      <Pencil className="h-4 w-4" />
-                    </Button>
+                    <div className="flex gap-1">
+                      <Button variant="ghost" size="icon" onClick={() => handleEditRole(user)}>
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      {user.id !== currentUser?.id && (
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          onClick={() => handleBlockClick(user)}
+                          className={user.blocked ? "text-green-600 hover:text-green-700" : "text-destructive hover:text-destructive"}
+                        >
+                          {user.blocked ? <CheckCircle className="h-4 w-4" /> : <Ban className="h-4 w-4" />}
+                        </Button>
+                      )}
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
@@ -291,6 +361,35 @@ export function UserRolesManager() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        <AlertDialog open={blockDialogOpen} onOpenChange={(open) => {
+          setBlockDialogOpen(open);
+          if (!open) setSelectedUser(null);
+        }}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>
+                {selectedUser?.blocked ? "Unblock User" : "Block User"}
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                {selectedUser?.blocked 
+                  ? `Are you sure you want to unblock ${selectedUser?.full_name || selectedUser?.email}? They will be able to login again.`
+                  : `Are you sure you want to block ${selectedUser?.full_name || selectedUser?.email}? They will not be able to login until unblocked.`
+                }
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction 
+                onClick={handleToggleBlock}
+                className={selectedUser?.blocked ? "" : "bg-destructive text-destructive-foreground hover:bg-destructive/90"}
+              >
+                {toggleBlockMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {selectedUser?.blocked ? "Unblock" : "Block"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </CardContent>
     </Card>
   );
