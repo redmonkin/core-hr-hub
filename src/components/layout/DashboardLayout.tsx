@@ -89,6 +89,21 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     return user?.user_metadata?.full_name || user?.email?.split("@")[0] || "User";
   };
 
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return "Good morning";
+    if (hour < 17) return "Good afternoon";
+    return "Good evening";
+  };
+
+  const getFirstName = () => {
+    const fullName = user?.user_metadata?.full_name;
+    if (fullName) {
+      return fullName.split(" ")[0];
+    }
+    return user?.email?.split("@")[0] || "there";
+  };
+
   return (
     <div className="min-h-screen bg-background">
       {/* Mobile sidebar overlay */}
@@ -188,10 +203,10 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
             </Button>
             <div>
               <h1 className="text-lg font-semibold text-foreground lg:text-xl">
-                {new Date().toLocaleDateString("en-US", { weekday: "long" })}
+                {getGreeting()}, {getFirstName()}
               </h1>
               <p className="text-sm text-muted-foreground">
-                {new Date().toLocaleDateString("en-US", {
+                {new Date().toLocaleDateString("en-US", { weekday: "long" })}, {new Date().toLocaleDateString("en-US", {
                   month: "long",
                   day: "numeric",
                   year: "numeric",
