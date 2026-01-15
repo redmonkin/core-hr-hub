@@ -49,18 +49,16 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { label: "Dashboard", href: "/dashboard", icon: <Home className="h-5 w-5" /> },
-  { label: "Employees", href: "/employees", icon: <Users className="h-5 w-5" /> },
+  { label: "Employees", href: "/employees", icon: <Users className="h-5 w-5" />, adminOnly: true },
   { label: "Departments", href: "/departments", icon: <Building2 className="h-5 w-5" />, adminOnly: true },
   { label: "Onboarding", href: "/onboarding", icon: <UserPlus className="h-5 w-5" />, adminOnly: true },
   { label: "Attendance", href: "/attendance", icon: <Clock className="h-5 w-5" /> },
   { label: "Calendar", href: "/calendar", icon: <CalendarDays className="h-5 w-5" /> },
   { label: "Leaves", href: "/leaves", icon: <Calendar className="h-5 w-5" /> },
   { label: "Performance", href: "/performance", icon: <Target className="h-5 w-5" /> },
-  { label: "Team Analytics", href: "/team-analytics", icon: <BarChart3 className="h-5 w-5" /> },
-  { label: "Reviews", href: "/reviews-management", icon: <ClipboardList className="h-5 w-5" />, adminOnly: true },
   { label: "Assets", href: "/assets", icon: <Package className="h-5 w-5" /> },
   { label: "Payroll", href: "/payroll", icon: <CreditCard className="h-5 w-5" />, adminOnly: true },
-  { label: "Reports", href: "/reports", icon: <ClipboardList className="h-5 w-5" /> },
+  { label: "Reports", href: "/reports", icon: <ClipboardList className="h-5 w-5" />, adminOnly: true },
   { label: "Settings", href: "/settings", icon: <Settings className="h-5 w-5" />, adminOnly: true },
 ];
 
