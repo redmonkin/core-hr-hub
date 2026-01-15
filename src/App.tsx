@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
+import ScrollToTop from "@/components/layout/ScrollToTop";
 import Landing from "./pages/Landing";
 import Features from "./pages/Features";
 import HowItWorks from "./pages/HowItWorks";
@@ -41,6 +42,7 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <AuthProvider>
+          <ScrollToTop />
           <Routes>
             {/* Public marketing pages */}
             <Route path="/" element={<Landing />} />
