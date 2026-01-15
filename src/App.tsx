@@ -17,7 +17,6 @@ import Index from "./pages/Index";
 import Employees from "./pages/Employees";
 import Onboarding from "./pages/Onboarding";
 import Leaves from "./pages/Leaves";
-import LeaveApprovals from "./pages/LeaveApprovals";
 import Assets from "./pages/Assets";
 import Payroll from "./pages/Payroll";
 import Reports from "./pages/Reports";
@@ -60,7 +59,8 @@ const App = () => (
             {/* Redirect old onboarding-requests route to onboarding with requests tab */}
             <Route path="/onboarding-requests" element={<Navigate to="/onboarding?tab=requests" replace />} />
             <Route path="/leaves" element={<ProtectedRoute><Leaves /></ProtectedRoute>} />
-            <Route path="/leave-approvals" element={<ProtectedRoute><LeaveApprovals /></ProtectedRoute>} />
+            {/* Redirect old leave-approvals route to leaves */}
+            <Route path="/leave-approvals" element={<Navigate to="/leaves" replace />} />
             <Route path="/assets" element={<ProtectedRoute><Assets /></ProtectedRoute>} />
             <Route path="/payroll" element={<ProtectedRoute><Payroll /></ProtectedRoute>} />
             <Route path="/reports" element={<ProtectedRoute><Reports /></ProtectedRoute>} />

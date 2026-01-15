@@ -1,15 +1,16 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { LeaveRequestCard, LeaveRequest } from "@/components/leaves/LeaveRequestCard";
 import { LeaveRequestForm } from "@/components/profile/LeaveRequestForm";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogDescription, DialogHeader as ModalHeader, DialogTitle as ModalTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Calendar, Plus, Clock, CheckCircle, XCircle, ArrowUpDown, Tag } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { Calendar, Plus, Clock, CheckCircle, XCircle, ArrowUpDown, Tag, Loader2 } from "lucide-react";
 import { usePagination } from "@/hooks/usePagination";
 import { useSorting } from "@/hooks/useSorting";
 import {
@@ -37,7 +38,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
-import { useLeaveRequests, useLeaveStats, useUpdateLeaveStatus } from "@/hooks/useLeaves";
+import { useLeaveRequests, useLeaveStats } from "@/hooks/useLeaves";
 import { useIsAdminOrHR } from "@/hooks/useUserRole";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -47,8 +48,14 @@ import { format, parseISO, isWithinInterval, isAfter, isBefore } from "date-fns"
 const Leaves = () => {
   const { user } = useAuth();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [isNewRequestOpen, setIsNewRequestOpen] = useState(false);
   const { isAdminOrHR, roles } = useIsAdminOrHR();
+  
+  // Approval dialog state
+  const [selectedRequest, setSelectedRequest] = useState<LeaveRequest | null>(null);
+  const [reviewNotes, setReviewNotes] = useState("");
+  const [actionType, setActionType] = useState<"approve" | "reject" | null>(null);
   
   const canApproveLeaves = isAdminOrHR || roles.includes("manager");
 
@@ -71,48 +78,102 @@ const Leaves = () => {
 
   const { data: requests = [], isLoading } = useLeaveRequests();
   const { data: stats } = useLeaveStats();
-  const updateStatus = useUpdateLeaveStatus();
+
+  // Mutation for updating leave status with notes
+  const updateStatusMutation = useMutation({
+    mutationFn: async ({ 
+      requestId, 
+      status, 
+      reviewNotes 
+    }: { 
+      requestId: string; 
+      status: "approved" | "rejected"; 
+      reviewNotes: string;
+    }) => {
+      // Get current user's employee data for reviewed_by
+      const { data: employeeData } = await supabase
+        .from("employees")
+        .select("id, first_name, last_name")
+        .eq("user_id", user?.id)
+        .maybeSingle();
+
+      const { error } = await supabase
+        .from("leave_requests")
+        .update({
+          status,
+          review_notes: reviewNotes.trim() || null,
+          reviewed_by: employeeData?.id || null,
+          reviewed_at: new Date().toISOString(),
+        })
+        .eq("id", requestId);
+
+      if (error) throw error;
+
+      // Send notification (fire and forget)
+      const reviewerName = employeeData 
+        ? `${employeeData.first_name} ${employeeData.last_name}` 
+        : "HR Team";
+
+      supabase.functions.invoke("leave-status-notification", {
+        body: {
+          request_id: requestId,
+          status,
+          reviewer_name: reviewerName,
+          review_notes: reviewNotes.trim() || undefined,
+        }
+      }).catch(err => {
+        console.error("Failed to send leave status notification:", err);
+      });
+
+      return status;
+    },
+    onSuccess: (status) => {
+      queryClient.invalidateQueries({ queryKey: ["leave-requests"] });
+      queryClient.invalidateQueries({ queryKey: ["leave-stats"] });
+      queryClient.invalidateQueries({ queryKey: ["leave-balances"] });
+      toast({
+        title: status === "approved" ? "Leave Approved" : "Leave Rejected",
+        description: `The leave request has been ${status}.`,
+      });
+      setSelectedRequest(null);
+      setReviewNotes("");
+      setActionType(null);
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: `Failed to update leave request: ${error.message}`,
+        variant: "destructive",
+      });
+    },
+  });
 
   const handleApprove = (id: string) => {
-    updateStatus.mutate(
-      { id, status: "approved" },
-      {
-        onSuccess: () => {
-          toast({
-            title: "Leave Approved",
-            description: "The leave request has been approved.",
-          });
-        },
-        onError: () => {
-          toast({
-            title: "Error",
-            description: "Failed to approve leave request.",
-            variant: "destructive",
-          });
-        },
-      }
-    );
+    const request = requests.find(r => r.id === id);
+    if (request) {
+      setSelectedRequest(request);
+      setActionType("approve");
+      setReviewNotes("");
+    }
   };
 
   const handleReject = (id: string) => {
-    updateStatus.mutate(
-      { id, status: "rejected" },
-      {
-        onSuccess: () => {
-          toast({
-            title: "Leave Rejected",
-            description: "The leave request has been rejected.",
-          });
-        },
-        onError: () => {
-          toast({
-            title: "Error",
-            description: "Failed to reject leave request.",
-            variant: "destructive",
-          });
-        },
-      }
-    );
+    const request = requests.find(r => r.id === id);
+    if (request) {
+      setSelectedRequest(request);
+      setActionType("reject");
+      setReviewNotes("");
+    }
+  };
+
+  const confirmAction = () => {
+    if (!selectedRequest || !actionType) return;
+    
+    updateStatusMutation.mutate({
+      requestId: selectedRequest.id,
+      status: actionType === "approve" ? "approved" : "rejected",
+      reviewNotes,
+    });
   };
 
   const filterByDateRange = (items: LeaveRequest[], startDate?: Date, endDate?: Date) => {
@@ -352,29 +413,23 @@ const Leaves = () => {
                   New Leave Request
                 </Button>
               </DialogTrigger>
-              <DialogTrigger asChild>
-                <Button>
-                  <Plus className="mr-2 h-4 w-4" />
-                  New Leave Request
-                </Button>
-              </DialogTrigger>
-            <DialogContent className="max-w-2xl">
-              <ModalHeader>
-                <ModalTitle>New Leave Request</ModalTitle>
-                <DialogDescription>Submit a leave request for approval.</DialogDescription>
-              </ModalHeader>
+              <DialogContent className="max-w-2xl">
+                <DialogHeader>
+                  <DialogTitle>New Leave Request</DialogTitle>
+                  <DialogDescription>Submit a leave request for approval.</DialogDescription>
+                </DialogHeader>
 
-              {isLoadingMyEmployee ? (
-                <Skeleton className="h-72 w-full" />
-              ) : !myEmployeeId ? (
-                <div className="rounded-lg border border-border bg-muted/30 p-4 text-sm text-muted-foreground">
-                  We couldn’t find an employee profile linked to your account. Please contact HR to link your profile.
-                </div>
-              ) : (
-                <LeaveRequestForm employeeId={myEmployeeId} />
-              )}
-            </DialogContent>
-          </Dialog>
+                {isLoadingMyEmployee ? (
+                  <Skeleton className="h-72 w-full" />
+                ) : !myEmployeeId ? (
+                  <div className="rounded-lg border border-border bg-muted/30 p-4 text-sm text-muted-foreground">
+                    We couldn't find an employee profile linked to your account. Please contact HR to link your profile.
+                  </div>
+                ) : (
+                  <LeaveRequestForm employeeId={myEmployeeId} />
+                )}
+              </DialogContent>
+            </Dialog>
           </div>
         </div>
 
@@ -503,6 +558,75 @@ const Leaves = () => {
             </Card>
           </TabsContent>
         </Tabs>
+
+        {/* Approval Confirmation Dialog */}
+        <Dialog open={!!selectedRequest && !!actionType} onOpenChange={(open) => {
+          if (!open) {
+            setSelectedRequest(null);
+            setActionType(null);
+            setReviewNotes("");
+          }
+        }}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>
+                {actionType === "approve" ? "Approve" : "Reject"} Leave Request
+              </DialogTitle>
+              <DialogDescription>
+                {actionType === "approve" 
+                  ? "Are you sure you want to approve this leave request?" 
+                  : "Are you sure you want to reject this leave request?"}
+              </DialogDescription>
+            </DialogHeader>
+
+            {selectedRequest && (
+              <div className="space-y-4">
+                <div className="rounded-lg bg-muted p-4 space-y-2">
+                  <p className="font-medium">{selectedRequest.employee.name}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {selectedRequest.type} • {selectedRequest.days} day(s)
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    {format(new Date(selectedRequest.startDate), "PPP")} - {format(new Date(selectedRequest.endDate), "PPP")}
+                  </p>
+                  {selectedRequest.reason && (
+                    <p className="text-sm text-muted-foreground mt-2">
+                      <span className="font-medium">Reason:</span> {selectedRequest.reason}
+                    </p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Notes (Optional)</label>
+                  <Textarea
+                    value={reviewNotes}
+                    onChange={(e) => setReviewNotes(e.target.value)}
+                    placeholder="Add any notes for the employee..."
+                    rows={3}
+                  />
+                </div>
+              </div>
+            )}
+
+            <DialogFooter>
+              <Button variant="outline" onClick={() => {
+                setSelectedRequest(null);
+                setActionType(null);
+                setReviewNotes("");
+              }}>
+                Cancel
+              </Button>
+              <Button
+                onClick={confirmAction}
+                disabled={updateStatusMutation.isPending}
+                variant={actionType === "approve" ? "default" : "destructive"}
+              >
+                {updateStatusMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                {actionType === "approve" ? "Approve" : "Reject"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </DashboardLayout>
   );
