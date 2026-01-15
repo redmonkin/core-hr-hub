@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Clock, LogIn, LogOut, Calendar } from "lucide-react";
+import { Clock, LogIn, LogOut, Calendar, Briefcase } from "lucide-react";
 import { usePagination } from "@/hooks/usePagination";
 import { useSorting } from "@/hooks/useSorting";
 import { SortableTableHead } from "@/components/ui/sortable-table-head";
@@ -67,13 +67,13 @@ const Attendance = () => {
   const clockIn = useClockIn();
   const clockOut = useClockOut();
 
-  // Get current employee
+  // Get current employee with working schedule
   const { data: currentEmployee } = useQuery({
-    queryKey: ["current-employee"],
+    queryKey: ["current-employee-schedule"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("employees")
-        .select("id, first_name, last_name")
+        .select("id, first_name, last_name, working_hours_start, working_hours_end, working_days")
         .eq("user_id", user?.id)
         .maybeSingle();
 
@@ -82,6 +82,28 @@ const Attendance = () => {
     },
     enabled: !!user,
   });
+
+  // Format time for display (e.g., "09:00:00" -> "9:00 AM")
+  const formatTimeDisplay = (time: string | null): string => {
+    if (!time) return "--:--";
+    const [hours, minutes] = time.split(':').map(Number);
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    const hour12 = hours % 12 || 12;
+    return `${hour12}:${minutes.toString().padStart(2, '0')} ${ampm}`;
+  };
+
+  // Get day names for working days
+  const getDayNames = (days: number[] | null): string => {
+    if (!days || days.length === 0) return "Not set";
+    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    return days.sort((a, b) => a - b).map(d => dayNames[d]).join(', ');
+  };
+
+  // Check if today is a working day
+  const isWorkingDay = (days: number[] | null): boolean => {
+    const today = new Date().getDay();
+    return (days || [1, 2, 3, 4, 5]).includes(today);
+  };
 
   // Sorting for report data
   const reportSorting = useSorting(reportData || []);
@@ -298,6 +320,66 @@ const Attendance = () => {
             )}
           </CardContent>
         </Card>
+
+        {/* Working Schedule Card */}
+        {currentEmployee && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Briefcase className="h-5 w-5 text-primary" />
+                My Working Schedule
+              </CardTitle>
+              <CardDescription>Your configured work hours and days for attendance reminders</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="grid grid-cols-2 gap-6 sm:flex sm:gap-8">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Start Time</p>
+                    <p className="text-lg font-semibold">
+                      {formatTimeDisplay(currentEmployee.working_hours_start)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">End Time</p>
+                    <p className="text-lg font-semibold">
+                      {formatTimeDisplay(currentEmployee.working_hours_end)}
+                    </p>
+                  </div>
+                  <div className="col-span-2">
+                    <p className="text-sm text-muted-foreground">Working Days</p>
+                    <div className="flex flex-wrap gap-1.5 mt-1">
+                      {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day, index) => {
+                        const workingDays = currentEmployee.working_days || [1, 2, 3, 4, 5];
+                        const isActive = workingDays.includes(index);
+                        const isToday = new Date().getDay() === index;
+                        return (
+                          <Badge 
+                            key={day} 
+                            variant={isActive ? "default" : "outline"}
+                            className={`${isToday ? 'ring-2 ring-primary ring-offset-2' : ''} ${!isActive ? 'opacity-50' : ''}`}
+                          >
+                            {day}
+                          </Badge>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+                <div className="flex flex-col items-start gap-2 sm:items-end">
+                  {isWorkingDay(currentEmployee.working_days) ? (
+                    <Badge variant="default" className="bg-green-600">Working Day</Badge>
+                  ) : (
+                    <Badge variant="secondary">Day Off</Badge>
+                  )}
+                  <a href="/profile" className="text-sm text-primary hover:underline">
+                    Edit Schedule →
+                  </a>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Monthly Report */}
         <Card>
