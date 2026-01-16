@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.87.1";
+import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
 
@@ -19,14 +20,61 @@ const escapeHtml = (text: string | null | undefined): string => {
     .replace(/'/g, '&#039;');
 };
 
-interface InviteEmployeeRequest {
-  email: string;
-  first_name: string;
-  last_name: string;
-  designation: string;
-  department_name?: string;
-  redirect_url: string;
-}
+// Allowed domains for redirect URLs - prevents open redirect attacks
+const ALLOWED_REDIRECT_HOSTS = [
+  'lovable.app',           // Lovable preview/published URLs
+  'lovable.dev',           // Lovable development URLs
+  'localhost',             // Local development
+  '127.0.0.1',             // Local development
+  'corehrhub.lovable.app', // Published domain for this app
+];
+
+// Validate that a URL is safe for redirect
+const isAllowedRedirectUrl = (urlString: string): boolean => {
+  try {
+    const url = new URL(urlString);
+    
+    // Check exact match or subdomain match for allowed hosts
+    return ALLOWED_REDIRECT_HOSTS.some(allowedHost => 
+      url.hostname === allowedHost || 
+      url.hostname.endsWith(`.${allowedHost}`)
+    );
+  } catch {
+    return false;
+  }
+};
+
+// Input validation schema using Zod
+const inviteEmployeeSchema = z.object({
+  email: z.string()
+    .trim()
+    .email({ message: "Invalid email address" })
+    .max(255, { message: "Email must be less than 255 characters" }),
+  first_name: z.string()
+    .trim()
+    .min(1, { message: "First name is required" })
+    .max(100, { message: "First name must be less than 100 characters" }),
+  last_name: z.string()
+    .trim()
+    .min(1, { message: "Last name is required" })
+    .max(100, { message: "Last name must be less than 100 characters" }),
+  designation: z.string()
+    .trim()
+    .min(1, { message: "Designation is required" })
+    .max(100, { message: "Designation must be less than 100 characters" }),
+  department_name: z.string()
+    .trim()
+    .max(100, { message: "Department name must be less than 100 characters" })
+    .optional(),
+  redirect_url: z.string()
+    .url({ message: "Invalid redirect URL" })
+    .max(500, { message: "Redirect URL must be less than 500 characters" })
+    .refine(isAllowedRedirectUrl, { 
+      message: "Redirect URL must be an allowed domain (lovable.app, lovable.dev, or localhost)" 
+    }),
+});
+
+type InviteEmployeeRequest = z.infer<typeof inviteEmployeeSchema>;
 
 const sendWelcomeEmail = async (
   to: string,
@@ -127,8 +175,26 @@ serve(async (req) => {
       );
     }
 
-    const payload: InviteEmployeeRequest = await req.json();
-    console.log("Invite employee payload:", { email: payload.email, first_name: payload.first_name });
+    // Parse and validate input using Zod schema
+    const rawPayload = await req.json();
+    const parseResult = inviteEmployeeSchema.safeParse(rawPayload);
+    
+    if (!parseResult.success) {
+      console.error("Input validation failed:", parseResult.error.errors);
+      return new Response(
+        JSON.stringify({ 
+          error: 'Invalid input', 
+          details: parseResult.error.errors.map(e => ({
+            field: e.path.join('.'),
+            message: e.message
+          }))
+        }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const payload: InviteEmployeeRequest = parseResult.data;
+    console.log("Invite employee payload (validated):", { email: payload.email, first_name: payload.first_name });
 
     const { email, first_name, last_name, designation, department_name, redirect_url } = payload;
 
@@ -149,7 +215,7 @@ serve(async (req) => {
       );
     }
 
-    // Invite user via Supabase Auth
+    // Invite user via Supabase Auth with validated redirect_url
     const { data: inviteData, error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
       redirectTo: redirect_url,
       data: {
@@ -214,7 +280,7 @@ serve(async (req) => {
   } catch (error) {
     console.error("Error in invite-employee:", error);
     return new Response(
-      JSON.stringify({ error: String(error) }),
+      JSON.stringify({ error: "An unexpected error occurred" }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
