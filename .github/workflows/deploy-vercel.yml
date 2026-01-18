@@ -1,0 +1,82 @@
+name: Deploy to Vercel
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+  VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+jobs:
+  deploy:
+    name: Deploy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install Vercel CLI
+        run: npm install --global vercel@latest
+
+      - name: Pull Vercel Environment Information
+        run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Build Project Artifacts
+        run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Deploy to Vercel
+        id: deploy
+        run: |
+          url=$(vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }})
+          echo "deploy_url=$url" >> $GITHUB_OUTPUT
+
+      - name: Comment deployment URL
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: '🚀 Deployed to Vercel: ${{ steps.deploy.outputs.deploy_url }}'
+            })
+
+# ============================================================================
+# SETUP INSTRUCTIONS
+# ============================================================================
+# 
+# 1. Install Vercel CLI locally: npm i -g vercel
+# 
+# 2. Link your project: vercel link
+#    - This creates .vercel/project.json with orgId and projectId
+# 
+# 3. Add the following secrets to your GitHub repository:
+#    (Settings > Secrets and variables > Actions > New repository secret)
+#
+#    VERCEL_TOKEN:
+#      - Go to https://vercel.com/account/tokens
+#      - Create a new token with a descriptive name
+#      - Copy the token value
+#
+#    VERCEL_ORG_ID:
+#      - Found in .vercel/project.json after running 'vercel link'
+#      - Or go to Vercel Dashboard > Settings > General > Team ID
+#
+#    VERCEL_PROJECT_ID:
+#      - Found in .vercel/project.json after running 'vercel link'
+#      - Or go to Vercel Dashboard > Project > Settings > General > Project ID
+#
+# 4. Add environment variables in Vercel Dashboard:
+#    - Go to Project > Settings > Environment Variables
+#    - Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY
+#
+# ============================================================================
