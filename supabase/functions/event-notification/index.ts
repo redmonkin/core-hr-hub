@@ -222,7 +222,7 @@ const handler = async (req: Request): Promise<Response> => {
                   
                   <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; text-align: center;">
                     <p style="margin-bottom: 20px;">
-                      <a href="https://hrhub.redmonk.in/company-calendar" style="display: inline-block; padding: 12px 24px; background-color: #667eea; color: white; text-decoration: none; border-radius: 6px; font-weight: bold;">View Calendar</a>
+                      <a href="https://peoplo.redmonk.in/company-calendar" style="display: inline-block; padding: 12px 24px; background-color: #667eea; color: white; text-decoration: none; border-radius: 6px; font-weight: bold;">View Calendar</a>
                     </p>
                     <p style="color: #999; font-size: 12px; margin: 0;">
                       This is an automated notification from HR Hub.<br>

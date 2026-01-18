@@ -203,7 +203,7 @@ serve(async (req) => {
             </div>
             
 203:             <p>
-204:               <a href="https://hrhub.redmonk.in/performance" style="display: inline-block; padding: 12px 24px; background-color: #2563eb; color: white; text-decoration: none; border-radius: 6px; font-weight: bold;">View Full Review</a>
+204:               <a href="https://peoplo.redmonk.in/performance" style="display: inline-block; padding: 12px 24px; background-color: #2563eb; color: white; text-decoration: none; border-radius: 6px; font-weight: bold;">View Full Review</a>
 205:             </p>
 206:             <p style="color: #999; font-size: 12px; margin-top: 30px;">You can manage your notification preferences in your profile settings.</p>
             

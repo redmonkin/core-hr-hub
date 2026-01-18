@@ -122,7 +122,7 @@ serve(async (req) => {
                 <li>Complete any required training</li>
               </ul>
               <p>
-                <a href="https://hrhub.redmonk.in/profile" style="display: inline-block; padding: 12px 24px; background-color: #2563eb; color: white; text-decoration: none; border-radius: 6px; font-weight: bold;">Complete Your Profile</a>
+                <a href="https://peoplo.redmonk.in/profile" style="display: inline-block; padding: 12px 24px; background-color: #2563eb; color: white; text-decoration: none; border-radius: 6px; font-weight: bold;">Complete Your Profile</a>
               </p>
               <p>If you have any questions, please reach out to HR or your manager.</p>
               <p>Best regards,<br>HR Team</p>
@@ -220,7 +220,7 @@ serve(async (req) => {
                     </tbody>
                   </table>
                   <p style="margin-top: 16px;">
-                    <a href="https://hrhub.redmonk.in/onboarding" style="display: inline-block; padding: 12px 24px; background-color: #2563eb; color: white; text-decoration: none; border-radius: 6px; font-weight: bold;">View All Pending</a>
+                    <a href="https://peoplo.redmonk.in/onboarding" style="display: inline-block; padding: 12px 24px; background-color: #2563eb; color: white; text-decoration: none; border-radius: 6px; font-weight: bold;">View All Pending</a>
                   </p>
                   <p style="margin-top: 16px;">Please follow up with these employees to complete their onboarding.</p>
               `

@@ -223,7 +223,7 @@ serve(async (req) => {
             </div>
             
 223:             <p>
-224:               <a href="https://hrhub.redmonk.in/leaves" style="display: inline-block; padding: 12px 24px; background-color: #2563eb; color: white; text-decoration: none; border-radius: 6px; font-weight: bold;">View Leave Details</a>
+224:               <a href="https://peoplo.redmonk.in/leaves" style="display: inline-block; padding: 12px 24px; background-color: #2563eb; color: white; text-decoration: none; border-radius: 6px; font-weight: bold;">View Leave Details</a>
 225:             </p>
 226:             <p style="color: #999; font-size: 12px; margin-top: 30px;">You can manage your notification preferences in your profile settings.</p>
             

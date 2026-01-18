@@ -27,7 +27,7 @@ const ALLOWED_REDIRECT_HOSTS = [
   'localhost',             // Local development
   '127.0.0.1',             // Local development
   'corehrhub.lovable.app', // Lovable published domain
-  'hrhub.redmonk.in',      // Production domain
+  'peoplo.redmonk.in',     // Production domain
   'redmonk.in',            // Production parent domain
 ];
 

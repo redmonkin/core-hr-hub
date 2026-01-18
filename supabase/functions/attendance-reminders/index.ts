@@ -224,7 +224,7 @@ serve(async (req) => {
                   <strong>Scheduled Start Time:</strong> ${formatTime(workStart)}
                 </p>
                 <p>
-                  <a href="https://hrhub.redmonk.in/attendance" style="display: inline-block; padding: 12px 24px; background-color: #2563eb; color: white; text-decoration: none; border-radius: 6px; font-weight: bold;">Clock In Now</a>
+                  <a href="https://peoplo.redmonk.in/attendance" style="display: inline-block; padding: 12px 24px; background-color: #2563eb; color: white; text-decoration: none; border-radius: 6px; font-weight: bold;">Clock In Now</a>
                 </p>
                 <p style="color: #999; font-size: 12px; margin-top: 30px;">You can manage your notification preferences in your profile settings.</p>
                 <p style="margin-top: 20px;">Best regards,<br>HR Team</p>
@@ -268,7 +268,7 @@ serve(async (req) => {
                   <strong>Scheduled End Time:</strong> ${formatTime(workEnd)}
                 </p>
                 <p>
-                  <a href="https://hrhub.redmonk.in/attendance" style="display: inline-block; padding: 12px 24px; background-color: #2563eb; color: white; text-decoration: none; border-radius: 6px; font-weight: bold;">Clock Out Now</a>
+                  <a href="https://peoplo.redmonk.in/attendance" style="display: inline-block; padding: 12px 24px; background-color: #2563eb; color: white; text-decoration: none; border-radius: 6px; font-weight: bold;">Clock Out Now</a>
                 </p>
                 <p style="color: #999; font-size: 12px; margin-top: 30px;">You can manage your notification preferences in your profile settings.</p>
                 <p style="margin-top: 20px;">Best regards,<br>HR Team</p>
