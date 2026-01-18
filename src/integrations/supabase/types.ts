@@ -853,6 +853,65 @@ export type Database = {
         }
         Relationships: []
       }
+      salary_history: {
+        Row: {
+          basic_salary: number
+          change_reason: string | null
+          changed_by: string | null
+          created_at: string
+          effective_from: string
+          effective_to: string | null
+          employee_id: string
+          hra: number | null
+          id: string
+          medical_allowance: number | null
+          other_allowances: number | null
+          other_deductions: number | null
+          tax_deduction: number | null
+          transport_allowance: number | null
+        }
+        Insert: {
+          basic_salary: number
+          change_reason?: string | null
+          changed_by?: string | null
+          created_at?: string
+          effective_from: string
+          effective_to?: string | null
+          employee_id: string
+          hra?: number | null
+          id?: string
+          medical_allowance?: number | null
+          other_allowances?: number | null
+          other_deductions?: number | null
+          tax_deduction?: number | null
+          transport_allowance?: number | null
+        }
+        Update: {
+          basic_salary?: number
+          change_reason?: string | null
+          changed_by?: string | null
+          created_at?: string
+          effective_from?: string
+          effective_to?: string | null
+          employee_id?: string
+          hra?: number | null
+          id?: string
+          medical_allowance?: number | null
+          other_allowances?: number | null
+          other_deductions?: number | null
+          tax_deduction?: number | null
+          transport_allowance?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "salary_history_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       salary_structures: {
         Row: {
           basic_salary: number
