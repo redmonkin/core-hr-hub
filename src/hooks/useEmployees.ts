@@ -4,6 +4,7 @@ import { format } from "date-fns";
 
 export interface Employee {
   id: string;
+  employeeCode: string;
   name: string;
   email: string;
   avatar?: string;
@@ -53,6 +54,7 @@ export function useEmployees() {
       // Transform to match the Employee interface
       return (data || []).map((emp): Employee => ({
         id: emp.id,
+        employeeCode: emp.employee_code,
         name: `${emp.first_name} ${emp.last_name}`,
         email: emp.email,
         avatar: emp.avatar_url || undefined,

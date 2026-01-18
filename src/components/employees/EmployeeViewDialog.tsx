@@ -8,7 +8,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { Mail, Building2, Briefcase, Calendar, UserCheck, Crown } from "lucide-react";
+import { Mail, Building2, Briefcase, Calendar, UserCheck, Crown, Hash } from "lucide-react";
 import { Employee } from "./EmployeeTable";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -89,6 +89,7 @@ export function EmployeeViewDialog({ employee, open, onOpenChange }: EmployeeVie
               </AvatarFallback>
             </Avatar>
             <div>
+              <p className="text-xs font-mono text-muted-foreground mb-1">{employee.employeeCode}</p>
               <h3 className="text-lg font-semibold text-foreground">{employee.name}</h3>
               <Badge variant="outline" className={statusStyles[employee.status]}>
                 {employee.status}
@@ -99,6 +100,10 @@ export function EmployeeViewDialog({ employee, open, onOpenChange }: EmployeeVie
           {/* Details */}
           <Card>
             <CardContent className="space-y-4 pt-4">
+              <div className="flex items-center gap-3 text-sm">
+                <Hash className="h-4 w-4 text-muted-foreground" />
+                <span className="font-mono text-muted-foreground">{employee.employeeCode}</span>
+              </div>
               <div className="flex items-center gap-3 text-sm">
                 <Mail className="h-4 w-4 text-muted-foreground" />
                 <span className="text-muted-foreground">{employee.email}</span>

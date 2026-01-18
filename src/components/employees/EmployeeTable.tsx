@@ -34,6 +34,7 @@ import { SortDirection } from "@/hooks/useSorting";
 
 export interface Employee {
   id: string;
+  employeeCode: string;
   name: string;
   email: string;
   avatar?: string;
@@ -175,11 +176,20 @@ export function EmployeeTable({
               {onSort ? (
                 <>
                   <SortableTableHead
+                    sortKey="employeeCode"
+                    currentSortKey={sortKey ?? null}
+                    direction={sortKey === "employeeCode" ? sortDirection ?? null : null}
+                    onSort={handleSort}
+                    className="w-[100px]"
+                  >
+                    Emp. No.
+                  </SortableTableHead>
+                  <SortableTableHead
                     sortKey="name"
                     currentSortKey={sortKey ?? null}
                     direction={sortKey === "name" ? sortDirection ?? null : null}
                     onSort={handleSort}
-                    className="w-[300px]"
+                    className="w-[260px]"
                   >
                     Employee
                   </SortableTableHead>
@@ -218,7 +228,8 @@ export function EmployeeTable({
                 </>
               ) : (
                 <>
-                  <TableHead className="w-[300px]">Employee</TableHead>
+                  <TableHead className="w-[100px]">Emp. No.</TableHead>
+                  <TableHead className="w-[260px]">Employee</TableHead>
                   <TableHead>Department</TableHead>
                   <TableHead>Designation</TableHead>
                   <TableHead>Join Date</TableHead>
@@ -243,6 +254,9 @@ export function EmployeeTable({
                     />
                   </TableCell>
                 )}
+                <TableCell className="font-mono text-sm text-muted-foreground">
+                  {employee.employeeCode}
+                </TableCell>
                 <TableCell>
                   <div className="flex items-center gap-3">
                     <Avatar className="h-10 w-10">

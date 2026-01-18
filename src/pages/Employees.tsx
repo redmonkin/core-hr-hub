@@ -126,11 +126,12 @@ const Employees = () => {
 
   const exportToCSV = (startDate?: Date, endDate?: Date) => {
     const dataToExport = filterByDateRange(sortedEmployees, startDate, endDate);
-    const headers = ["Name", "Email", "Department", "Designation", "Status", "Join Date"];
+    const headers = ["Employee No.", "Name", "Email", "Department", "Designation", "Status", "Join Date"];
     const csvContent = [
       headers.join(","),
       ...dataToExport.map((emp) =>
         [
+          `"${emp.employeeCode}"`,
           `"${emp.name}"`,
           `"${emp.email}"`,
           `"${emp.department}"`,
@@ -167,8 +168,9 @@ const Employees = () => {
 
     autoTable(doc, {
       startY: startDate || endDate ? 50 : 44,
-      head: [["Name", "Email", "Department", "Designation", "Status", "Join Date"]],
+      head: [["Emp. No.", "Name", "Email", "Department", "Designation", "Status", "Join Date"]],
       body: dataToExport.map((emp) => [
+        emp.employeeCode,
         emp.name,
         emp.email,
         emp.department,
@@ -191,11 +193,12 @@ const Employees = () => {
     switch (action) {
       case 'export':
         // Export selected employees to CSV
-        const headers = ["Name", "Email", "Department", "Designation", "Status", "Join Date"];
+        const headers = ["Employee No.", "Name", "Email", "Department", "Designation", "Status", "Join Date"];
         const csvContent = [
           headers.join(","),
           ...selectedEmployees.map((emp) =>
             [
+              `"${emp.employeeCode}"`,
               `"${emp.name}"`,
               `"${emp.email}"`,
               `"${emp.department}"`,

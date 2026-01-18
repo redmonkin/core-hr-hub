@@ -24,9 +24,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { CheckCircle2, Upload, User, Briefcase, FileText, Loader2, ShieldAlert, Calendar, Mail, Phone, MapPin, Pencil, X, Check, Download, ExternalLink, Send, Clock, UserPlus, Eye, XCircle } from "lucide-react";
+import { CheckCircle2, Upload, User, Briefcase, FileText, Loader2, ShieldAlert, Calendar, Mail, Phone, MapPin, Pencil, X, Check, Download, ExternalLink, Send, Clock, UserPlus, Eye, XCircle, Hash } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useDepartments } from "@/hooks/useEmployees";
+import { useNextEmployeeCode, isValidEmployeeCode } from "@/hooks/useNextEmployeeCode";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useIsAdminOrHR } from "@/hooks/useUserRole";
@@ -156,13 +157,7 @@ const useUnlinkedUsers = () => {
   });
 };
 
-// Generate unique employee code
-const generateEmployeeCode = () => {
-  const prefix = 'EMP';
-  const timestamp = Date.now().toString(36).toUpperCase();
-  const random = Math.random().toString(36).substring(2, 5).toUpperCase();
-  return `${prefix}-${timestamp}${random}`;
-};
+// No longer needed - using useNextEmployeeCode hook instead
 
 interface DocumentUpload {
   file: File | null;
@@ -172,6 +167,7 @@ interface DocumentUpload {
 }
 
 interface FormData {
+  employeeCode: string;
   firstName: string;
   lastName: string;
   email: string;
@@ -200,6 +196,7 @@ const WEEKDAYS = [
 ];
 
 const initialFormData: FormData = {
+  employeeCode: '',
   firstName: '',
   lastName: '',
   email: '',
@@ -281,6 +278,7 @@ const Onboarding = () => {
   const { data: unlinkedUsers = [], isLoading: loadingUsers } = useUnlinkedUsers();
   const { data: employeeDocs = [], isLoading: loadingDocs } = useEmployeeDocuments(selectedEmployee?.id || null);
   const { requests, isLoading: loadingRequests, approveRequest, rejectRequest } = useOnboardingRequests();
+  const { data: nextEmployeeCode, isLoading: loadingNextCode } = useNextEmployeeCode();
 
   const pendingRequests = requests.filter((r) => r.status === "pending");
   const approvedRequests = requests.filter((r) => r.status === "approved");
@@ -429,7 +427,7 @@ const Onboarding = () => {
       const { data: employee, error: employeeError } = await supabase
         .from('employees')
         .insert({
-          employee_code: generateEmployeeCode(),
+          employee_code: data.employeeCode.trim().toUpperCase(),
           first_name: data.firstName.trim(),
           last_name: data.lastName.trim(),
           email: data.email.trim(),
@@ -496,6 +494,7 @@ const Onboarding = () => {
       queryClient.invalidateQueries({ queryKey: ['onboarding-employees'] });
       queryClient.invalidateQueries({ queryKey: ['employees'] });
       queryClient.invalidateQueries({ queryKey: ['unlinked-users'] });
+      queryClient.invalidateQueries({ queryKey: ['next-employee-code'] });
       setFormData(initialFormData);
       setDocuments(initialDocuments);
       setActiveTab('pending');
@@ -831,7 +830,18 @@ const Onboarding = () => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
+    // Use next code if not set
+    const codeToUse = formData.employeeCode.trim() || nextEmployeeCode || '';
+    
     // Validation
+    if (!codeToUse) {
+      toast({ title: "Error", description: "Employee code is required", variant: "destructive" });
+      return;
+    }
+    if (!isValidEmployeeCode(codeToUse)) {
+      toast({ title: "Error", description: "Employee code must be in format ACQ001", variant: "destructive" });
+      return;
+    }
     if (!formData.firstName.trim()) {
       toast({ title: "Error", description: "First name is required", variant: "destructive" });
       return;
@@ -857,7 +867,7 @@ const Onboarding = () => {
       return;
     }
 
-    createEmployeeMutation.mutate(formData);
+    createEmployeeMutation.mutate({ ...formData, employeeCode: codeToUse });
   };
 
   const isSubmitting = createEmployeeMutation.isPending;
@@ -1003,6 +1013,23 @@ const Onboarding = () => {
                     </div>
                   </CardHeader>
                   <CardContent className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="employeeCode">Employee Number *</Label>
+                      <div className="relative">
+                        <Hash className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                        <Input 
+                          id="employeeCode" 
+                          placeholder={loadingNextCode ? "Loading..." : nextEmployeeCode || "ACQ001"}
+                          value={formData.employeeCode}
+                          onChange={(e) => handleInputChange('employeeCode', e.target.value.toUpperCase())}
+                          disabled={isSubmitting || loadingNextCode}
+                          className="pl-9 font-mono"
+                        />
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Next available: {loadingNextCode ? "..." : nextEmployeeCode}. You can customize if needed.
+                      </p>
+                    </div>
                     <div className="space-y-2">
                       <Label htmlFor="department">Department</Label>
                       <Select 
