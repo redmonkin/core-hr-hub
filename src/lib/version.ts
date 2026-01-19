@@ -53,10 +53,19 @@ const LOCAL_CHANGELOG: ChangelogEntry[] = [
   },
 ];
 
+export const FALLBACK_VERSION_RESPONSE: VersionResponse = {
+  currentVersion: APP_VERSION,
+  releaseDate: "2025-01-19",
+  changelog: LOCAL_CHANGELOG,
+  hasUpdate: false,
+  updateUrl: "https://github.com/redmonk-org/peoplo/releases",
+  documentationUrl: "https://peoplo.redmonk.in",
+};
+
 export async function checkForUpdates(): Promise<VersionResponse | null> {
   try {
-    // First try the local edge function
-    const { data, error } = await supabase.functions.invoke('version-check', {
+    // First try the local edge function (Lovable Cloud / connected Supabase)
+    const { data, error } = await supabase.functions.invoke("version-check", {
       body: { version: APP_VERSION },
     });
 
@@ -64,11 +73,20 @@ export async function checkForUpdates(): Promise<VersionResponse | null> {
       return data as VersionResponse;
     }
 
-    // If local fails, try the production API
+    // In Lovable preview/published environments, the public peoplo.redmonk.in endpoint
+    // may not be deployed yet, so don't block UI on a failing network call.
+    const isLovableHost =
+      typeof window !== "undefined" && window.location.hostname.includes("lovable");
+
+    if (isLovableHost) {
+      return FALLBACK_VERSION_RESPONSE;
+    }
+
+    // Self-hosted / OSS instances: always fallback to the public production API
     const response = await fetch(`${VERSION_API_URL}?version=${APP_VERSION}`, {
-      method: 'GET',
+      method: "GET",
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       },
     });
 
@@ -76,25 +94,9 @@ export async function checkForUpdates(): Promise<VersionResponse | null> {
       return await response.json();
     }
 
-    // Fallback to local data
-    return {
-      currentVersion: APP_VERSION,
-      releaseDate: "2025-01-19",
-      changelog: LOCAL_CHANGELOG,
-      hasUpdate: false,
-      updateUrl: "https://github.com/redmonk-org/peoplo/releases",
-      documentationUrl: "https://peoplo.redmonk.in",
-    };
+    return FALLBACK_VERSION_RESPONSE;
   } catch (error) {
-    console.error('Error checking for updates:', error);
-    // Return local data as fallback
-    return {
-      currentVersion: APP_VERSION,
-      releaseDate: "2025-01-19",
-      changelog: LOCAL_CHANGELOG,
-      hasUpdate: false,
-      updateUrl: "https://github.com/redmonk-org/peoplo/releases",
-      documentationUrl: "https://peoplo.redmonk.in",
-    };
+    console.error("Error checking for updates:", error);
+    return FALLBACK_VERSION_RESPONSE;
   }
 }

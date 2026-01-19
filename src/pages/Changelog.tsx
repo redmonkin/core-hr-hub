@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useVersionCheck } from "@/hooks/useVersionCheck";
-import { APP_VERSION, ChangelogEntry } from "@/lib/version";
+import { APP_VERSION, ChangelogEntry, FALLBACK_VERSION_RESPONSE } from "@/lib/version";
 import { 
   Sparkles, 
   Bug, 
@@ -106,6 +106,7 @@ function ChangelogEntryCard({ entry, isCurrentVersion }: { entry: ChangelogEntry
 
 export default function Changelog() {
   const { data: versionData, isLoading, refetch, isRefetching } = useVersionCheck();
+  const effectiveVersionData = versionData ?? FALLBACK_VERSION_RESPONSE;
 
   return (
     <DashboardLayout>
@@ -146,7 +147,7 @@ export default function Changelog() {
           <CardContent className="flex flex-col gap-4 p-6 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-4">
               <div className="rounded-full bg-primary/10 p-3">
-                {versionData?.hasUpdate ? (
+                {effectiveVersionData.hasUpdate ? (
                   <ArrowUpCircle className="h-6 w-6 text-primary" />
                 ) : (
                   <CheckCircle2 className="h-6 w-6 text-green-600" />
@@ -154,22 +155,22 @@ export default function Changelog() {
               </div>
               <div>
                 <p className="font-medium">
-                  {versionData?.hasUpdate
+                  {effectiveVersionData.hasUpdate
                     ? "Update Available"
                     : "You're up to date!"}
                 </p>
                 <p className="text-sm text-muted-foreground">
                   Current version: <strong>v{APP_VERSION}</strong>
-                  {versionData?.hasUpdate && (
-                    <> · Latest: <strong>v{versionData.currentVersion}</strong></>
+                  {effectiveVersionData.hasUpdate && (
+                    <> · Latest: <strong>v{effectiveVersionData.currentVersion}</strong></>
                   )}
                 </p>
               </div>
             </div>
-            {versionData?.hasUpdate && (
+            {effectiveVersionData.hasUpdate && (
               <Button asChild>
                 <a
-                  href={versionData.updateUrl}
+                  href={effectiveVersionData.updateUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                 >
@@ -190,9 +191,9 @@ export default function Changelog() {
               <ChangelogEntrySkeleton />
               <ChangelogEntrySkeleton />
             </div>
-          ) : versionData?.changelog && versionData.changelog.length > 0 ? (
+          ) : effectiveVersionData?.changelog && effectiveVersionData.changelog.length > 0 ? (
             <div className="space-y-6">
-              {versionData.changelog.map((entry) => (
+              {effectiveVersionData.changelog.map((entry) => (
                 <ChangelogEntryCard
                   key={entry.version}
                   entry={entry}
