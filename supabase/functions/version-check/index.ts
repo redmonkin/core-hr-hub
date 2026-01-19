@@ -64,7 +64,7 @@ serve(async (req: Request) => {
       releaseDate: VERSION_DATA.releaseDate,
       changelog: VERSION_DATA.changelog,
       hasUpdate: clientVersion ? clientVersion !== VERSION_DATA.currentVersion : false,
-      updateUrl: "https://github.com/redmonk-org/peoplo/releases",
+      updateUrl: "https://github.com/redmonkin/core-hr-hub/releases",
       documentationUrl: "https://peoplo.redmonk.in",
     };
 

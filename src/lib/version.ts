@@ -58,7 +58,7 @@ export const FALLBACK_VERSION_RESPONSE: VersionResponse = {
   releaseDate: "2025-01-19",
   changelog: LOCAL_CHANGELOG,
   hasUpdate: false,
-  updateUrl: "https://github.com/redmonk-org/peoplo/releases",
+  updateUrl: "https://github.com/redmonkin/core-hr-hub/releases",
   documentationUrl: "https://peoplo.redmonk.in",
 };
 

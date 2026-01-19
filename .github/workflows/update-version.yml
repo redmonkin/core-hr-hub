@@ -1,0 +1,195 @@
+name: Update Version on Release
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  update-version:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          
+      - name: Extract release information
+        id: release
+        run: |
+          # Extract version from tag (remove 'v' prefix if present)
+          VERSION="${{ github.event.release.tag_name }}"
+          VERSION="${VERSION#v}"
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          
+          # Get release date
+          DATE=$(date -d "${{ github.event.release.published_at }}" +%Y-%m-%d)
+          echo "date=$DATE" >> $GITHUB_OUTPUT
+          
+          # Determine release type from version
+          if [[ "$VERSION" == *".0.0" ]]; then
+            echo "type=major" >> $GITHUB_OUTPUT
+          elif [[ "$VERSION" == *".0" ]]; then
+            echo "type=minor" >> $GITHUB_OUTPUT
+          else
+            echo "type=patch" >> $GITHUB_OUTPUT
+          fi
+          
+          # Get release title and body
+          echo "title=${{ github.event.release.name }}" >> $GITHUB_OUTPUT
+          
+      - name: Parse release notes
+        id: parse
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const body = `${{ github.event.release.body }}`;
+            const changes = [];
+            
+            // Parse markdown release notes for changes
+            const lines = body.split('\n');
+            for (const line of lines) {
+              const trimmed = line.trim();
+              if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
+                const text = trimmed.substring(2).trim();
+                let type = 'feature';
+                
+                // Detect change type from keywords
+                const lowerText = text.toLowerCase();
+                if (lowerText.includes('fix') || lowerText.includes('bug')) {
+                  type = 'fix';
+                } else if (lowerText.includes('security')) {
+                  type = 'security';
+                } else if (lowerText.includes('doc') || lowerText.includes('readme')) {
+                  type = 'docs';
+                } else if (lowerText.includes('breaking') || lowerText.includes('deprecat')) {
+                  type = 'breaking';
+                }
+                
+                changes.push({ type, text });
+              }
+            }
+            
+            // If no changes parsed, add a generic one
+            if (changes.length === 0) {
+              changes.push({ type: 'feature', text: 'Various improvements and updates' });
+            }
+            
+            core.setOutput('changes', JSON.stringify(changes));
+            
+      - name: Update version-check edge function
+        run: |
+          VERSION="${{ steps.release.outputs.version }}"
+          DATE="${{ steps.release.outputs.date }}"
+          TYPE="${{ steps.release.outputs.type }}"
+          TITLE="${{ steps.release.outputs.title }}"
+          CHANGES='${{ steps.parse.outputs.changes }}'
+          DESCRIPTION="${{ github.event.release.body }}"
+          
+          # Escape special characters for sed
+          TITLE_ESCAPED=$(echo "$TITLE" | sed 's/[&/\]/\\&/g' | sed 's/"/\\"/g')
+          
+          # Read current edge function
+          EDGE_FILE="supabase/functions/version-check/index.ts"
+          
+          # Create the new changelog entry
+          node << 'EOF'
+          const fs = require('fs');
+          const path = require('path');
+          
+          const version = process.env.VERSION || '${{ steps.release.outputs.version }}';
+          const date = process.env.DATE || '${{ steps.release.outputs.date }}';
+          const type = process.env.TYPE || '${{ steps.release.outputs.type }}';
+          const title = process.env.TITLE || '${{ steps.release.outputs.title }}';
+          const changesJson = process.env.CHANGES || '${{ steps.parse.outputs.changes }}';
+          
+          let changes;
+          try {
+            changes = JSON.parse(changesJson);
+          } catch (e) {
+            changes = [{ type: 'feature', text: 'Various improvements and updates' }];
+          }
+          
+          // Read the edge function file
+          const filePath = 'supabase/functions/version-check/index.ts';
+          let content = fs.readFileSync(filePath, 'utf8');
+          
+          // Parse existing VERSION_DATA
+          const versionDataMatch = content.match(/const VERSION_DATA = \{[\s\S]*?^\};/m);
+          
+          if (!versionDataMatch) {
+            console.error('Could not find VERSION_DATA in edge function');
+            process.exit(1);
+          }
+          
+          // Create new changelog entry
+          const newEntry = {
+            version,
+            date,
+            type,
+            title: title || `Version ${version}`,
+            description: `Release ${version}`,
+            changes: changes
+          };
+          
+          // Generate the changes array string
+          const changesStr = changes.map(c => 
+            `        { type: "${c.type}", text: "${c.text.replace(/"/g, '\\"')}" }`
+          ).join(',\n');
+          
+          // Read existing changelog entries from the file
+          const changelogMatch = content.match(/changelog: \[([\s\S]*?)\n  \]/);
+          let existingChangelog = '';
+          
+          if (changelogMatch) {
+            existingChangelog = changelogMatch[1];
+          }
+          
+          // Create new VERSION_DATA
+          const newVersionData = `const VERSION_DATA = {
+            currentVersion: "${version}",
+            releaseDate: "${date}",
+            changelog: [
+              {
+                version: "${version}",
+                date: "${date}",
+                type: "${type}" as const,
+                title: "${(title || `Version ${version}`).replace(/"/g, '\\"')}",
+                description: "Release ${version}",
+                changes: [
+          ${changesStr}
+                ],
+              },${existingChangelog}
+            ],
+          };`;
+          
+          // Replace VERSION_DATA in content
+          content = content.replace(/const VERSION_DATA = \{[\s\S]*?^\};/m, newVersionData);
+          
+          fs.writeFileSync(filePath, content);
+          console.log(`Updated ${filePath} with version ${version}`);
+          EOF
+          
+      - name: Update version.ts
+        run: |
+          VERSION="${{ steps.release.outputs.version }}"
+          DATE="${{ steps.release.outputs.date }}"
+          
+          # Update APP_VERSION in src/lib/version.ts
+          sed -i "s/export const APP_VERSION = \".*\"/export const APP_VERSION = \"$VERSION\"/" src/lib/version.ts
+          
+          # Update releaseDate in FALLBACK_VERSION_RESPONSE
+          sed -i "s/releaseDate: \"[0-9-]*\"/releaseDate: \"$DATE\"/" src/lib/version.ts
+          
+      - name: Commit and push changes
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          
+          git add supabase/functions/version-check/index.ts src/lib/version.ts
+          
+          VERSION="${{ steps.release.outputs.version }}"
+          git commit -m "chore: update version to $VERSION [skip ci]" || echo "No changes to commit"
+          git push
