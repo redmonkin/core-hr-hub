@@ -26,7 +26,8 @@ import {
   User,
 } from "lucide-react";
 import hrHubLogo from "@/assets/hr-hub-logo.svg";
-import { APP_VERSION } from "@/lib/version";
+import { APP_VERSION, isAutoUpdatingEnvironment } from "@/lib/version";
+import { useVersionCheck } from "@/hooks/useVersionCheck";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -73,8 +74,15 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const navigate = useNavigate();
   const { user, signOut, isSigningOut } = useAuth();
   const { isAdminOrHR } = useIsAdminOrHR();
+  const { data: versionData } = useVersionCheck();
 
   const filteredNavItems = navItems.filter(item => !item.adminOnly || isAdminOrHR);
+  
+  // For auto-updating environments, show the latest version from GitHub
+  // For self-hosted, show the local APP_VERSION
+  const displayVersion = isAutoUpdatingEnvironment() && versionData?.currentVersion 
+    ? versionData.currentVersion 
+    : APP_VERSION;
 
   const handleSignOut = async () => {
     await signOut();
@@ -120,7 +128,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                 className="ml-[52px] -mt-1 text-xs text-muted-foreground hover:text-primary transition-colors"
                 onClick={() => setSidebarOpen(false)}
               >
-                v{APP_VERSION}
+                v{displayVersion}
               </Link>
             </div>
             <Button
