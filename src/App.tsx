@@ -30,6 +30,7 @@ import Attendance from "./pages/Attendance";
 import Departments from "./pages/Departments";
 import CompanyCalendar from "./pages/CompanyCalendar";
 import NotificationPreferences from "./pages/NotificationPreferences";
+import Changelog from "./pages/Changelog";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 
@@ -75,6 +76,7 @@ const App = () => (
             <Route path="/departments" element={<ProtectedRoute><Departments /></ProtectedRoute>} />
             <Route path="/calendar" element={<ProtectedRoute><CompanyCalendar /></ProtectedRoute>} />
             <Route path="/notification-preferences" element={<ProtectedRoute><NotificationPreferences /></ProtectedRoute>} />
+            <Route path="/changelog" element={<ProtectedRoute><Changelog /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
           <CookieConsent />

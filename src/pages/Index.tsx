@@ -7,6 +7,7 @@ import { PerformanceWidget } from "@/components/dashboard/PerformanceWidget";
 import { PendingApprovalsWidget } from "@/components/dashboard/PendingApprovalsWidget";
 import { TeamLeaveCalendar } from "@/components/dashboard/TeamLeaveCalendar";
 import { NonEmployeeDashboard } from "@/components/dashboard/NonEmployeeDashboard";
+import { UpdateNotification } from "@/components/dashboard/UpdateNotification";
 import { Users, Calendar, Package, CreditCard, ClipboardCheck } from "lucide-react";
 import { useDashboardStats } from "@/hooks/useDashboardStats";
 import { useEmployeeStatus } from "@/hooks/useEmployeeStatus";
@@ -71,6 +72,9 @@ const Index = () => {
   return (
     <DashboardLayout>
       <div className="space-y-6">
+        {/* Update Notification for Admins */}
+        <UpdateNotification />
+
         {/* Greeting */}
         <h1 className="text-2xl font-semibold text-foreground">
           {getGreeting()}, {getUserFirstName()}
