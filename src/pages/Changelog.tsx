@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useVersionCheck } from "@/hooks/useVersionCheck";
-import { APP_VERSION, ChangelogEntry, FALLBACK_VERSION_RESPONSE } from "@/lib/version";
+import { APP_VERSION, ChangelogEntry, FALLBACK_VERSION_RESPONSE, isAutoUpdatingEnvironment } from "@/lib/version";
 import { 
   Sparkles, 
   Bug, 
@@ -107,6 +107,12 @@ function ChangelogEntryCard({ entry, isCurrentVersion }: { entry: ChangelogEntry
 export default function Changelog() {
   const { data: versionData, isLoading, refetch, isRefetching } = useVersionCheck();
   const effectiveVersionData = versionData ?? FALLBACK_VERSION_RESPONSE;
+  
+  // For auto-updating environments, use the latest version from GitHub
+  // For self-hosted, use the local APP_VERSION
+  const displayVersion = isAutoUpdatingEnvironment() && versionData?.currentVersion 
+    ? versionData.currentVersion 
+    : APP_VERSION;
 
   return (
     <DashboardLayout>
@@ -160,7 +166,7 @@ export default function Changelog() {
                     : "You're up to date!"}
                 </p>
                 <p className="text-sm text-muted-foreground">
-                  Current version: <strong>v{APP_VERSION}</strong>
+                  Current version: <strong>v{displayVersion}</strong>
                   {effectiveVersionData.hasUpdate && (
                     <> · Latest: <strong>v{effectiveVersionData.currentVersion}</strong></>
                   )}
@@ -197,7 +203,7 @@ export default function Changelog() {
                 <ChangelogEntryCard
                   key={entry.version}
                   entry={entry}
-                  isCurrentVersion={entry.version === APP_VERSION}
+                  isCurrentVersion={entry.version === displayVersion}
                 />
               ))}
             </div>
