@@ -42,8 +42,20 @@ serve(async (req: Request) => {
   }
 
   try {
-    const url = new URL(req.url);
-    const clientVersion = url.searchParams.get('version');
+    let clientVersion: string | null = null;
+
+    // Support both GET query params and POST body
+    if (req.method === 'GET') {
+      const url = new URL(req.url);
+      clientVersion = url.searchParams.get('version');
+    } else if (req.method === 'POST') {
+      try {
+        const body = await req.json();
+        clientVersion = body.version || null;
+      } catch {
+        // Ignore JSON parse errors
+      }
+    }
 
     console.log(`Version check request from client version: ${clientVersion || 'unknown'}`);
 
