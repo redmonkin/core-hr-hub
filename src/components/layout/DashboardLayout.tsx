@@ -26,6 +26,7 @@ import {
   User,
 } from "lucide-react";
 import hrHubLogo from "@/assets/hr-hub-logo.svg";
+import { APP_VERSION } from "@/lib/version";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -109,10 +110,19 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         <div className="flex h-full flex-col">
           {/* Logo */}
           <div className="flex h-20 items-center justify-between border-b border-border px-6">
-            <Link to="/dashboard" className="flex items-center gap-3">
-              <img src={hrHubLogo} alt="Peoplo" className="h-10 w-auto" />
-              <span className="text-xl font-bold text-foreground">Peoplo</span>
-            </Link>
+            <div className="flex flex-col">
+              <Link to="/dashboard" className="flex items-center gap-3">
+                <img src={hrHubLogo} alt="Peoplo" className="h-10 w-auto" />
+                <span className="text-xl font-bold text-foreground">Peoplo</span>
+              </Link>
+              <Link
+                to="/changelog"
+                className="ml-[52px] -mt-1 text-xs text-muted-foreground hover:text-primary transition-colors"
+                onClick={() => setSidebarOpen(false)}
+              >
+                v{APP_VERSION}
+              </Link>
+            </div>
             <Button
               variant="ghost"
               size="icon"
