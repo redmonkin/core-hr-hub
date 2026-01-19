@@ -36,24 +36,40 @@ function parseReleaseNotes(body: string): Array<{ type: string; text: string }> 
   const changes: Array<{ type: string; text: string }> = [];
   const lines = body.split('\n');
   
+  let currentSection = 'feature';
+  
   for (const line of lines) {
     const trimmed = line.trim();
+    
+    // Detect section headers (e.g., "New Features", "Security", "Documentation")
+    const lowerTrimmed = trimmed.toLowerCase();
+    if (lowerTrimmed.includes('security') && !trimmed.startsWith('-')) {
+      currentSection = 'security';
+      continue;
+    } else if ((lowerTrimmed.includes('documentation') || lowerTrimmed.includes('docs')) && !trimmed.startsWith('-')) {
+      currentSection = 'docs';
+      continue;
+    } else if ((lowerTrimmed.includes('fix') || lowerTrimmed.includes('bug')) && !trimmed.startsWith('-')) {
+      currentSection = 'fix';
+      continue;
+    } else if (lowerTrimmed.includes('breaking') && !trimmed.startsWith('-')) {
+      currentSection = 'breaking';
+      continue;
+    } else if ((lowerTrimmed.includes('feature') || lowerTrimmed.includes('new')) && !trimmed.startsWith('-')) {
+      currentSection = 'feature';
+      continue;
+    }
+    
+    // Parse list items
     if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
-      const text = trimmed.substring(2).trim();
-      let type = 'feature';
+      let text = trimmed.substring(2).trim();
       
-      const lowerText = text.toLowerCase();
-      if (lowerText.includes('fix') || lowerText.includes('bug')) {
-        type = 'fix';
-      } else if (lowerText.includes('security')) {
-        type = 'security';
-      } else if (lowerText.includes('doc') || lowerText.includes('readme')) {
-        type = 'docs';
-      } else if (lowerText.includes('breaking') || lowerText.includes('deprecat')) {
-        type = 'breaking';
+      // Remove checkbox syntax: [ ], [x], [X]
+      text = text.replace(/^\[[ xX]?\]\s*/, '');
+      
+      if (text) {
+        changes.push({ type: currentSection, text });
       }
-      
-      changes.push({ type, text });
     }
   }
   
