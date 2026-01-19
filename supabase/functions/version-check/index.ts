@@ -5,8 +5,127 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Version and changelog data - update this when releasing new versions
-const VERSION_DATA = {
+const GITHUB_REPO = "redmonkin/core-hr-hub";
+const GITHUB_API_URL = `https://api.github.com/repos/${GITHUB_REPO}/releases`;
+
+interface GitHubRelease {
+  tag_name: string;
+  name: string;
+  body: string;
+  published_at: string;
+  html_url: string;
+}
+
+interface ChangelogEntry {
+  version: string;
+  date: string;
+  type: "major" | "minor" | "patch";
+  title: string;
+  description: string;
+  changes: Array<{ type: string; text: string }>;
+}
+
+function parseReleaseType(version: string): "major" | "minor" | "patch" {
+  const parts = version.replace(/^v/, '').split('.');
+  if (parts[2] === '0' && parts[1] === '0') return 'major';
+  if (parts[2] === '0') return 'minor';
+  return 'patch';
+}
+
+function parseReleaseNotes(body: string): Array<{ type: string; text: string }> {
+  const changes: Array<{ type: string; text: string }> = [];
+  const lines = body.split('\n');
+  
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
+      const text = trimmed.substring(2).trim();
+      let type = 'feature';
+      
+      const lowerText = text.toLowerCase();
+      if (lowerText.includes('fix') || lowerText.includes('bug')) {
+        type = 'fix';
+      } else if (lowerText.includes('security')) {
+        type = 'security';
+      } else if (lowerText.includes('doc') || lowerText.includes('readme')) {
+        type = 'docs';
+      } else if (lowerText.includes('breaking') || lowerText.includes('deprecat')) {
+        type = 'breaking';
+      }
+      
+      changes.push({ type, text });
+    }
+  }
+  
+  if (changes.length === 0) {
+    changes.push({ type: 'feature', text: 'Various improvements and updates' });
+  }
+  
+  return changes;
+}
+
+function transformGitHubRelease(release: GitHubRelease): ChangelogEntry {
+  const version = release.tag_name.replace(/^v/, '');
+  const date = release.published_at.split('T')[0];
+  
+  return {
+    version,
+    date,
+    type: parseReleaseType(release.tag_name),
+    title: release.name || `Version ${version}`,
+    description: release.body?.split('\n')[0] || `Release ${version}`,
+    changes: parseReleaseNotes(release.body || ''),
+  };
+}
+
+// Cache GitHub response for 1 hour to avoid rate limits
+let cachedData: { changelog: ChangelogEntry[]; currentVersion: string; releaseDate: string } | null = null;
+let cacheTimestamp = 0;
+const CACHE_TTL = 60 * 60 * 1000; // 1 hour
+
+async function fetchGitHubReleases(): Promise<{ changelog: ChangelogEntry[]; currentVersion: string; releaseDate: string }> {
+  const now = Date.now();
+  
+  if (cachedData && (now - cacheTimestamp) < CACHE_TTL) {
+    console.log('Returning cached GitHub releases');
+    return cachedData;
+  }
+  
+  console.log('Fetching releases from GitHub API');
+  
+  const response = await fetch(GITHUB_API_URL, {
+    headers: {
+      'Accept': 'application/vnd.github.v3+json',
+      'User-Agent': 'Peoplo-Version-Check',
+    },
+  });
+  
+  if (!response.ok) {
+    console.error(`GitHub API error: ${response.status}`);
+    throw new Error(`GitHub API returned ${response.status}`);
+  }
+  
+  const releases: GitHubRelease[] = await response.json();
+  
+  if (!releases || releases.length === 0) {
+    throw new Error('No releases found');
+  }
+  
+  const changelog = releases.map(transformGitHubRelease);
+  const latestRelease = releases[0];
+  
+  cachedData = {
+    changelog,
+    currentVersion: latestRelease.tag_name.replace(/^v/, ''),
+    releaseDate: latestRelease.published_at.split('T')[0],
+  };
+  cacheTimestamp = now;
+  
+  return cachedData;
+}
+
+// Fallback data if GitHub API fails
+const FALLBACK_DATA = {
   currentVersion: "1.0.0",
   releaseDate: "2025-01-19",
   changelog: [
@@ -24,11 +143,11 @@ const VERSION_DATA = {
         { type: "feature", text: "Performance reviews and goal tracking" },
         { type: "feature", text: "Asset management and assignment" },
         { type: "feature", text: "Department management" },
-        { type: "feature", text: "Role-based access control (Admin, HR, Manager, Employee)" },
+        { type: "feature", text: "Role-based access control" },
         { type: "feature", text: "Email notifications via Resend" },
         { type: "feature", text: "Company calendar with events and holidays" },
         { type: "feature", text: "Comprehensive reporting system" },
-        { type: "security", text: "Row Level Security (RLS) policies for data protection" },
+        { type: "security", text: "Row Level Security (RLS) policies" },
         { type: "docs", text: "Complete documentation for self-hosting" },
       ],
     },
@@ -36,7 +155,6 @@ const VERSION_DATA = {
 };
 
 serve(async (req: Request) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -44,7 +162,6 @@ serve(async (req: Request) => {
   try {
     let clientVersion: string | null = null;
 
-    // Support both GET query params and POST body
     if (req.method === 'GET') {
       const url = new URL(req.url);
       clientVersion = url.searchParams.get('version');
@@ -59,12 +176,20 @@ serve(async (req: Request) => {
 
     console.log(`Version check request from client version: ${clientVersion || 'unknown'}`);
 
+    let versionData;
+    try {
+      versionData = await fetchGitHubReleases();
+    } catch (error) {
+      console.error('Failed to fetch from GitHub, using fallback:', error);
+      versionData = FALLBACK_DATA;
+    }
+
     const response = {
-      currentVersion: VERSION_DATA.currentVersion,
-      releaseDate: VERSION_DATA.releaseDate,
-      changelog: VERSION_DATA.changelog,
-      hasUpdate: clientVersion ? clientVersion !== VERSION_DATA.currentVersion : false,
-      updateUrl: "https://github.com/redmonkin/core-hr-hub/releases",
+      currentVersion: versionData.currentVersion,
+      releaseDate: versionData.releaseDate,
+      changelog: versionData.changelog,
+      hasUpdate: clientVersion ? clientVersion !== versionData.currentVersion : false,
+      updateUrl: `https://github.com/${GITHUB_REPO}/releases`,
       documentationUrl: "https://peoplo.redmonk.in",
     };
 
@@ -73,7 +198,7 @@ serve(async (req: Request) => {
       headers: {
         ...corsHeaders,
         'Content-Type': 'application/json',
-        'Cache-Control': 'public, max-age=3600', // Cache for 1 hour
+        'Cache-Control': 'public, max-age=3600',
       },
     });
   } catch (error) {
