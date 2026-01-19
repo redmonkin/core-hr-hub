@@ -24,6 +24,7 @@ import {
   CalendarDays,
   Bell,
   User,
+  Sparkles,
 } from "lucide-react";
 import hrHubLogo from "@/assets/hr-hub-logo.svg";
 import { APP_VERSION, isAutoUpdatingEnvironment } from "@/lib/version";
@@ -118,19 +119,10 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         <div className="flex h-full flex-col">
           {/* Logo */}
           <div className="flex h-20 items-center justify-between border-b border-border px-6">
-            <div className="flex flex-col">
-              <Link to="/dashboard" className="flex items-center gap-3">
-                <img src={hrHubLogo} alt="Peoplo" className="h-10 w-auto" />
-                <span className="text-xl font-bold text-foreground">Peoplo</span>
-              </Link>
-              <Link
-                to="/changelog"
-                className="ml-[52px] -mt-1 text-xs text-muted-foreground hover:text-primary transition-colors"
-                onClick={() => setSidebarOpen(false)}
-              >
-                v{displayVersion}
-              </Link>
-            </div>
+            <Link to="/dashboard" className="flex items-center gap-3">
+              <img src={hrHubLogo} alt="Peoplo" className="h-10 w-auto" />
+              <span className="text-xl font-bold text-foreground">Peoplo</span>
+            </Link>
             <Button
               variant="ghost"
               size="icon"
@@ -190,6 +182,16 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                 <p className="text-sm font-medium text-foreground truncate">{getUserName()}</p>
                 <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
               </div>
+            </Link>
+            {/* Version info */}
+            <Link
+              to="/changelog"
+              onClick={() => setSidebarOpen(false)}
+              className="mt-3 flex items-center justify-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <span>v{displayVersion}</span>
+              <span className="text-border">•</span>
+              <span className="hover:underline">What's New</span>
             </Link>
           </div>
         </div>
@@ -269,6 +271,12 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                     </Link>
                   </DropdownMenuItem>
                 )}
+                <DropdownMenuItem asChild>
+                  <Link to="/changelog">
+                    <Sparkles className="mr-2 h-4 w-4" />
+                    What's New
+                  </Link>
+                </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem className="text-destructive" onClick={handleSignOut} disabled={isSigningOut}>
                   {isSigningOut ? (
