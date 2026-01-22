@@ -124,6 +124,23 @@ const useManagers = () => {
   });
 };
 
+// Fetch user IDs that are already linked to employees
+const useLinkedUserIds = () => {
+  return useQuery({
+    queryKey: ['linked-user-ids'],
+    queryFn: async () => {
+      const { data: employees, error } = await supabase
+        .from('employees')
+        .select('user_id')
+        .not('user_id', 'is', null);
+      
+      if (error) throw error;
+      
+      return new Set((employees || []).map(e => e.user_id).filter(Boolean) as string[]);
+    },
+  });
+};
+
 // Fetch users without employee records (available to link)
 const useUnlinkedUsers = () => {
   return useQuery({
@@ -276,9 +293,13 @@ const Onboarding = () => {
   const { data: managers = [], isLoading: loadingManagers } = useManagers();
   const { data: onboardingEmployees = [], isLoading: loadingOnboarding } = useOnboardingEmployees();
   const { data: unlinkedUsers = [], isLoading: loadingUsers } = useUnlinkedUsers();
+  const { data: linkedUserIds = new Set<string>() } = useLinkedUserIds();
   const { data: employeeDocs = [], isLoading: loadingDocs } = useEmployeeDocuments(selectedEmployee?.id || null);
   const { requests, isLoading: loadingRequests, approveRequest, rejectRequest } = useOnboardingRequests();
   const { data: nextEmployeeCode, isLoading: loadingNextCode } = useNextEmployeeCode();
+
+  // Helper to check if an employee already exists for a user
+  const hasEmployeeRecord = (userId: string) => linkedUserIds.has(userId);
 
   const pendingRequests = requests.filter((r) => r.status === "pending");
   const approvedRequests = requests.filter((r) => r.status === "approved");
@@ -494,6 +515,7 @@ const Onboarding = () => {
       queryClient.invalidateQueries({ queryKey: ['onboarding-employees'] });
       queryClient.invalidateQueries({ queryKey: ['employees'] });
       queryClient.invalidateQueries({ queryKey: ['unlinked-users'] });
+      queryClient.invalidateQueries({ queryKey: ['linked-user-ids'] });
       queryClient.invalidateQueries({ queryKey: ['next-employee-code'] });
       setFormData(initialFormData);
       setDocuments(initialDocuments);
@@ -1470,7 +1492,7 @@ const Onboarding = () => {
                                     </Button>
                                   </>
                                 )}
-                                {request.status === "approved" && (
+                                {request.status === "approved" && !hasEmployeeRecord(request.user_id) && (
                                   <Button
                                     size="sm"
                                     onClick={() => handleCreateEmployeeFromRequest(request)}
@@ -1478,6 +1500,12 @@ const Onboarding = () => {
                                     <UserPlus className="mr-1 h-4 w-4" />
                                     <span className="hidden sm:inline">Create Employee</span>
                                   </Button>
+                                )}
+                                {request.status === "approved" && hasEmployeeRecord(request.user_id) && (
+                                  <Badge variant="secondary" className="text-xs">
+                                    <CheckCircle2 className="mr-1 h-3 w-3" />
+                                    Created
+                                  </Badge>
                                 )}
                               </div>
                             </TableCell>
