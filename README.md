@@ -154,32 +154,94 @@ Set these secrets in your Supabase dashboard (**Settings > Edge Functions > Secr
 
 ### 5. Cron Jobs (Optional)
 
-For automated reminders, set up cron jobs in SQL Editor:
+For automated reminders and notifications, set up cron jobs manually via the SQL Editor. 
+
+> **Important:** Cron jobs are NOT included in migrations because they contain project-specific URLs and secrets. You must set these up manually after deployment.
+
+#### Prerequisites
+First, enable the required extensions (if not already enabled):
+```sql
+CREATE EXTENSION IF NOT EXISTS pg_cron;
+CREATE EXTENSION IF NOT EXISTS pg_net;
+```
+
+#### Available Cron Jobs
+
+Replace `your-project-id` with your actual Supabase project ID and `YOUR_CRON_SECRET` with your cron secret.
 
 ```sql
--- Attendance reminders (daily at 9 AM)
+-- 1. Attendance reminders (every 10 min during work hours, Mon-Sat)
 SELECT cron.schedule(
-  'attendance-reminder',
-  '0 9 * * *',
+  'attendance-reminders-job',
+  '*/10 8-19 * * 1-6',
   $$
   SELECT net.http_post(
     url:='https://your-project-id.supabase.co/functions/v1/attendance-reminders',
-    headers:='{"Authorization": "Bearer YOUR_CRON_SECRET"}'::jsonb
+    headers:=jsonb_build_object(
+      'Content-Type', 'application/json',
+      'Authorization', 'Bearer YOUR_CRON_SECRET'
+    ),
+    body:='{}'::jsonb
   );
   $$
 );
 
--- Goal reminders (weekly on Monday)
+-- 2. Goal reminders (daily at 9 AM UTC)
 SELECT cron.schedule(
-  'goal-reminder',
-  '0 9 * * 1',
+  'daily-goal-reminders',
+  '0 9 * * *',
   $$
   SELECT net.http_post(
     url:='https://your-project-id.supabase.co/functions/v1/goal-reminders',
-    headers:='{"Authorization": "Bearer YOUR_CRON_SECRET"}'::jsonb
+    headers:=jsonb_build_object(
+      'Content-Type', 'application/json',
+      'Authorization', 'Bearer YOUR_CRON_SECRET'
+    ),
+    body:='{}'::jsonb
   );
   $$
 );
+
+-- 3. Onboarding reminders (daily at 9 AM UTC)
+SELECT cron.schedule(
+  'onboarding-reminders-daily',
+  '0 9 * * *',
+  $$
+  SELECT net.http_post(
+    url:='https://your-project-id.supabase.co/functions/v1/onboarding-reminders',
+    headers:=jsonb_build_object(
+      'Content-Type', 'application/json',
+      'Authorization', 'Bearer YOUR_CRON_SECRET'
+    ),
+    body:='{}'::jsonb
+  );
+  $$
+);
+
+-- 4. Weekly event notifications (every Monday at 8 AM UTC)
+SELECT cron.schedule(
+  'weekly-event-notifications',
+  '0 8 * * 1',
+  $$
+  SELECT net.http_post(
+    url:='https://your-project-id.supabase.co/functions/v1/event-notification',
+    headers:=jsonb_build_object(
+      'Content-Type', 'application/json',
+      'Authorization', 'Bearer YOUR_CRON_SECRET'
+    ),
+    body:='{}'::jsonb
+  );
+  $$
+);
+```
+
+#### Managing Cron Jobs
+```sql
+-- View all scheduled jobs
+SELECT * FROM cron.job;
+
+-- Unschedule a job by name
+SELECT cron.unschedule('job-name');
 ```
 
 ### 6. Run Locally
