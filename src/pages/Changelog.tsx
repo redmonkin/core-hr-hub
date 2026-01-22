@@ -108,11 +108,13 @@ export default function Changelog() {
   const { data: versionData, isLoading, refetch, isRefetching } = useVersionCheck();
   const effectiveVersionData = versionData ?? FALLBACK_VERSION_RESPONSE;
   
-  // For auto-updating environments, use the latest version from GitHub
-  // For self-hosted, use the local APP_VERSION
-  const displayVersion = isAutoUpdatingEnvironment() && versionData?.currentVersion 
-    ? versionData.currentVersion 
-    : APP_VERSION;
+  // For auto-updating environments, always show the latest version from GitHub
+  // For self-hosted: if there's no update available (they're up to date), 
+  // show the latest version from GitHub since they've deployed the latest code
+  // If there's an update available, show the local APP_VERSION so they know they need to update
+  const displayVersion = isAutoUpdatingEnvironment() 
+    ? (versionData?.currentVersion ?? APP_VERSION)
+    : (effectiveVersionData.hasUpdate ? APP_VERSION : (versionData?.currentVersion ?? APP_VERSION));
 
   return (
     <DashboardLayout>
