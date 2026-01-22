@@ -252,8 +252,8 @@ export function EmployeeEditDialog({ employee, open, onOpenChange }: EmployeeEdi
     },
   });
 
-  // Check if employee is a department manager
-  const isDepartmentManager = departments.some(
+  // Check if employee is a department manager (head of any department)
+  const isDepartmentHead = departments.some(
     (dept) => dept.manager_id === employee?.id
   );
 
@@ -368,8 +368,8 @@ export function EmployeeEditDialog({ employee, open, onOpenChange }: EmployeeEdi
       toast.error("Please fill in all required fields");
       return;
     }
-    if (!isDepartmentManager && !formData.manager_id) {
-      toast.error("Reporting manager is required for non-department managers");
+    if (!isDepartmentHead && !formData.manager_id) {
+      toast.error("Reporting manager is required for employees who are not department heads");
       return;
     }
 
@@ -609,7 +609,7 @@ export function EmployeeEditDialog({ employee, open, onOpenChange }: EmployeeEdi
 
                 <div className="space-y-2">
                   <Label htmlFor="manager">
-                    Reporting Manager {!isDepartmentManager && '*'}
+                    Reporting Manager {!isDepartmentHead && '*'}
                   </Label>
                   <Select
                     value={formData.manager_id}
@@ -619,7 +619,7 @@ export function EmployeeEditDialog({ employee, open, onOpenChange }: EmployeeEdi
                       <SelectValue placeholder="Select manager" />
                     </SelectTrigger>
                     <SelectContent>
-                      {isDepartmentManager && <SelectItem value="none">No Manager</SelectItem>}
+                      {isDepartmentHead && <SelectItem value="none">No Manager</SelectItem>}
                       {managers
                         .filter((mgr) => mgr.id !== employee?.id)
                         .map((mgr) => (
@@ -629,9 +629,9 @@ export function EmployeeEditDialog({ employee, open, onOpenChange }: EmployeeEdi
                         ))}
                     </SelectContent>
                   </Select>
-                  {!isDepartmentManager && (
+                  {!isDepartmentHead && (
                     <p className="text-xs text-muted-foreground">
-                      Required for employees who are not department managers
+                      Required for employees who are not department heads
                     </p>
                   )}
                 </div>
