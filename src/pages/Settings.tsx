@@ -26,13 +26,14 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Building2, CalendarDays, Plus, Pencil, Trash2, Loader2, ShieldAlert, Users } from "lucide-react";
+import { Building2, CalendarDays, Plus, Pencil, Trash2, Loader2, ShieldAlert, Users, Hash } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useDepartments } from "@/hooks/useEmployees";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useIsAdminOrHR, useUserRole } from "@/hooks/useUserRole";
 import { UserRolesManager } from "@/components/settings/UserRolesManager";
+import { EmployeeCodeSettings } from "@/components/settings/EmployeeCodeSettings";
 
 // Fetch leave types
 const useLeaveTypes = () => {
@@ -299,6 +300,13 @@ const Settings = () => {
               <span className="hidden sm:inline">Leave Types</span>
               <span className="sm:hidden">Leaves</span>
             </TabsTrigger>
+            {isAdmin && (
+              <TabsTrigger value="employee-id" className="w-full justify-center gap-2 sm:w-auto">
+                <Hash className="h-4 w-4" />
+                <span className="hidden sm:inline">Employee ID</span>
+                <span className="sm:hidden">ID</span>
+              </TabsTrigger>
+            )}
           </TabsList>
 
           {/* Departments Tab */}
@@ -540,6 +548,13 @@ const Settings = () => {
           {isAdmin && (
             <TabsContent value="user-roles" className="mt-6">
               <UserRolesManager />
+            </TabsContent>
+          )}
+
+          {/* Employee ID Pattern Tab - Admin Only */}
+          {isAdmin && (
+            <TabsContent value="employee-id" className="mt-6">
+              <EmployeeCodeSettings />
             </TabsContent>
           )}
         </Tabs>
