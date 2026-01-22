@@ -1,19 +1,21 @@
 #!/bin/bash
 
 # =============================================================================
-# Update APP_VERSION in src/lib/version.ts based on the latest git tag
-# This script is meant to be run during CI/CD deployments
+# Update APP_VERSION in src/lib/version.ts based on the latest GitHub tag
+# Fetches directly from https://github.com/redmonkin/core-hr-hub/tags
 # =============================================================================
 
 set -e
 
 VERSION_FILE="src/lib/version.ts"
+GITHUB_REPO="redmonkin/core-hr-hub"
 
-# Get the latest git tag (sorted by version number)
-LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+# Fetch the latest tag from GitHub API
+echo "📡 Fetching latest tag from GitHub..."
+LATEST_TAG=$(curl -s "https://api.github.com/repos/${GITHUB_REPO}/tags" | grep -o '"name": "[^"]*"' | head -1 | sed 's/"name": "//;s/"//')
 
 if [ -z "$LATEST_TAG" ]; then
-  echo "⚠️  No git tags found. Keeping existing version."
+  echo "⚠️  Could not fetch tags from GitHub. Keeping existing version."
   exit 0
 fi
 
@@ -26,7 +28,7 @@ if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
   exit 1
 fi
 
-echo "📦 Updating APP_VERSION to $VERSION"
+echo "📦 Updating APP_VERSION to $VERSION (from tag $LATEST_TAG)"
 
 # Check if file exists
 if [ ! -f "$VERSION_FILE" ]; then
