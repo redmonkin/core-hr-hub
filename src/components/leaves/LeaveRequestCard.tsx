@@ -2,7 +2,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Check, X, Calendar } from "lucide-react";
+import { Check, X, Calendar, Clock } from "lucide-react";
 
 export interface LeaveRequest {
   id: string;
@@ -17,6 +17,7 @@ export interface LeaveRequest {
   days: number;
   reason: string;
   status: "pending" | "approved" | "rejected" | "cancelled";
+  submittedAt?: string;
 }
 
 interface LeaveRequestCardProps {
@@ -68,7 +69,13 @@ export function LeaveRequestCard({ request, onApprove, onReject }: LeaveRequestC
                 </span>
                 <span className="text-foreground font-medium">({request.days} days)</span>
               </div>
-              <p className="mt-2 text-sm text-muted-foreground">{request.reason}</p>
+              {request.submittedAt && (
+                <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
+                  <Clock className="h-3 w-3" />
+                  <span>Submitted: {request.submittedAt}</span>
+                </div>
+              )}
+              {request.reason && <p className="mt-2 text-sm text-muted-foreground">{request.reason}</p>}
             </div>
           </div>
           <div className="flex items-center gap-2">
