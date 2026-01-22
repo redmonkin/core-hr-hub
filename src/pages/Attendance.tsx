@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Clock, LogIn, LogOut, Calendar, Briefcase, Timer, AlertTriangle, MapPin, Loader2 } from "lucide-react";
 import { usePagination } from "@/hooks/usePagination";
 import { useSorting } from "@/hooks/useSorting";
@@ -826,24 +827,42 @@ const Attendance = () => {
                           </TableCell>
                           <TableCell>
                             {(record.clock_in_location_name || record.clock_out_location_name) ? (
-                              <div className="flex flex-col gap-1 max-w-[200px]">
-                                {record.clock_in_location_name && (
-                                  <div className="flex items-start gap-1.5 text-xs">
-                                    <MapPin className="h-3 w-3 text-primary shrink-0 mt-0.5" />
-                                    <span className="text-muted-foreground truncate" title={record.clock_in_location_name}>
-                                      In: {record.clock_in_location_name}
-                                    </span>
-                                  </div>
-                                )}
-                                {record.clock_out_location_name && (
-                                  <div className="flex items-start gap-1.5 text-xs">
-                                    <MapPin className="h-3 w-3 text-primary shrink-0 mt-0.5" />
-                                    <span className="text-muted-foreground truncate" title={record.clock_out_location_name}>
-                                      Out: {record.clock_out_location_name}
-                                    </span>
-                                  </div>
-                                )}
-                              </div>
+                              <TooltipProvider>
+                                <div className="flex flex-col gap-1 max-w-[200px]">
+                                  {record.clock_in_location_name && (
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <div className="flex items-start gap-1.5 text-xs cursor-help">
+                                          <MapPin className="h-3 w-3 text-primary shrink-0 mt-0.5" />
+                                          <span className="text-muted-foreground truncate">
+                                            In: {record.clock_in_location_name}
+                                          </span>
+                                        </div>
+                                      </TooltipTrigger>
+                                      <TooltipContent side="top" className="max-w-[300px]">
+                                        <p className="text-sm font-medium">Clock In Location</p>
+                                        <p className="text-xs text-muted-foreground">{record.clock_in_location_name}</p>
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  )}
+                                  {record.clock_out_location_name && (
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <div className="flex items-start gap-1.5 text-xs cursor-help">
+                                          <MapPin className="h-3 w-3 text-primary shrink-0 mt-0.5" />
+                                          <span className="text-muted-foreground truncate">
+                                            Out: {record.clock_out_location_name}
+                                          </span>
+                                        </div>
+                                      </TooltipTrigger>
+                                      <TooltipContent side="top" className="max-w-[300px]">
+                                        <p className="text-sm font-medium">Clock Out Location</p>
+                                        <p className="text-xs text-muted-foreground">{record.clock_out_location_name}</p>
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  )}
+                                </div>
+                              </TooltipProvider>
                             ) : (
                               <span className="text-muted-foreground text-xs">-</span>
                             )}
