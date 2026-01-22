@@ -8,7 +8,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CalendarIcon, Send, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { format, differenceInDays } from "date-fns";
+import { format, differenceInDays, subDays } from "date-fns";
 import { useLeaveTypes, useSubmitLeaveRequest } from "@/hooks/useLeaveRequests";
 
 interface LeaveRequestFormProps {
@@ -110,7 +110,7 @@ export function LeaveRequestForm({ employeeId }: LeaveRequestFormProps) {
                         setEndDate(undefined);
                       }
                     }}
-                    disabled={(date) => date < new Date()}
+                    disabled={(date) => date < subDays(new Date(), 30)}
                     initialFocus
                     className="p-3 pointer-events-auto"
                   />
@@ -138,7 +138,7 @@ export function LeaveRequestForm({ employeeId }: LeaveRequestFormProps) {
                     mode="single"
                     selected={endDate}
                     onSelect={setEndDate}
-                    disabled={(date) => date < (startDate || new Date())}
+                    disabled={(date) => date < (startDate || subDays(new Date(), 30))}
                     initialFocus
                     className="p-3 pointer-events-auto"
                   />
