@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -6,9 +6,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CalendarIcon, Send, Loader2 } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { CalendarIcon, Send, Loader2, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { format, differenceInDays, subDays } from "date-fns";
+import { format, differenceInDays, subDays, startOfDay } from "date-fns";
 import { useLeaveTypes, useSubmitLeaveRequest } from "@/hooks/useLeaveRequests";
 
 interface LeaveRequestFormProps {
@@ -27,6 +28,12 @@ export function LeaveRequestForm({ employeeId }: LeaveRequestFormProps) {
   const daysCount = startDate && endDate 
     ? differenceInDays(endDate, startDate) + 1 
     : 0;
+
+  const isRetroactiveRequest = useMemo(() => {
+    if (!startDate) return false;
+    const today = startOfDay(new Date());
+    return startDate < today;
+  }, [startDate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -151,6 +158,15 @@ export function LeaveRequestForm({ employeeId }: LeaveRequestFormProps) {
             <p className="text-sm text-muted-foreground">
               Duration: <span className="font-medium text-foreground">{daysCount} day{daysCount !== 1 ? "s" : ""}</span>
             </p>
+          )}
+
+          {isRetroactiveRequest && (
+            <Alert variant="default" className="border-amber-500/50 bg-amber-500/10">
+              <AlertTriangle className="h-4 w-4 text-amber-600" />
+              <AlertDescription className="text-amber-700 dark:text-amber-400">
+                This is a retroactive leave request for past dates. Additional approval may be required.
+              </AlertDescription>
+            </Alert>
           )}
 
           <div className="space-y-2">
