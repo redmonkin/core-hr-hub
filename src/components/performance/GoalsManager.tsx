@@ -53,7 +53,7 @@ export function GoalsManager({ employeeId }: GoalsManagerProps) {
   const [formData, setFormData] = useState({
     title: "",
     description: "",
-    category: "professional",
+    category: "performance",
     priority: "medium",
     due_date: "",
   });
@@ -67,7 +67,7 @@ export function GoalsManager({ employeeId }: GoalsManagerProps) {
     setFormData({
       title: "",
       description: "",
-      category: "professional",
+      category: "performance",
       priority: "medium",
       due_date: "",
     });
@@ -149,7 +149,7 @@ export function GoalsManager({ employeeId }: GoalsManagerProps) {
               <Target className="h-5 w-5" />
               Goals
             </CardTitle>
-            <CardDescription>Track progress on personal and professional goals</CardDescription>
+            <CardDescription>Track progress on your KPIs and professional objectives</CardDescription>
           </div>
           <Button onClick={openCreateDialog}>
             <Plus className="h-4 w-4 mr-2" />
@@ -273,10 +273,11 @@ export function GoalsManager({ employeeId }: GoalsManagerProps) {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="professional">Professional</SelectItem>
-                    <SelectItem value="personal">Personal</SelectItem>
-                    <SelectItem value="learning">Learning</SelectItem>
-                    <SelectItem value="health">Health</SelectItem>
+                    <SelectItem value="performance">Performance</SelectItem>
+                    <SelectItem value="productivity">Productivity</SelectItem>
+                    <SelectItem value="quality">Quality</SelectItem>
+                    <SelectItem value="leadership">Leadership</SelectItem>
+                    <SelectItem value="development">Development</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
