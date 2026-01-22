@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Clock, LogIn, LogOut, Calendar, Briefcase, Timer, AlertTriangle } from "lucide-react";
+import { Clock, LogIn, LogOut, Calendar, Briefcase, Timer, AlertTriangle, MapPin, Loader2 } from "lucide-react";
 import { usePagination } from "@/hooks/usePagination";
 import { useSorting } from "@/hooks/useSorting";
 import { SortableTableHead } from "@/components/ui/sortable-table-head";
@@ -20,7 +20,7 @@ import {
   PaginationPrevious,
 } from "@/components/ui/pagination";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval } from "date-fns";
-import { useAttendance, useTodayAttendance, useClockIn, useClockOut, useAttendanceReport } from "@/hooks/useAttendance";
+import { useAttendance, useTodayAttendance, useClockIn, useClockOut, useAttendanceReport, LocationData } from "@/hooks/useAttendance";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
@@ -173,6 +173,63 @@ const Attendance = () => {
   // Pagination for attendance history (uses sorted items)
   const historyPagination = usePagination(historySorting.sortedItems, { initialPageSize: 10 });
 
+  // Get current location
+  const getCurrentLocation = (): Promise<LocationData | undefined> => {
+    return new Promise((resolve) => {
+      if (!navigator.geolocation) {
+        toast.error("Geolocation is not supported by your browser");
+        resolve(undefined);
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        async (position) => {
+          const { latitude, longitude } = position.coords;
+          
+          // Try to get location name via reverse geocoding
+          let locationName: string | undefined;
+          try {
+            const response = await fetch(
+              `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1`
+            );
+            const data = await response.json();
+            if (data.display_name) {
+              // Shorten the display name to be more readable
+              const parts = data.display_name.split(", ");
+              locationName = parts.slice(0, 3).join(", ");
+            }
+          } catch (error) {
+            console.error("Failed to get location name:", error);
+          }
+
+          resolve({ latitude, longitude, locationName });
+        },
+        (error) => {
+          console.error("Geolocation error:", error);
+          switch (error.code) {
+            case error.PERMISSION_DENIED:
+              toast.error("Location permission denied. Please enable location access.");
+              break;
+            case error.POSITION_UNAVAILABLE:
+              toast.error("Location information is unavailable.");
+              break;
+            case error.TIMEOUT:
+              toast.error("Location request timed out.");
+              break;
+            default:
+              toast.error("Failed to get location.");
+          }
+          resolve(undefined);
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 0,
+        }
+      );
+    });
+  };
+
   const handleClockIn = async () => {
     if (!currentEmployee) {
       toast.error("Employee profile not found");
@@ -180,8 +237,10 @@ const Attendance = () => {
     }
 
     try {
-      await clockIn.mutateAsync(currentEmployee.id);
-      toast.success("Clocked in successfully");
+      toast.info("Getting your location...");
+      const location = await getCurrentLocation();
+      await clockIn.mutateAsync({ employeeId: currentEmployee.id, location });
+      toast.success(location ? "Clocked in with location" : "Clocked in successfully");
     } catch (error) {
       toast.error("Failed to clock in");
     }
@@ -194,8 +253,10 @@ const Attendance = () => {
     }
 
     try {
-      await clockOut.mutateAsync({ recordId: todayRecord.id, clockIn: todayRecord.clock_in });
-      toast.success("Clocked out successfully");
+      toast.info("Getting your location...");
+      const location = await getCurrentLocation();
+      await clockOut.mutateAsync({ recordId: todayRecord.id, clockIn: todayRecord.clock_in, location });
+      toast.success(location ? "Clocked out with location" : "Clocked out successfully");
     } catch (error) {
       toast.error("Failed to clock out");
     }
@@ -326,62 +387,92 @@ const Attendance = () => {
             {todayLoading ? (
               <Skeleton className="h-20 w-full" />
             ) : (
-              <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
-                <div className="flex flex-col gap-2 text-center sm:text-left">
-                  <div className="flex items-center gap-4 flex-wrap">
-                    <div>
-                      <p className="text-sm text-muted-foreground">Clock In</p>
-                      <div className="flex items-center gap-2">
+              <div className="flex flex-col gap-4">
+                <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
+                  <div className="flex flex-col gap-2 text-center sm:text-left">
+                    <div className="flex items-center gap-4 flex-wrap">
+                      <div>
+                        <p className="text-sm text-muted-foreground">Clock In</p>
+                        <div className="flex items-center gap-2">
+                          <p className="text-lg font-semibold">
+                            {todayRecord?.clock_in
+                              ? format(new Date(todayRecord.clock_in), "hh:mm a")
+                              : "--:--"}
+                          </p>
+                          {todayRecord?.clock_in && calculateLateArrival(todayRecord.clock_in) > 0 && (
+                            <Badge variant="destructive" className="text-xs">
+                              <AlertTriangle className="h-3 w-3 mr-1" />
+                              {formatLateDuration(calculateLateArrival(todayRecord.clock_in))} late
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground">Clock Out</p>
                         <p className="text-lg font-semibold">
-                          {todayRecord?.clock_in
-                            ? format(new Date(todayRecord.clock_in), "hh:mm a")
+                          {todayRecord?.clock_out
+                            ? format(new Date(todayRecord.clock_out), "hh:mm a")
                             : "--:--"}
                         </p>
-                        {todayRecord?.clock_in && calculateLateArrival(todayRecord.clock_in) > 0 && (
-                          <Badge variant="outline" className="bg-red-50 text-red-600 border-red-200 text-xs">
-                            <AlertTriangle className="h-3 w-3 mr-1" />
-                            {formatLateDuration(calculateLateArrival(todayRecord.clock_in))} late
-                          </Badge>
-                        )}
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground">Total Hours</p>
+                        <p className="text-lg font-semibold">
+                          {todayRecord?.total_hours
+                            ? `${todayRecord.total_hours.toFixed(2)} hrs`
+                            : "--"}
+                        </p>
                       </div>
                     </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">Clock Out</p>
-                      <p className="text-lg font-semibold">
-                        {todayRecord?.clock_out
-                          ? format(new Date(todayRecord.clock_out), "hh:mm a")
-                          : "--:--"}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">Total Hours</p>
-                      <p className="text-lg font-semibold">
-                        {todayRecord?.total_hours
-                          ? `${todayRecord.total_hours.toFixed(2)} hrs`
-                          : "--"}
-                      </p>
-                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    {!isClockedIn && !todayRecord?.clock_out && (
+                      <Button onClick={handleClockIn} disabled={clockIn.isPending}>
+                        {clockIn.isPending ? (
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        ) : (
+                          <LogIn className="mr-2 h-4 w-4" />
+                        )}
+                        Clock In
+                      </Button>
+                    )}
+                    {isClockedIn && (
+                      <Button onClick={handleClockOut} variant="secondary" disabled={clockOut.isPending}>
+                        {clockOut.isPending ? (
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        ) : (
+                          <LogOut className="mr-2 h-4 w-4" />
+                        )}
+                        Clock Out
+                      </Button>
+                    )}
+                    {todayRecord?.clock_out && (
+                      <Badge variant="outline" className="text-sm">
+                        Completed for today
+                      </Badge>
+                    )}
                   </div>
                 </div>
-                <div className="flex gap-2">
-                  {!isClockedIn && !todayRecord?.clock_out && (
-                    <Button onClick={handleClockIn} disabled={clockIn.isPending}>
-                      <LogIn className="mr-2 h-4 w-4" />
-                      Clock In
-                    </Button>
-                  )}
-                  {isClockedIn && (
-                    <Button onClick={handleClockOut} variant="secondary" disabled={clockOut.isPending}>
-                      <LogOut className="mr-2 h-4 w-4" />
-                      Clock Out
-                    </Button>
-                  )}
-                  {todayRecord?.clock_out && (
-                    <Badge variant="outline" className="text-sm">
-                      Completed for today
-                    </Badge>
-                  )}
-                </div>
+                
+                {/* Location Display */}
+                {(todayRecord?.clock_in_location_name || todayRecord?.clock_out_location_name) && (
+                  <div className="flex flex-col gap-2 pt-2 border-t border-border">
+                    {todayRecord?.clock_in_location_name && (
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <MapPin className="h-3.5 w-3.5 text-primary" />
+                        <span>Clock In:</span>
+                        <span className="text-foreground">{todayRecord.clock_in_location_name}</span>
+                      </div>
+                    )}
+                    {todayRecord?.clock_out_location_name && (
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <MapPin className="h-3.5 w-3.5 text-primary" />
+                        <span>Clock Out:</span>
+                        <span className="text-foreground">{todayRecord.clock_out_location_name}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             )}
           </CardContent>
