@@ -8,7 +8,8 @@ import { PendingApprovalsWidget } from "@/components/dashboard/PendingApprovalsW
 import { TeamLeaveCalendar } from "@/components/dashboard/TeamLeaveCalendar";
 import { NonEmployeeDashboard } from "@/components/dashboard/NonEmployeeDashboard";
 import { UpdateNotification } from "@/components/dashboard/UpdateNotification";
-import { Users, Calendar, Package, CreditCard, ClipboardCheck, CalendarDays, CalendarCheck } from "lucide-react";
+import { WhosOut } from "@/components/dashboard/WhosOut";
+import { Users, Calendar, Package, CreditCard, ClipboardCheck, CalendarDays } from "lucide-react";
 import { useDashboardStats } from "@/hooks/useDashboardStats";
 import { useEmployeeStatus } from "@/hooks/useEmployeeStatus";
 import { useIsAdminOrHR } from "@/hooks/useUserRole";
@@ -170,6 +171,7 @@ const Index = () => {
 
           {/* Sidebar */}
           <div className="space-y-6">
+            <WhosOut />
             <PendingApprovalsWidget />
             <TeamLeaveCalendar />
             <QuickActions />
