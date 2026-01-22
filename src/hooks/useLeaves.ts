@@ -4,6 +4,7 @@ import { format } from "date-fns";
 
 export interface LeaveRequest {
   id: string;
+  employeeId: string;
   employee: {
     name: string;
     avatar?: string;
@@ -61,6 +62,7 @@ export function useLeaveRequests() {
         const emp = employeeMap.get(req.employee_id);
         return {
           id: req.id,
+          employeeId: req.employee_id,
           employee: {
             name: emp ? `${emp.first_name} ${emp.last_name}` : "Unknown",
             avatar: emp?.avatar_url || undefined,

@@ -467,7 +467,19 @@ const Leaves = () => {
                 <div className="flex justify-end">
                   {renderSortDropdown(pendingSorting)}
                 </div>
-                {pendingPagination.paginatedItems.map(request => <LeaveRequestCard key={request.id} request={request} onApprove={canApproveLeaves ? handleApprove : undefined} onReject={canApproveLeaves ? handleReject : undefined} />)}
+                {pendingPagination.paginatedItems.map(request => {
+                  // Cannot approve own leave request
+                  const isOwnRequest = myEmployeeId && request.employeeId === myEmployeeId;
+                  const canApproveThisRequest = canApproveLeaves && !isOwnRequest;
+                  return (
+                    <LeaveRequestCard 
+                      key={request.id} 
+                      request={request} 
+                      onApprove={canApproveThisRequest ? handleApprove : undefined} 
+                      onReject={canApproveThisRequest ? handleReject : undefined} 
+                    />
+                  );
+                })}
                 {renderPaginationControls(pendingPagination)}
               </>}
           </TabsContent>

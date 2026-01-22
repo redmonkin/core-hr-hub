@@ -6,6 +6,7 @@ import { Check, X, Calendar, Clock } from "lucide-react";
 
 export interface LeaveRequest {
   id: string;
+  employeeId?: string;
   employee: {
     name: string;
     avatar?: string;
