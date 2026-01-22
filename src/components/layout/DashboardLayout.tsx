@@ -80,10 +80,11 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const filteredNavItems = navItems.filter(item => !item.adminOnly || isAdminOrHR);
   
   // For auto-updating environments, show the latest version from GitHub
-  // For self-hosted, show the local APP_VERSION
-  const displayVersion = isAutoUpdatingEnvironment() && versionData?.currentVersion 
-    ? versionData.currentVersion 
-    : APP_VERSION;
+  // For self-hosted: if there's no update (up to date), show the latest from GitHub
+  // Otherwise show the local APP_VERSION
+  const displayVersion = isAutoUpdatingEnvironment() 
+    ? (versionData?.currentVersion ?? APP_VERSION)
+    : (versionData?.hasUpdate ? APP_VERSION : (versionData?.currentVersion ?? APP_VERSION));
 
   const handleSignOut = async () => {
     await signOut();
