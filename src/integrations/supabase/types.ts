@@ -155,6 +155,7 @@ export type Database = {
           status: string
           total_hours: number | null
           updated_at: string
+          work_mode: string | null
         }
         Insert: {
           clock_in?: string | null
@@ -173,6 +174,7 @@ export type Database = {
           status?: string
           total_hours?: number | null
           updated_at?: string
+          work_mode?: string | null
         }
         Update: {
           clock_in?: string | null
@@ -191,6 +193,7 @@ export type Database = {
           status?: string
           total_hours?: number | null
           updated_at?: string
+          work_mode?: string | null
         }
         Relationships: [
           {

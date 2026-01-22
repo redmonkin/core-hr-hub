@@ -7,7 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Clock, LogIn, LogOut, Calendar, Briefcase, Timer, AlertTriangle, MapPin, Loader2 } from "lucide-react";
+import { Clock, LogIn, LogOut, Calendar, Briefcase, Timer, AlertTriangle, MapPin, Loader2, Home, Building2 } from "lucide-react";
 import { usePagination } from "@/hooks/usePagination";
 import { useSorting } from "@/hooks/useSorting";
 import { SortableTableHead } from "@/components/ui/sortable-table-head";
@@ -21,7 +21,7 @@ import {
   PaginationPrevious,
 } from "@/components/ui/pagination";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval } from "date-fns";
-import { useAttendance, useTodayAttendance, useClockIn, useClockOut, useAttendanceReport, LocationData } from "@/hooks/useAttendance";
+import { useAttendance, useTodayAttendance, useClockIn, useClockOut, useAttendanceReport, LocationData, WorkMode } from "@/hooks/useAttendance";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
@@ -59,6 +59,7 @@ const Attendance = () => {
   const { user } = useAuth();
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth().toString());
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
+  const [workMode, setWorkMode] = useState<WorkMode>('wfo');
 
   const targetDate = new Date(parseInt(selectedYear), parseInt(selectedMonth), 1);
 
@@ -253,7 +254,7 @@ const Attendance = () => {
     });
   };
 
-  const handleClockIn = async () => {
+  const handleClockIn = async (mode: WorkMode) => {
     if (!currentEmployee) {
       toast.error("Employee profile not found");
       return;
@@ -262,8 +263,9 @@ const Attendance = () => {
     try {
       toast.info("Getting your location...");
       const location = await getCurrentLocation();
-      await clockIn.mutateAsync({ employeeId: currentEmployee.id, location });
-      toast.success(location ? "Clocked in with location" : "Clocked in successfully");
+      await clockIn.mutateAsync({ employeeId: currentEmployee.id, location, workMode: mode });
+      const modeLabel = mode === 'wfh' ? 'Work From Home' : 'Work From Office';
+      toast.success(`Clocked in (${modeLabel})${location ? ' with location' : ''}`);
     } catch (error) {
       toast.error("Failed to clock in");
     }
@@ -448,31 +450,74 @@ const Attendance = () => {
                       </div>
                     </div>
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex flex-col gap-3 items-center sm:items-end">
                     {!isClockedIn && !todayRecord?.clock_out && (
-                      <Button onClick={handleClockIn} disabled={clockIn.isPending}>
-                        {clockIn.isPending ? (
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        ) : (
-                          <LogIn className="mr-2 h-4 w-4" />
-                        )}
-                        Clock In
-                      </Button>
+                      <div className="flex flex-col gap-2">
+                        <p className="text-xs text-muted-foreground text-center sm:text-right">Select work mode:</p>
+                        <div className="flex gap-2">
+                          <Button 
+                            onClick={() => handleClockIn('wfo')} 
+                            disabled={clockIn.isPending}
+                            variant="default"
+                          >
+                            {clockIn.isPending ? (
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            ) : (
+                              <Building2 className="mr-2 h-4 w-4" />
+                            )}
+                            Office
+                          </Button>
+                          <Button 
+                            onClick={() => handleClockIn('wfh')} 
+                            disabled={clockIn.isPending}
+                            variant="secondary"
+                          >
+                            {clockIn.isPending ? (
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            ) : (
+                              <Home className="mr-2 h-4 w-4" />
+                            )}
+                            Home
+                          </Button>
+                        </div>
+                      </div>
                     )}
                     {isClockedIn && (
-                      <Button onClick={handleClockOut} variant="secondary" disabled={clockOut.isPending}>
-                        {clockOut.isPending ? (
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        ) : (
-                          <LogOut className="mr-2 h-4 w-4" />
+                      <div className="flex items-center gap-2">
+                        {todayRecord?.work_mode && (
+                          <Badge variant={todayRecord.work_mode === 'wfo' ? 'default' : 'secondary'}>
+                            {todayRecord.work_mode === 'wfo' ? (
+                              <><Building2 className="h-3 w-3 mr-1" /> Office</>
+                            ) : (
+                              <><Home className="h-3 w-3 mr-1" /> Home</>
+                            )}
+                          </Badge>
                         )}
-                        Clock Out
-                      </Button>
+                        <Button onClick={handleClockOut} variant="outline" disabled={clockOut.isPending}>
+                          {clockOut.isPending ? (
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          ) : (
+                            <LogOut className="mr-2 h-4 w-4" />
+                          )}
+                          Clock Out
+                        </Button>
+                      </div>
                     )}
                     {todayRecord?.clock_out && (
-                      <Badge variant="outline" className="text-sm">
-                        Completed for today
-                      </Badge>
+                      <div className="flex items-center gap-2">
+                        {todayRecord?.work_mode && (
+                          <Badge variant={todayRecord.work_mode === 'wfo' ? 'default' : 'secondary'}>
+                            {todayRecord.work_mode === 'wfo' ? (
+                              <><Building2 className="h-3 w-3 mr-1" /> Office</>
+                            ) : (
+                              <><Home className="h-3 w-3 mr-1" /> Home</>
+                            )}
+                          </Badge>
+                        )}
+                        <Badge variant="outline" className="text-sm">
+                          Completed for today
+                        </Badge>
+                      </div>
                     )}
                   </div>
                 </div>
@@ -781,6 +826,7 @@ const Attendance = () => {
                         Total Hours
                       </SortableTableHead>
                       <TableHead>Overtime</TableHead>
+                      <TableHead>Mode</TableHead>
                       <TableHead>Location</TableHead>
                       <SortableTableHead
                         sortKey="status"
@@ -823,6 +869,19 @@ const Attendance = () => {
                               </Badge>
                             ) : (
                               <span className="text-muted-foreground">-</span>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            {record.work_mode ? (
+                              <Badge variant={record.work_mode === 'wfo' ? 'default' : 'secondary'} className="text-xs">
+                                {record.work_mode === 'wfo' ? (
+                                  <><Building2 className="h-3 w-3 mr-1" /> Office</>
+                                ) : (
+                                  <><Home className="h-3 w-3 mr-1" /> Home</>
+                                )}
+                              </Badge>
+                            ) : (
+                              <span className="text-muted-foreground text-xs">-</span>
                             )}
                           </TableCell>
                           <TableCell>

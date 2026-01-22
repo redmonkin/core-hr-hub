@@ -17,6 +17,7 @@ export interface AttendanceRecord {
   clock_out_latitude: number | null;
   clock_out_longitude: number | null;
   clock_out_location_name: string | null;
+  work_mode: 'wfh' | 'wfo' | null;
 }
 
 export interface LocationData {
@@ -24,6 +25,8 @@ export interface LocationData {
   longitude: number;
   locationName?: string;
 }
+
+export type WorkMode = 'wfh' | 'wfo';
 
 export function useAttendance(month?: Date) {
   const targetMonth = month || new Date();
@@ -68,7 +71,7 @@ export function useClockIn() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ employeeId, location }: { employeeId: string; location?: LocationData }) => {
+    mutationFn: async ({ employeeId, location, workMode }: { employeeId: string; location?: LocationData; workMode?: WorkMode }) => {
       const today = format(new Date(), "yyyy-MM-dd");
       const now = new Date().toISOString();
 
@@ -82,6 +85,7 @@ export function useClockIn() {
           clock_in_latitude: location?.latitude,
           clock_in_longitude: location?.longitude,
           clock_in_location_name: location?.locationName,
+          work_mode: workMode,
         } as any)
         .select()
         .single();
