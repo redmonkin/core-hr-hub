@@ -2,10 +2,12 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useEffect } from "react";
+import { useIsAdminOrHR } from "@/hooks/useUserRole";
 
 export function useDashboardStats() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const { isAdminOrHR, isLoading: roleLoading } = useIsAdminOrHR();
 
   // Subscribe to real-time changes on leave_requests
   useEffect(() => {
@@ -31,9 +33,78 @@ export function useDashboardStats() {
   }, [queryClient]);
 
   return useQuery({
-    queryKey: ["dashboard-stats", user?.id],
+    queryKey: ["dashboard-stats", user?.id, isAdminOrHR],
     queryFn: async () => {
-      // Get total employees
+      // For regular employees, show personal stats only
+      if (!isAdminOrHR) {
+        // Get current employee's data
+        const { data: myEmployee } = await supabase
+          .from("employees")
+          .select("id")
+          .eq("user_id", user?.id)
+          .maybeSingle();
+
+        if (!myEmployee) {
+          return {
+            totalEmployees: null, // Don't show this for regular employees
+            onLeaveToday: 0,
+            assetsAssigned: 0,
+            pendingPayroll: null, // Don't show this for regular employees
+            pendingApprovals: 0,
+            isEmployee: false,
+          };
+        }
+
+        // Get my leave status for today
+        const today = new Date().toISOString().split("T")[0];
+        const { data: myLeaves } = await supabase
+          .from("leave_requests")
+          .select("id")
+          .eq("employee_id", myEmployee.id)
+          .eq("status", "approved")
+          .lte("start_date", today)
+          .gte("end_date", today);
+
+        const amOnLeave = (myLeaves?.length || 0) > 0;
+
+        // Get my assigned assets
+        const { data: myAssets } = await supabase
+          .from("asset_assignments")
+          .select("id")
+          .eq("employee_id", myEmployee.id)
+          .is("returned_date", null);
+
+        const myAssetsCount = myAssets?.length || 0;
+
+        // Check if I'm a manager and have pending approvals
+        let pendingApprovals = 0;
+        const { data: directReports } = await supabase
+          .from("employees")
+          .select("id")
+          .eq("manager_id", myEmployee.id);
+
+        if (directReports && directReports.length > 0) {
+          const reportIds = directReports.map((r) => r.id);
+          const { count } = await supabase
+            .from("leave_requests")
+            .select("id", { count: "exact", head: true })
+            .eq("status", "pending")
+            .in("employee_id", reportIds);
+
+          pendingApprovals = count || 0;
+        }
+
+        return {
+          totalEmployees: null,
+          onLeaveToday: amOnLeave ? 1 : 0, // Show if I'm on leave
+          assetsAssigned: myAssetsCount,
+          pendingPayroll: null,
+          pendingApprovals,
+          isEmployee: true,
+        };
+      }
+
+      // Admin/HR view - show organization-wide stats
       const { data: employees } = await supabase
         .from("employees")
         .select("id, status");
@@ -106,8 +177,10 @@ export function useDashboardStats() {
         assetsAssigned,
         pendingPayroll,
         pendingApprovals,
+        isEmployee: true,
       };
     },
+    enabled: !!user?.id && !roleLoading,
   });
 }
 

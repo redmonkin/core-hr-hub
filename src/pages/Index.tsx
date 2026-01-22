@@ -81,39 +81,63 @@ const Index = () => {
         </h1>
 
         {/* Stats Grid */}
-        <div className={`grid gap-4 sm:grid-cols-2 ${hasPendingApprovals ? 'lg:grid-cols-5' : 'lg:grid-cols-4'}`}>
+        <div className={`grid gap-4 sm:grid-cols-2 ${isAdminOrHR ? (hasPendingApprovals ? 'lg:grid-cols-5' : 'lg:grid-cols-4') : (hasPendingApprovals ? 'lg:grid-cols-3' : 'lg:grid-cols-2')}`}>
           {isLoading ? (
             <>
-              {[1, 2, 3, 4, 5].map((i) => (
+              {[1, 2, 3, 4].map((i) => (
                 <Skeleton key={i} className="h-32 rounded-xl" />
               ))}
             </>
           ) : (
             <>
-              <StatsCard
-                title="Total Employees"
-                value={String(stats?.totalEmployees || 0)}
-                icon={<Users className="h-6 w-6" />}
-                variant="primary"
-              />
-              <StatsCard
-                title="On Leave Today"
-                value={String(stats?.onLeaveToday || 0)}
-                icon={<Calendar className="h-6 w-6" />}
-                variant="warning"
-              />
-              <StatsCard
-                title="Assets Assigned"
-                value={String(stats?.assetsAssigned || 0)}
-                icon={<Package className="h-6 w-6" />}
-                variant="success"
-              />
-              <StatsCard
-                title="Pending Payroll"
-                value={formatCurrency(stats?.pendingPayroll || 0)}
-                icon={<CreditCard className="h-6 w-6" />}
-                variant="default"
-              />
+              {/* Admin/HR only stats */}
+              {isAdminOrHR && (
+                <>
+                  <StatsCard
+                    title="Total Employees"
+                    value={String(stats?.totalEmployees || 0)}
+                    icon={<Users className="h-6 w-6" />}
+                    variant="primary"
+                  />
+                  <StatsCard
+                    title="On Leave Today"
+                    value={String(stats?.onLeaveToday || 0)}
+                    icon={<Calendar className="h-6 w-6" />}
+                    variant="warning"
+                  />
+                  <StatsCard
+                    title="Assets Assigned"
+                    value={String(stats?.assetsAssigned || 0)}
+                    icon={<Package className="h-6 w-6" />}
+                    variant="success"
+                  />
+                  <StatsCard
+                    title="Pending Payroll"
+                    value={formatCurrency(stats?.pendingPayroll || 0)}
+                    icon={<CreditCard className="h-6 w-6" />}
+                    variant="default"
+                  />
+                </>
+              )}
+              
+              {/* Employee-specific stats */}
+              {!isAdminOrHR && (
+                <>
+                  <StatsCard
+                    title={stats?.onLeaveToday ? "You're On Leave" : "Leave Status"}
+                    value={stats?.onLeaveToday ? "On Leave" : "Working"}
+                    icon={<Calendar className="h-6 w-6" />}
+                    variant={stats?.onLeaveToday ? "warning" : "success"}
+                  />
+                  <StatsCard
+                    title="My Assets"
+                    value={String(stats?.assetsAssigned || 0)}
+                    icon={<Package className="h-6 w-6" />}
+                    variant="primary"
+                  />
+                </>
+              )}
+              
               {hasPendingApprovals && (
                 <div 
                   className="cursor-pointer" 
