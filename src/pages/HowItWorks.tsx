@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import hrHubLogo from "@/assets/hr-hub-logo.svg";
 import Footer from "@/components/layout/Footer";
+import { isProductionDomain } from "@/lib/domain";
 
 const steps = [
   {
@@ -83,6 +84,8 @@ const deployOptions = [
 ];
 
 const HowItWorks = () => {
+  const isProduction = isProductionDomain();
+
   return (
     <div className="min-h-screen bg-background">
       {/* Navigation */}
@@ -107,9 +110,11 @@ const HowItWorks = () => {
             <Link to="/auth">
               <Button variant="ghost" size="sm">Sign In</Button>
             </Link>
-            <a href="https://cal.com/littlemissbot/business-consultancy" target="_blank" rel="noopener noreferrer">
-              <Button size="sm">Request Demo</Button>
-            </a>
+            {isProduction && (
+              <a href="https://cal.com/littlemissbot/business-consultancy" target="_blank" rel="noopener noreferrer">
+                <Button size="sm">Request Demo</Button>
+              </a>
+            )}
           </div>
         </div>
       </nav>

@@ -13,7 +13,6 @@ import {
   CheckCircle,
   Building2,
   Zap,
-  Lock,
   Globe,
   Layers,
   TrendingUp,
@@ -22,8 +21,10 @@ import {
 } from "lucide-react";
 import hrHubLogo from "@/assets/hr-hub-logo.svg";
 import Footer from "@/components/layout/Footer";
+import { isProductionDomain } from "@/lib/domain";
 
 const Landing = () => {
+  const isProduction = isProductionDomain();
   const features = [
     {
       icon: <Users className="h-6 w-6" />,
@@ -117,9 +118,11 @@ const Landing = () => {
             <Link to="/auth">
               <Button variant="ghost" size="sm">Sign In</Button>
             </Link>
-            <a href="https://cal.com/littlemissbot/business-consultancy" target="_blank" rel="noopener noreferrer">
-              <Button size="sm">Request Demo</Button>
-            </a>
+            {isProduction && (
+              <a href="https://cal.com/littlemissbot/business-consultancy" target="_blank" rel="noopener noreferrer">
+                <Button size="sm">Request Demo</Button>
+              </a>
+            )}
           </div>
         </div>
       </nav>
@@ -146,32 +149,44 @@ const Landing = () => {
             </p>
             
             <div className="flex flex-col sm:flex-row gap-4 justify-center pt-4">
-              <Link to="/auth">
-                <Button size="lg" className="gap-2 px-8 h-12 text-base">
-                  Start Free Trial <ArrowRight className="h-4 w-4" />
-                </Button>
-              </Link>
-              <a href="https://cal.com/littlemissbot/business-consultancy" target="_blank" rel="noopener noreferrer">
-                <Button size="lg" variant="outline" className="gap-2 px-8 h-12 text-base">
-                  Schedule Demo
-                </Button>
-              </a>
+              {isProduction ? (
+                <>
+                  <Link to="/auth">
+                    <Button size="lg" className="gap-2 px-8 h-12 text-base">
+                      Start Free Trial <ArrowRight className="h-4 w-4" />
+                    </Button>
+                  </Link>
+                  <a href="https://cal.com/littlemissbot/business-consultancy" target="_blank" rel="noopener noreferrer">
+                    <Button size="lg" variant="outline" className="gap-2 px-8 h-12 text-base">
+                      Schedule Demo
+                    </Button>
+                  </a>
+                </>
+              ) : (
+                <Link to="/auth">
+                  <Button size="lg" className="gap-2 px-8 h-12 text-base">
+                    Sign In <ArrowRight className="h-4 w-4" />
+                  </Button>
+                </Link>
+              )}
             </div>
 
-            <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-4 pt-8 text-sm text-muted-foreground">
-              <div className="flex items-center gap-2">
-                <CheckCircle className="h-4 w-4 text-primary" />
-                <span>No credit card required</span>
+            {isProduction && (
+              <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-4 pt-8 text-sm text-muted-foreground">
+                <div className="flex items-center gap-2">
+                  <CheckCircle className="h-4 w-4 text-primary" />
+                  <span>No credit card required</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <CheckCircle className="h-4 w-4 text-primary" />
+                  <span>14-day free trial</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <CheckCircle className="h-4 w-4 text-primary" />
+                  <span>Cancel anytime</span>
+                </div>
               </div>
-              <div className="flex items-center gap-2">
-                <CheckCircle className="h-4 w-4 text-primary" />
-                <span>14-day free trial</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <CheckCircle className="h-4 w-4 text-primary" />
-                <span>Cancel anytime</span>
-              </div>
-            </div>
+            )}
           </div>
         </div>
       </section>
@@ -321,16 +336,26 @@ const Landing = () => {
               Start your free trial today — no credit card required.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center pt-4">
-              <Link to="/auth">
-                <Button size="lg" variant="secondary" className="gap-2 px-8 h-12">
-                  Start Free Trial <ArrowRight className="h-4 w-4" />
-                </Button>
-              </Link>
-              <a href="https://cal.com/littlemissbot/business-consultancy" target="_blank" rel="noopener noreferrer">
-                <Button size="lg" variant="secondary" className="gap-2 px-8 h-12">
-                  Talk to Sales
-                </Button>
-              </a>
+              {isProduction ? (
+                <>
+                  <Link to="/auth">
+                    <Button size="lg" variant="secondary" className="gap-2 px-8 h-12">
+                      Start Free Trial <ArrowRight className="h-4 w-4" />
+                    </Button>
+                  </Link>
+                  <a href="https://cal.com/littlemissbot/business-consultancy" target="_blank" rel="noopener noreferrer">
+                    <Button size="lg" variant="secondary" className="gap-2 px-8 h-12">
+                      Talk to Sales
+                    </Button>
+                  </a>
+                </>
+              ) : (
+                <Link to="/auth">
+                  <Button size="lg" variant="secondary" className="gap-2 px-8 h-12">
+                    Sign In <ArrowRight className="h-4 w-4" />
+                  </Button>
+                </Link>
+              )}
             </div>
           </div>
         </div>
