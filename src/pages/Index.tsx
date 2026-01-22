@@ -162,6 +162,9 @@ const Index = () => {
           )}
         </div>
 
+        {/* Who's Out */}
+        <WhosOut />
+
         {/* Main Content Grid */}
         <div className="grid gap-6 lg:grid-cols-3">
           {/* Activity Feed */}
@@ -171,7 +174,6 @@ const Index = () => {
 
           {/* Sidebar */}
           <div className="space-y-6">
-            <WhosOut />
             <PendingApprovalsWidget />
             <TeamLeaveCalendar />
             <QuickActions />
