@@ -193,10 +193,32 @@ const Attendance = () => {
               `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1`
             );
             const data = await response.json();
-            if (data.display_name) {
-              // Shorten the display name to be more readable
+            if (data.address) {
+              // Build a readable address with city
+              const addr = data.address;
+              const parts: string[] = [];
+              
+              // Add street-level detail
+              if (addr.road) parts.push(addr.road);
+              else if (addr.neighbourhood) parts.push(addr.neighbourhood);
+              else if (addr.suburb) parts.push(addr.suburb);
+              
+              // Add area/locality
+              if (addr.suburb && !parts.includes(addr.suburb)) parts.push(addr.suburb);
+              else if (addr.neighbourhood && !parts.includes(addr.neighbourhood)) parts.push(addr.neighbourhood);
+              
+              // Add city
+              const city = addr.city || addr.town || addr.village || addr.municipality || addr.county;
+              if (city) parts.push(city);
+              
+              // Add state if different from city
+              if (addr.state && addr.state !== city) parts.push(addr.state);
+              
+              locationName = parts.slice(0, 4).join(", ");
+            } else if (data.display_name) {
+              // Fallback to display_name
               const parts = data.display_name.split(", ");
-              locationName = parts.slice(0, 3).join(", ");
+              locationName = parts.slice(0, 4).join(", ");
             }
           } catch (error) {
             console.error("Failed to get location name:", error);
