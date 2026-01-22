@@ -140,7 +140,13 @@ export type Database = {
       attendance_records: {
         Row: {
           clock_in: string | null
+          clock_in_latitude: number | null
+          clock_in_location_name: string | null
+          clock_in_longitude: number | null
           clock_out: string | null
+          clock_out_latitude: number | null
+          clock_out_location_name: string | null
+          clock_out_longitude: number | null
           created_at: string
           date: string
           employee_id: string
@@ -152,7 +158,13 @@ export type Database = {
         }
         Insert: {
           clock_in?: string | null
+          clock_in_latitude?: number | null
+          clock_in_location_name?: string | null
+          clock_in_longitude?: number | null
           clock_out?: string | null
+          clock_out_latitude?: number | null
+          clock_out_location_name?: string | null
+          clock_out_longitude?: number | null
           created_at?: string
           date?: string
           employee_id: string
@@ -164,7 +176,13 @@ export type Database = {
         }
         Update: {
           clock_in?: string | null
+          clock_in_latitude?: number | null
+          clock_in_location_name?: string | null
+          clock_in_longitude?: number | null
           clock_out?: string | null
+          clock_out_latitude?: number | null
+          clock_out_location_name?: string | null
+          clock_out_longitude?: number | null
           created_at?: string
           date?: string
           employee_id?: string
