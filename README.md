@@ -269,12 +269,36 @@ ON CONFLICT (user_id, role) DO NOTHING;
 
 ## Deployment
 
+### Automatic Version Sync
+
+When deploying, the `APP_VERSION` is automatically updated from the latest git tag. This ensures your deployed instance shows the correct version in the changelog.
+
+**How it works:**
+- The CI/CD workflows (Vercel, Netlify) run `scripts/update-version.sh` before building
+- The script reads the latest git tag (e.g., `v1.0.1`) and updates `src/lib/version.ts`
+- The version is then baked into the build
+
+**For manual deployments:**
+```bash
+# Ensure you have the latest tags
+git fetch --tags
+
+# Update version before building
+chmod +x scripts/update-version.sh
+./scripts/update-version.sh
+
+# Then build
+npm run build
+```
+
 ### Vercel / Netlify
 
 1. Connect your repository
 2. Set environment variables in the platform's dashboard
 3. Build command: `npm run build`
 4. Output directory: `dist`
+
+> **Note:** The GitHub Actions workflows already handle version syncing automatically.
 
 ### Docker
 

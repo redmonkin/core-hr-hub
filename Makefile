@@ -39,6 +39,7 @@ help:
 	@echo "  make test            - Run tests"
 	@echo "  make lint            - Run ESLint"
 	@echo "  make format          - Format code with Prettier"
+	@echo "  make update-version  - Update APP_VERSION from latest git tag"
 	@echo ""
 	@echo "Cleanup Commands:"
 	@echo "  make clean           - Stop containers and remove images"
@@ -188,6 +189,11 @@ lint:
 
 format:
 	npx prettier --write "src/**/*.{ts,tsx,js,jsx,json,css,md}"
+
+update-version:
+	@echo "Updating APP_VERSION from git tag..."
+	@chmod +x scripts/update-version.sh
+	@./scripts/update-version.sh
 
 # ============================================================================
 # Cleanup Commands

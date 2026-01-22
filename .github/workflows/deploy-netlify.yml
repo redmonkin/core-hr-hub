@@ -21,6 +21,11 @@ jobs:
           node-version: '20'
           cache: 'npm'
 
+      - name: Update APP_VERSION from git tag
+        run: |
+          chmod +x scripts/update-version.sh
+          ./scripts/update-version.sh
+
       - name: Install dependencies
         run: npm ci
 
