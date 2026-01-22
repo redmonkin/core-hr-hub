@@ -18,6 +18,11 @@ export interface AttendanceRecord {
   clock_out_longitude: number | null;
   clock_out_location_name: string | null;
   work_mode: 'wfh' | 'wfo' | null;
+  employee?: {
+    first_name: string;
+    last_name: string;
+    employee_code: string;
+  };
 }
 
 export interface LocationData {
@@ -38,7 +43,10 @@ export function useAttendance(month?: Date) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("attendance_records")
-        .select("*")
+        .select(`
+          *,
+          employee:employees(first_name, last_name, employee_code)
+        `)
         .gte("date", start)
         .lte("date", end)
         .order("date", { ascending: false });

@@ -815,6 +815,7 @@ const Attendance = () => {
                       >
                         Date
                       </SortableTableHead>
+                      <TableHead>Employee</TableHead>
                       <TableHead>Clock In</TableHead>
                       <TableHead>Clock Out</TableHead>
                       <SortableTableHead
@@ -845,6 +846,18 @@ const Attendance = () => {
                       return (
                         <TableRow key={record.id}>
                           <TableCell>{format(new Date(record.date), "MMM d, yyyy")}</TableCell>
+                          <TableCell>
+                            <div className="flex flex-col">
+                              <span className="font-medium">
+                                {record.employee 
+                                  ? `${record.employee.first_name} ${record.employee.last_name}` 
+                                  : "-"}
+                              </span>
+                              {record.employee?.employee_code && (
+                                <span className="text-xs text-muted-foreground">{record.employee.employee_code}</span>
+                              )}
+                            </div>
+                          </TableCell>
                           <TableCell>
                             <div className="flex items-center gap-2">
                               {record.clock_in ? format(new Date(record.clock_in), "hh:mm a") : "-"}
