@@ -178,7 +178,6 @@ const Index = () => {
             <TeamLeaveCalendar />
             <QuickActions />
             <PerformanceWidget />
-            <LeaveCalendar />
           </div>
         </div>
       </div>
