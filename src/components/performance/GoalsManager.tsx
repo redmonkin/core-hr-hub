@@ -54,6 +54,7 @@ export function GoalsManager({ employeeId }: GoalsManagerProps) {
     title: "",
     description: "",
     category: "performance",
+    customCategory: "",
     priority: "medium",
     due_date: "",
   });
@@ -68,6 +69,7 @@ export function GoalsManager({ employeeId }: GoalsManagerProps) {
       title: "",
       description: "",
       category: "performance",
+      customCategory: "",
       priority: "medium",
       due_date: "",
     });
@@ -81,10 +83,13 @@ export function GoalsManager({ employeeId }: GoalsManagerProps) {
 
   const openEditDialog = (goal: Goal) => {
     setEditingGoal(goal);
+    const predefinedCategories = ["performance", "productivity", "quality", "leadership", "development"];
+    const isCustomCategory = goal.category && !predefinedCategories.includes(goal.category);
     setFormData({
       title: goal.title,
       description: goal.description || "",
-      category: goal.category,
+      category: isCustomCategory ? "other" : goal.category,
+      customCategory: isCustomCategory ? goal.category : "",
       priority: goal.priority,
       due_date: goal.due_date || "",
     });
@@ -93,6 +98,10 @@ export function GoalsManager({ employeeId }: GoalsManagerProps) {
 
   const handleSubmit = async () => {
     if (!formData.title.trim()) return;
+    
+    const finalCategory = formData.category === "other" 
+      ? formData.customCategory.trim() || "other"
+      : formData.category;
 
     if (editingGoal) {
       await updateMutation.mutateAsync({
@@ -100,7 +109,7 @@ export function GoalsManager({ employeeId }: GoalsManagerProps) {
         employeeId,
         title: formData.title,
         description: formData.description || null,
-        category: formData.category,
+        category: finalCategory,
         priority: formData.priority,
         due_date: formData.due_date || null,
       });
@@ -109,7 +118,7 @@ export function GoalsManager({ employeeId }: GoalsManagerProps) {
         employee_id: employeeId,
         title: formData.title,
         description: formData.description || undefined,
-        category: formData.category,
+        category: finalCategory,
         priority: formData.priority,
         due_date: formData.due_date || undefined,
       });
@@ -267,7 +276,7 @@ export function GoalsManager({ employeeId }: GoalsManagerProps) {
                 <Label>Category</Label>
                 <Select
                   value={formData.category}
-                  onValueChange={(value) => setFormData({ ...formData, category: value })}
+                  onValueChange={(value) => setFormData({ ...formData, category: value, customCategory: value === "other" ? formData.customCategory : "" })}
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -278,8 +287,17 @@ export function GoalsManager({ employeeId }: GoalsManagerProps) {
                     <SelectItem value="quality">Quality</SelectItem>
                     <SelectItem value="leadership">Leadership</SelectItem>
                     <SelectItem value="development">Development</SelectItem>
+                    <SelectItem value="other">Other</SelectItem>
                   </SelectContent>
                 </Select>
+                {formData.category === "other" && (
+                  <Input
+                    value={formData.customCategory}
+                    onChange={(e) => setFormData({ ...formData, customCategory: e.target.value })}
+                    placeholder="Enter custom category"
+                    className="mt-2"
+                  />
+                )}
               </div>
               <div className="space-y-2">
                 <Label>Priority</Label>
