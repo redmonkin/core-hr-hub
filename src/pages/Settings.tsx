@@ -26,7 +26,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Building2, CalendarDays, Plus, Pencil, Trash2, Loader2, ShieldAlert, Users, Hash } from "lucide-react";
+import { Building2, CalendarDays, Plus, Pencil, Trash2, Loader2, ShieldAlert, Users, Hash, Globe } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useDepartments } from "@/hooks/useEmployees";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -34,6 +34,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useIsAdminOrHR, useUserRole } from "@/hooks/useUserRole";
 import { UserRolesManager } from "@/components/settings/UserRolesManager";
 import { EmployeeCodeSettings } from "@/components/settings/EmployeeCodeSettings";
+import DomainWhitelistSettings from "@/components/settings/DomainWhitelistSettings";
 
 // Fetch leave types
 const useLeaveTypes = () => {
@@ -307,6 +308,13 @@ const Settings = () => {
                 <span className="sm:hidden">ID</span>
               </TabsTrigger>
             )}
+            {isAdmin && (
+              <TabsTrigger value="domain-whitelist" className="w-full justify-center gap-2 sm:w-auto">
+                <Globe className="h-4 w-4" />
+                <span className="hidden sm:inline">Domain Whitelist</span>
+                <span className="sm:hidden">Domains</span>
+              </TabsTrigger>
+            )}
           </TabsList>
 
           {/* Departments Tab */}
@@ -555,6 +563,13 @@ const Settings = () => {
           {isAdmin && (
             <TabsContent value="employee-id" className="mt-6">
               <EmployeeCodeSettings />
+            </TabsContent>
+          )}
+
+          {/* Domain Whitelist Tab - Admin Only */}
+          {isAdmin && (
+            <TabsContent value="domain-whitelist" className="mt-6">
+              <DomainWhitelistSettings />
             </TabsContent>
           )}
         </Tabs>
