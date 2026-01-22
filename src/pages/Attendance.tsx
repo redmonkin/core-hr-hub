@@ -63,13 +63,7 @@ const Attendance = () => {
 
   const targetDate = new Date(parseInt(selectedYear), parseInt(selectedMonth), 1);
 
-  const { data: todayRecord, isLoading: todayLoading } = useTodayAttendance();
-  const { data: attendanceRecords, isLoading: recordsLoading } = useAttendance(targetDate);
-  const { data: reportData, isLoading: reportLoading } = useAttendanceReport(targetDate);
-  const clockIn = useClockIn();
-  const clockOut = useClockOut();
-
-  // Get current employee with working schedule
+  // Get current employee with working schedule - fetch first
   const { data: currentEmployee } = useQuery({
     queryKey: ["current-employee-schedule"],
     queryFn: async () => {
@@ -85,6 +79,12 @@ const Attendance = () => {
     enabled: !!user,
   });
 
+  // Now fetch today's attendance for the current employee specifically
+  const { data: todayRecord, isLoading: todayLoading } = useTodayAttendance(currentEmployee?.id);
+  const { data: attendanceRecords, isLoading: recordsLoading } = useAttendance(targetDate);
+  const { data: reportData, isLoading: reportLoading } = useAttendanceReport(targetDate);
+  const clockIn = useClockIn();
+  const clockOut = useClockOut();
   // Format time for display (e.g., "09:00:00" -> "9:00 AM")
   const formatTimeDisplay = (time: string | null): string => {
     if (!time) return "--:--";

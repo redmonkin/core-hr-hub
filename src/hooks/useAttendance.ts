@@ -49,21 +49,25 @@ export function useAttendance(month?: Date) {
   });
 }
 
-export function useTodayAttendance() {
+export function useTodayAttendance(employeeId?: string) {
   const today = format(new Date(), "yyyy-MM-dd");
 
   return useQuery({
-    queryKey: ["attendance-today", today],
+    queryKey: ["attendance-today", today, employeeId],
     queryFn: async () => {
+      if (!employeeId) return null;
+      
       const { data, error } = await supabase
         .from("attendance_records")
         .select("*")
         .eq("date", today)
+        .eq("employee_id", employeeId)
         .maybeSingle();
 
       if (error) throw error;
       return data as unknown as AttendanceRecord | null;
     },
+    enabled: !!employeeId,
   });
 }
 
