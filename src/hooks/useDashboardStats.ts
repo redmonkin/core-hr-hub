@@ -67,16 +67,28 @@ export function useDashboardStats() {
 
         const amOnLeave = (myLeaves?.length || 0) > 0;
 
-        // Get my leave balances for current year
+        // Calculate leave balances dynamically from leave_types and approved requests
         const currentYear = new Date().getFullYear();
-        const { data: leaveBalances } = await supabase
-          .from("leave_balances")
-          .select("total_days, used_days")
-          .eq("employee_id", myEmployee.id)
-          .eq("year", currentYear);
+        const yearStart = `${currentYear}-01-01`;
+        const yearEnd = `${currentYear}-12-31`;
 
-        const totalLeaves = leaveBalances?.reduce((sum, lb) => sum + (lb.total_days || 0), 0) || 0;
-        const usedLeaves = leaveBalances?.reduce((sum, lb) => sum + (lb.used_days || 0), 0) || 0;
+        // Get all leave types with their days_per_year
+        const { data: leaveTypes } = await supabase
+          .from("leave_types")
+          .select("id, days_per_year");
+
+        const totalLeaves = leaveTypes?.reduce((sum, lt) => sum + (lt.days_per_year || 0), 0) || 0;
+
+        // Get approved leave requests for current year
+        const { data: approvedLeaves } = await supabase
+          .from("leave_requests")
+          .select("days_count")
+          .eq("employee_id", myEmployee.id)
+          .eq("status", "approved")
+          .gte("start_date", yearStart)
+          .lte("start_date", yearEnd);
+
+        const usedLeaves = approvedLeaves?.reduce((sum, r) => sum + (r.days_count || 0), 0) || 0;
         const availableLeaves = totalLeaves - usedLeaves;
 
         // Get my assigned assets
