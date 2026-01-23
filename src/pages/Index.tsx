@@ -9,6 +9,7 @@ import { NonEmployeeDashboard } from "@/components/dashboard/NonEmployeeDashboar
 import { UpdateNotification } from "@/components/dashboard/UpdateNotification";
 import { WhosOut } from "@/components/dashboard/WhosOut";
 import { UpcomingCelebrations } from "@/components/dashboard/UpcomingCelebrations";
+import { UpcomingHolidays } from "@/components/dashboard/UpcomingHolidays";
 import { Users, Calendar, Package, CreditCard, ClipboardCheck, CalendarDays } from "lucide-react";
 import { useDashboardStats } from "@/hooks/useDashboardStats";
 import { useEmployeeStatus } from "@/hooks/useEmployeeStatus";
@@ -174,6 +175,7 @@ const Index = () => {
 
           {/* Sidebar */}
           <div className="space-y-6">
+            <UpcomingHolidays />
             <UpcomingCelebrations />
             <PendingApprovalsWidget />
             <TeamLeaveCalendar />
