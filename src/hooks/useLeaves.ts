@@ -17,6 +17,11 @@ export interface LeaveRequest {
   reason: string;
   status: "pending" | "approved" | "rejected" | "cancelled";
   submittedAt: string;
+  reviewedBy?: {
+    name: string;
+  };
+  reviewedAt?: string;
+  reviewNotes?: string;
 }
 
 export function useLeaveRequests() {
@@ -34,6 +39,9 @@ export function useLeaveRequests() {
           status,
           employee_id,
           created_at,
+          reviewed_by,
+          reviewed_at,
+          review_notes,
           leave_type:leave_types(name)
         `)
         .order("created_at", { ascending: false });
@@ -42,6 +50,8 @@ export function useLeaveRequests() {
 
       // Fetch employee details separately to avoid the multiple relationship issue
       const employeeIds = [...new Set((data || []).map((r) => r.employee_id))];
+      const reviewerIds = [...new Set((data || []).filter(r => r.reviewed_by).map((r) => r.reviewed_by))];
+      const allEmployeeIds = [...new Set([...employeeIds, ...reviewerIds])];
       
       const { data: employees } = await supabase
         .from("employees")
@@ -52,7 +62,7 @@ export function useLeaveRequests() {
           avatar_url,
           department:departments!employees_department_id_fkey(name)
         `)
-        .in("id", employeeIds);
+        .in("id", allEmployeeIds);
 
       const employeeMap = new Map(
         (employees || []).map((e) => [e.id, e])
@@ -60,6 +70,7 @@ export function useLeaveRequests() {
 
       return (data || []).map((req): LeaveRequest => {
         const emp = employeeMap.get(req.employee_id);
+        const reviewer = req.reviewed_by ? employeeMap.get(req.reviewed_by) : null;
         return {
           id: req.id,
           employeeId: req.employee_id,
@@ -75,6 +86,9 @@ export function useLeaveRequests() {
           reason: req.reason || "",
           status: req.status as LeaveRequest["status"],
           submittedAt: format(new Date(req.created_at), "MMM d, yyyy 'at' h:mm a"),
+          reviewedBy: reviewer ? { name: `${reviewer.first_name} ${reviewer.last_name}` } : undefined,
+          reviewedAt: req.reviewed_at ? format(new Date(req.reviewed_at), "MMM d, yyyy 'at' h:mm a") : undefined,
+          reviewNotes: req.review_notes || undefined,
         };
       });
     },

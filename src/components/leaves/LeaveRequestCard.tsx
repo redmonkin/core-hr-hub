@@ -2,7 +2,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Check, X, Calendar, Clock } from "lucide-react";
+import { Check, X, Calendar, Clock, UserCheck } from "lucide-react";
 
 export interface LeaveRequest {
   id: string;
@@ -19,6 +19,11 @@ export interface LeaveRequest {
   reason: string;
   status: "pending" | "approved" | "rejected" | "cancelled";
   submittedAt?: string;
+  reviewedBy?: {
+    name: string;
+  };
+  reviewedAt?: string;
+  reviewNotes?: string;
 }
 
 interface LeaveRequestCardProps {
@@ -27,10 +32,11 @@ interface LeaveRequestCardProps {
   onReject?: (id: string) => void;
 }
 
-const statusStyles = {
+const statusStyles: Record<string, string> = {
   pending: "bg-amber-500/10 text-amber-600 border-amber-500/20",
   approved: "bg-emerald-500/10 text-emerald-600 border-emerald-500/20",
   rejected: "bg-destructive/10 text-destructive border-destructive/20",
+  cancelled: "bg-muted text-muted-foreground border-muted",
 };
 
 const leaveTypeStyles: Record<string, string> = {
@@ -98,6 +104,21 @@ export function LeaveRequestCard({ request, onApprove, onReject }: LeaveRequestC
                 </div>
               )}
               {request.reason && <p className="mt-2 text-sm text-muted-foreground">{request.reason}</p>}
+              {request.status !== "pending" && request.reviewedBy && (
+                <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
+                  <UserCheck className="h-3 w-3" />
+                  <span>
+                    {request.status === "approved" ? "Approved" : request.status === "rejected" ? "Rejected" : "Reviewed"} by{" "}
+                    <span className="font-medium text-foreground">{request.reviewedBy.name}</span>
+                    {request.reviewedAt && <span> on {request.reviewedAt}</span>}
+                  </span>
+                </div>
+              )}
+              {request.reviewNotes && (
+                <p className="mt-1 text-xs text-muted-foreground italic">
+                  Note: {request.reviewNotes}
+                </p>
+              )}
             </div>
           </div>
           <div className="flex items-center gap-2">
