@@ -27,7 +27,8 @@ import {
   UserCheck,
   Mail,
   Download,
-  UserCog
+  UserCog,
+  Trash2
 } from "lucide-react";
 import { SortableTableHead } from "@/components/ui/sortable-table-head";
 import { SortDirection } from "@/hooks/useSorting";
@@ -144,6 +145,14 @@ export function EmployeeTable({
                 <DropdownMenuItem onClick={() => onBulkAction?.('deactivate', selectedIds)}>
                   <UserX className="mr-2 h-4 w-4" />
                   Set as Inactive
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem 
+                  onClick={() => onBulkAction?.('delete', selectedIds)}
+                  className="text-destructive focus:text-destructive"
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Delete Selected
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
