@@ -136,3 +136,26 @@ export function useBulkDeleteEmployees() {
     },
   });
 }
+
+export function useBulkUpdateEmployeeStatus() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ employeeIds, status }: { employeeIds: string[]; status: "active" | "inactive" }) => {
+      const { error } = await supabase
+        .from("employees")
+        .update({ status })
+        .in("id", employeeIds);
+      
+      if (error) {
+        throw new Error(`Failed to update employee status: ${error.message}`);
+      }
+
+      return { updatedCount: employeeIds.length, status };
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["employees"] });
+      queryClient.invalidateQueries({ queryKey: ["employee-stats"] });
+    },
+  });
+}

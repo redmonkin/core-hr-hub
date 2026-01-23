@@ -24,7 +24,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { UserPlus, Search, Users } from "lucide-react";
 import { Link } from "react-router-dom";
-import { useEmployees, useDepartments, useBulkDeleteEmployees } from "@/hooks/useEmployees";
+import { useEmployees, useDepartments, useBulkDeleteEmployees, useBulkUpdateEmployeeStatus } from "@/hooks/useEmployees";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent } from "@/components/ui/card";
 import { EmployeeDocuments } from "@/components/documents/EmployeeDocuments";
@@ -65,6 +65,7 @@ const Employees = () => {
   const { data: departments = [] } = useDepartments();
   const { isAdminOrHR, isLoading: isLoadingRole } = useIsAdminOrHR();
   const bulkDeleteMutation = useBulkDeleteEmployees();
+  const bulkStatusMutation = useBulkUpdateEmployeeStatus();
 
   const filteredEmployees = employees.filter((employee) => {
     const matchesSearch =
@@ -226,13 +227,33 @@ const Employees = () => {
         break;
         
       case 'activate':
-        toast.info(`Bulk activation for ${ids.length} employees would be processed here`);
-        setSelectedEmployeeIds([]);
+        bulkStatusMutation.mutate(
+          { employeeIds: ids, status: 'active' },
+          {
+            onSuccess: ({ updatedCount }) => {
+              toast.success(`${updatedCount} employee${updatedCount > 1 ? 's' : ''} set to active`);
+              setSelectedEmployeeIds([]);
+            },
+            onError: (error) => {
+              toast.error(error.message);
+            },
+          }
+        );
         break;
         
       case 'deactivate':
-        toast.info(`Bulk deactivation for ${ids.length} employees would be processed here`);
-        setSelectedEmployeeIds([]);
+        bulkStatusMutation.mutate(
+          { employeeIds: ids, status: 'inactive' },
+          {
+            onSuccess: ({ updatedCount }) => {
+              toast.success(`${updatedCount} employee${updatedCount > 1 ? 's' : ''} set to inactive`);
+              setSelectedEmployeeIds([]);
+            },
+            onError: (error) => {
+              toast.error(error.message);
+            },
+          }
+        );
         break;
         
       case 'delete':
