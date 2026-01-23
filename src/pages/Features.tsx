@@ -42,11 +42,24 @@ import hrHubLogo from "@/assets/hr-hub-logo.svg";
 import Footer from "@/components/layout/Footer";
 import { isProductionDomain } from "@/lib/domain";
 
+// Feature screenshots
+import employeeManagementImg from "@/assets/features/employee-management.png";
+import leaveAttendanceImg from "@/assets/features/leave-attendance.png";
+import payrollImg from "@/assets/features/payroll.png";
+import assetManagementImg from "@/assets/features/asset-management.png";
+import performanceImg from "@/assets/features/performance.png";
+import notificationsImg from "@/assets/features/notifications.png";
+import documentsImg from "@/assets/features/documents.png";
+import securityImg from "@/assets/features/security.png";
+import analyticsImg from "@/assets/features/analytics.png";
+import settingsImg from "@/assets/features/settings.png";
+
 const featureSections = [
   {
     icon: <Users className="h-8 w-8" />,
     title: "Employee Management",
     description: "Centralized employee database with complete lifecycle management from onboarding to offboarding.",
+    image: employeeManagementImg,
     details: [
       { icon: <UserPlus className="h-5 w-5" />, text: "Complete employee profiles with personal and professional details" },
       { icon: <FolderOpen className="h-5 w-5" />, text: "Document storage for contracts, certificates, and compliance files" },
@@ -59,6 +72,7 @@ const featureSections = [
     icon: <Calendar className="h-8 w-8" />,
     title: "Leave & Attendance Management",
     description: "Streamlined time-off requests and real-time attendance tracking with automated workflows.",
+    image: leaveAttendanceImg,
     details: [
       { icon: <CalendarCheck className="h-5 w-5" />, text: "Multiple leave types with customizable policies and accrual rules" },
       { icon: <Clock className="h-5 w-5" />, text: "Clock in/out with geolocation and IP-based verification" },
@@ -71,6 +85,7 @@ const featureSections = [
     icon: <CreditCard className="h-8 w-8" />,
     title: "Payroll Processing",
     description: "Comprehensive payroll management with automatic calculations, tax handling, and detailed reporting.",
+    image: payrollImg,
     details: [
       { icon: <Wallet className="h-5 w-5" />, text: "Flexible salary structures with allowances and deductions" },
       { icon: <FileCheck className="h-5 w-5" />, text: "Automated payslip generation and distribution" },
@@ -83,6 +98,7 @@ const featureSections = [
     icon: <Package className="h-8 w-8" />,
     title: "Asset Management",
     description: "Track company assets throughout their lifecycle from procurement to retirement.",
+    image: assetManagementImg,
     details: [
       { icon: <Laptop className="h-5 w-5" />, text: "Comprehensive asset inventory with categories and serial tracking" },
       { icon: <Users className="h-5 w-5" />, text: "Employee assignment history and current allocations" },
@@ -95,6 +111,7 @@ const featureSections = [
     icon: <Target className="h-8 w-8" />,
     title: "Performance Management",
     description: "Goal setting, continuous feedback, and structured performance reviews to drive employee growth.",
+    image: performanceImg,
     details: [
       { icon: <Trophy className="h-5 w-5" />, text: "SMART goal setting with progress tracking and milestones" },
       { icon: <TrendingUp className="h-5 w-5" />, text: "Customizable review cycles (quarterly, semi-annual, annual)" },
@@ -107,6 +124,7 @@ const featureSections = [
     icon: <Bell className="h-8 w-8" />,
     title: "Notifications & Communication",
     description: "Stay informed with automated notifications for all important HR events and deadlines.",
+    image: notificationsImg,
     details: [
       { icon: <Mail className="h-5 w-5" />, text: "Email notifications for leave approvals and status updates" },
       { icon: <BellRing className="h-5 w-5" />, text: "Review schedule reminders and deadline alerts" },
@@ -119,6 +137,7 @@ const featureSections = [
     icon: <FileText className="h-8 w-8" />,
     title: "Document Management",
     description: "Secure, centralized storage for all employee documents with easy access and organization.",
+    image: documentsImg,
     details: [
       { icon: <Upload className="h-5 w-5" />, text: "Drag-and-drop document uploads with categorization" },
       { icon: <Lock className="h-5 w-5" />, text: "Role-based access control for sensitive documents" },
@@ -131,6 +150,7 @@ const featureSections = [
     icon: <Shield className="h-8 w-8" />,
     title: "Security & Access Control",
     description: "Enterprise-grade security with granular permissions and comprehensive audit trails.",
+    image: securityImg,
     details: [
       { icon: <UserCog className="h-5 w-5" />, text: "Role-based access for admins, HR, managers, and employees" },
       { icon: <Eye className="h-5 w-5" />, text: "Field-level permissions for sensitive data" },
@@ -143,6 +163,7 @@ const featureSections = [
     icon: <BarChart3 className="h-8 w-8" />,
     title: "Analytics & Reporting",
     description: "Data-driven insights with customizable dashboards and exportable reports.",
+    image: analyticsImg,
     details: [
       { icon: <PieChart className="h-5 w-5" />, text: "Real-time dashboards with key HR metrics" },
       { icon: <FileText className="h-5 w-5" />, text: "Pre-built reports for payroll, leave, and assets" },
@@ -155,6 +176,7 @@ const featureSections = [
     icon: <Settings className="h-8 w-8" />,
     title: "Customizable Settings",
     description: "Flexible configuration options to adapt the platform to your organization's unique needs.",
+    image: settingsImg,
     details: [
       { icon: <Sliders className="h-5 w-5" />, text: "Custom leave types with individual policies and limits" },
       { icon: <Calendar className="h-5 w-5" />, text: "Working days and holiday calendar configuration" },
@@ -250,10 +272,12 @@ const Features = () => {
                   </ul>
                 </div>
                 <div className={`${feature.reversed ? 'lg:order-1' : ''}`}>
-                  <div className="bg-gradient-to-br from-primary/10 via-primary/5 to-transparent rounded-3xl p-8 lg:p-12 aspect-square flex items-center justify-center">
-                    <div className="text-primary opacity-20">
-                      {React.cloneElement(feature.icon, { className: "h-48 w-48" })}
-                    </div>
+                  <div className="bg-gradient-to-br from-primary/10 via-primary/5 to-transparent rounded-3xl p-4 lg:p-6 overflow-hidden">
+                    <img 
+                      src={feature.image} 
+                      alt={`${feature.title} screenshot`}
+                      className="w-full h-auto rounded-2xl shadow-lg"
+                    />
                   </div>
                 </div>
               </div>
