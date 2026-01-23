@@ -71,6 +71,7 @@ const Attendance = () => {
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
   const [workMode, setWorkMode] = useState<WorkMode>('wfo');
   const [showEarlyClockOutWarning, setShowEarlyClockOutWarning] = useState(false);
+  const [earlyClockOutReasons, setEarlyClockOutReasons] = useState<{ beforeEndTime: boolean; insufficientHours: boolean }>({ beforeEndTime: false, insufficientHours: false });
 
   const targetDate = new Date(parseInt(selectedYear), parseInt(selectedMonth), 1);
 
@@ -290,6 +291,16 @@ const Attendance = () => {
     return (now.getTime() - clockInTime.getTime()) / (1000 * 60 * 60);
   };
 
+  // Check if current time is before scheduled end time
+  const isBeforeEndTime = (): boolean => {
+    if (!currentEmployee?.working_hours_end) return false;
+    const [endHour, endMin] = currentEmployee.working_hours_end.split(':').map(Number);
+    const now = new Date();
+    const endTimeToday = new Date();
+    endTimeToday.setHours(endHour, endMin, 0, 0);
+    return now < endTimeToday;
+  };
+
   const handleClockOutAttempt = () => {
     if (!todayRecord || !todayRecord.clock_in) {
       toast.error("No active clock-in found");
@@ -298,8 +309,11 @@ const Attendance = () => {
 
     const hoursWorked = calculateCurrentHoursWorked();
     const requiredHours = 9;
+    const beforeEndTime = isBeforeEndTime();
+    const insufficientHours = hoursWorked < requiredHours;
 
-    if (hoursWorked < requiredHours) {
+    if (beforeEndTime || insufficientHours) {
+      setEarlyClockOutReasons({ beforeEndTime, insufficientHours });
       setShowEarlyClockOutWarning(true);
     } else {
       handleClockOut();
@@ -1075,11 +1089,21 @@ const Attendance = () => {
               <AlertTriangle className="h-5 w-5 text-amber-500" />
               Early Clock-Out Warning
             </AlertDialogTitle>
-            <AlertDialogDescription>
-              You have only worked <span className="font-semibold">{formatHoursWorked(calculateCurrentHoursWorked())}</span> today. 
-              The required minimum is <span className="font-semibold">9 hours</span>.
-              <br /><br />
-              Are you sure you want to clock out early?
+            <AlertDialogDescription asChild>
+              <div className="space-y-2">
+                {earlyClockOutReasons.insufficientHours && (
+                  <p>
+                    You have only worked <span className="font-semibold">{formatHoursWorked(calculateCurrentHoursWorked())}</span> today. 
+                    The required minimum is <span className="font-semibold">9 hours</span>.
+                  </p>
+                )}
+                {earlyClockOutReasons.beforeEndTime && currentEmployee?.working_hours_end && (
+                  <p>
+                    Your scheduled end time is <span className="font-semibold">{formatTimeDisplay(currentEmployee.working_hours_end)}</span>.
+                  </p>
+                )}
+                <p className="pt-2">Are you sure you want to clock out early?</p>
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
