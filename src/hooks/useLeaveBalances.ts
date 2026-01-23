@@ -17,27 +17,43 @@ export function useLeaveBalances(employeeId: string | undefined) {
     queryFn: async () => {
       if (!employeeId) return [];
 
-      const { data, error } = await supabase
-        .from("leave_balances")
-        .select(`
-          id,
-          total_days,
-          used_days,
-          year,
-          leave_types (name, is_paid)
-        `)
+      // Fetch all leave types with their days_per_year
+      const { data: leaveTypes, error: typesError } = await supabase
+        .from("leave_types")
+        .select("id, name, days_per_year, is_paid")
+        .order("name");
+
+      if (typesError) throw typesError;
+
+      // Fetch approved leave requests for this employee for the current year
+      const yearStart = `${currentYear}-01-01`;
+      const yearEnd = `${currentYear}-12-31`;
+
+      const { data: approvedRequests, error: requestsError } = await supabase
+        .from("leave_requests")
+        .select("leave_type_id, days_count")
         .eq("employee_id", employeeId)
-        .eq("year", currentYear);
+        .eq("status", "approved")
+        .gte("start_date", yearStart)
+        .lte("start_date", yearEnd);
 
-      if (error) throw error;
+      if (requestsError) throw requestsError;
 
-      return data.map((item) => ({
-        id: item.id,
-        leave_type: item.leave_types,
-        total_days: item.total_days,
-        used_days: item.used_days,
-        year: item.year,
-      })) as LeaveBalance[];
+      // Calculate used days per leave type
+      const usedDaysMap = new Map<string, number>();
+      (approvedRequests || []).forEach((req) => {
+        const current = usedDaysMap.get(req.leave_type_id) || 0;
+        usedDaysMap.set(req.leave_type_id, current + req.days_count);
+      });
+
+      // Build leave balances from leave types
+      return (leaveTypes || []).map((lt): LeaveBalance => ({
+        id: lt.id,
+        leave_type: { name: lt.name, is_paid: lt.is_paid },
+        total_days: lt.days_per_year,
+        used_days: usedDaysMap.get(lt.id) || 0,
+        year: currentYear,
+      }));
     },
     enabled: !!employeeId,
   });
