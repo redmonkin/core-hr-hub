@@ -34,10 +34,31 @@ const statusStyles = {
 };
 
 const leaveTypeStyles: Record<string, string> = {
-  Annual: "bg-primary/10 text-primary",
-  Sick: "bg-amber-500/10 text-amber-600",
-  Casual: "bg-blue-500/10 text-blue-600",
-  Unpaid: "bg-muted text-muted-foreground",
+  Annual: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
+  Sick: "bg-rose-500/10 text-rose-600 dark:text-rose-400",
+  Casual: "bg-sky-500/10 text-sky-600 dark:text-sky-400",
+  Unpaid: "bg-slate-500/10 text-slate-600 dark:text-slate-400",
+  Maternity: "bg-pink-500/10 text-pink-600 dark:text-pink-400",
+  Paternity: "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400",
+  Bereavement: "bg-violet-500/10 text-violet-600 dark:text-violet-400",
+  Compensatory: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
+  "Work From Home": "bg-cyan-500/10 text-cyan-600 dark:text-cyan-400",
+  Marriage: "bg-fuchsia-500/10 text-fuchsia-600 dark:text-fuchsia-400",
+};
+
+// Fallback colors for leave types not in the map
+const fallbackColors = [
+  "bg-teal-500/10 text-teal-600 dark:text-teal-400",
+  "bg-orange-500/10 text-orange-600 dark:text-orange-400",
+  "bg-lime-500/10 text-lime-600 dark:text-lime-400",
+  "bg-purple-500/10 text-purple-600 dark:text-purple-400",
+];
+
+const getLeaveTypeStyle = (type: string): string => {
+  if (leaveTypeStyles[type]) return leaveTypeStyles[type];
+  // Generate consistent color based on type name hash
+  const hash = type.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0);
+  return fallbackColors[hash % fallbackColors.length];
 };
 
 export function LeaveRequestCard({ request, onApprove, onReject }: LeaveRequestCardProps) {
@@ -57,7 +78,7 @@ export function LeaveRequestCard({ request, onApprove, onReject }: LeaveRequestC
                 <h3 className="font-semibold text-foreground">{request.employee.name}</h3>
                 <Badge
                   variant="secondary"
-                  className={leaveTypeStyles[request.type] || leaveTypeStyles.Casual}
+                  className={getLeaveTypeStyle(request.type)}
                 >
                   {request.type}
                 </Badge>
