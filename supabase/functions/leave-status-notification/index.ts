@@ -201,6 +201,26 @@ serve(async (req) => {
       } else {
         console.log("In-app notification created successfully");
       }
+
+      // Send push notification
+      try {
+        await fetch(`${supabaseUrl}/functions/v1/send-push-notification`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${supabaseServiceKey}`,
+          },
+          body: JSON.stringify({
+            user_ids: [employee.user_id],
+            title: `Leave Request ${statusText}`,
+            body: `Your ${leaveTypeName} request for ${leaveRequest.days_count} day(s) has been ${payload.status} by ${payload.reviewer_name}.`,
+            url: "/leaves",
+          }),
+        });
+        console.log("Push notification sent");
+      } catch (pushErr) {
+        console.error("Push notification error:", pushErr);
+      }
     }
 
     // Send email notification only if user has enabled it
