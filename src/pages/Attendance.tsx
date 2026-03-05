@@ -36,6 +36,7 @@ import { format, startOfMonth, endOfMonth, eachDayOfInterval } from "date-fns";
 import { useAttendance, useTodayAttendance, useClockIn, useClockOut, useAttendanceReport, LocationData, WorkMode } from "@/hooks/useAttendance";
 import { useIsAdminOrHR } from "@/hooks/useUserRole";
 import { useActiveBreak, useBreaksForRecord, usePause, useResume, calculateTotalBreakHours } from "@/hooks/useAttendanceBreaks";
+import { useOfficeLocation, getDistanceMeters } from "@/components/settings/OfficeLocationSettings";
 import { getExpectedHours, getShiftEndTime } from "@/lib/shiftUtils";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
