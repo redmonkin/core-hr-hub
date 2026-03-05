@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { eachDayOfInterval, isWeekend } from "date-fns";
+import { eachDayOfInterval, isWeekend, parseISO, isSameDay } from "date-fns";
 import { toast } from "sonner";
 
 export interface LeaveType {
@@ -45,9 +45,20 @@ export function useSubmitLeaveRequest() {
       endDate: Date;
       reason: string;
     }) => {
-      // Calculate business days count (excluding weekends)
+      // Fetch company holidays for the date range
+      const year = startDate.getFullYear();
+      const { data: holidays } = await supabase
+        .from("company_events")
+        .select("event_date")
+        .eq("is_holiday", true)
+        .gte("event_date", `${year}-01-01`)
+        .lte("event_date", `${year}-12-31`);
+
+      const holidayDates = (holidays || []).map((h) => parseISO(h.event_date));
+
+      // Calculate business days count (excluding weekends and public holidays)
       const daysCount = eachDayOfInterval({ start: startDate, end: endDate })
-        .filter((d) => !isWeekend(d)).length;
+        .filter((d) => !isWeekend(d) && !holidayDates.some((hd) => isSameDay(d, hd))).length;
 
       const formatLocalDate = (d: Date) => {
         const year = d.getFullYear();

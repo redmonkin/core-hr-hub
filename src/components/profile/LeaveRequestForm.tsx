@@ -9,10 +9,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { CalendarIcon, Send, Loader2, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { format, differenceInDays, subDays, startOfDay, eachDayOfInterval, isWeekend } from "date-fns";
+import { format, differenceInDays, subDays, startOfDay, eachDayOfInterval, isWeekend, parseISO, isSameDay } from "date-fns";
 import { useLeaveTypes, useSubmitLeaveRequest } from "@/hooks/useLeaveRequests";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useCompanyHolidays } from "@/hooks/useCompanyHolidays";
 import { Badge } from "@/components/ui/badge";
 
 interface LeaveRequestFormProps {
@@ -27,6 +28,7 @@ export function LeaveRequestForm({ employeeId }: LeaveRequestFormProps) {
 
   const { data: leaveTypes, isLoading: isLoadingTypes } = useLeaveTypes();
   const submitMutation = useSubmitLeaveRequest();
+  const { data: holidays = [] } = useCompanyHolidays();
 
   const currentYear = new Date().getFullYear();
 
@@ -65,9 +67,10 @@ export function LeaveRequestForm({ employeeId }: LeaveRequestFormProps) {
 
   const daysCount = useMemo(() => {
     if (!startDate || !endDate) return 0;
+    const holidayDates = holidays.map((h) => parseISO(h.event_date));
     return eachDayOfInterval({ start: startDate, end: endDate })
-      .filter((d) => !isWeekend(d)).length;
-  }, [startDate, endDate]);
+      .filter((d) => !isWeekend(d) && !holidayDates.some((hd) => isSameDay(d, hd))).length;
+  }, [startDate, endDate, holidays]);
 
   const isRetroactiveRequest = useMemo(() => {
     if (!startDate) return false;
