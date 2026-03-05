@@ -4,6 +4,7 @@ import path from "path";
 import { componentTagger } from "lovable-tagger";
 import { execSync } from "child_process";
 import { existsSync } from "fs";
+import { VitePWA } from "vite-plugin-pwa";
 
 // Plugin to update APP_VERSION from git tags before build
 function versionUpdatePlugin(): Plugin {
@@ -34,6 +35,43 @@ export default defineConfig(({ mode }) => ({
     react(),
     mode === "development" && componentTagger(),
     mode === "production" && versionUpdatePlugin(),
+    VitePWA({
+      registerType: "autoUpdate",
+      includeAssets: ["favicon.ico", "favicon.svg", "pwa-192x192.png", "pwa-512x512.png"],
+      workbox: {
+        navigateFallbackDenylist: [/^\/~oauth/],
+        globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
+      },
+      manifest: {
+        name: "Peoplo - HR Management System",
+        short_name: "Peoplo",
+        description: "Comprehensive HR management system for employee onboarding, leave tracking, asset management, and payroll processing.",
+        theme_color: "#6366f1",
+        background_color: "#ffffff",
+        display: "standalone",
+        orientation: "portrait-primary",
+        scope: "/",
+        start_url: "/",
+        icons: [
+          {
+            src: "pwa-192x192.png",
+            sizes: "192x192",
+            type: "image/png",
+          },
+          {
+            src: "pwa-512x512.png",
+            sizes: "512x512",
+            type: "image/png",
+          },
+          {
+            src: "pwa-512x512.png",
+            sizes: "512x512",
+            type: "image/png",
+            purpose: "any maskable",
+          },
+        ],
+      },
+    }),
   ].filter(Boolean),
   resolve: {
     alias: {
