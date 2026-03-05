@@ -293,6 +293,29 @@ serve(async (req) => {
       } else {
         console.log(`Inserted ${notifications.length} notifications`);
       }
+
+      // Send push notifications
+      const userIdsForPush = notifications.map(n => n.user_id);
+      try {
+        for (const notif of notifications) {
+          await fetch(`${supabaseUrl}/functions/v1/send-push-notification`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${supabaseServiceKey}`,
+            },
+            body: JSON.stringify({
+              user_ids: [notif.user_id],
+              title: notif.title,
+              body: notif.message,
+              url: "/attendance",
+            }),
+          });
+        }
+        console.log(`Push notifications sent for ${userIdsForPush.length} users`);
+      } catch (pushErr) {
+        console.error("Push notification error:", pushErr);
+      }
     }
 
     // Wait for all emails
