@@ -144,11 +144,16 @@ export function LeaveRequestForm({ employeeId }: LeaveRequestFormProps) {
                 {isLoadingTypes ? (
                   <SelectItem value="loading" disabled>Loading...</SelectItem>
                 ) : (
-                  leaveTypes?.map((type) => (
-                    <SelectItem key={type.id} value={type.id}>
-                      {type.name} {type.is_paid ? "(Paid)" : "(Unpaid)"}
-                    </SelectItem>
-                  ))
+                  leaveTypes?.map((type) => {
+                    const bal = leaveBalances[type.id];
+                    const exhausted = bal && bal.remaining <= 0;
+                    return (
+                      <SelectItem key={type.id} value={type.id} disabled={!!exhausted}>
+                        {type.name} {type.is_paid ? "(Paid)" : "(Unpaid)"}
+                        {exhausted ? " — No leaves left" : ""}
+                      </SelectItem>
+                    );
+                  })
                 )}
               </SelectContent>
             </Select>
