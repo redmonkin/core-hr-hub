@@ -8,7 +8,7 @@ import { UpdateNotification } from "@/components/dashboard/UpdateNotification";
 import { WhosOut } from "@/components/dashboard/WhosOut";
 import { UpcomingCelebrations } from "@/components/dashboard/UpcomingCelebrations";
 import { UpcomingHolidays } from "@/components/dashboard/UpcomingHolidays";
-import { Users, Calendar, Package, CreditCard, ClipboardCheck, CalendarDays, Zap, UserPlus, FileText, Target, ClipboardList } from "lucide-react";
+import { Calendar, Package, ClipboardCheck, CalendarDays, Zap, UserPlus, FileText, Target, ClipboardList } from "lucide-react";
 import { useDashboardStats } from "@/hooks/useDashboardStats";
 import { useEmployeeStatus } from "@/hooks/useEmployeeStatus";
 import { useIsAdminOrHR } from "@/hooks/useUserRole";
