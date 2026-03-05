@@ -4,6 +4,7 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useNotificationPreferences, useUpdateNotificationPreferences } from "@/hooks/useNotificationPreferences";
+import { PushNotificationToggle } from "@/components/notifications/PushNotificationToggle";
 import { toast } from "sonner";
 import { Bell, Calendar, FileCheck, Target, UserPlus, PartyPopper, Clock } from "lucide-react";
 
@@ -74,6 +75,8 @@ const NotificationPreferences = () => {
             Choose which notifications you want to receive via email
           </p>
         </div>
+
+        <PushNotificationToggle />
 
         <Card>
           <CardHeader>
