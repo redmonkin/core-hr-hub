@@ -75,21 +75,23 @@ export function TeamLeaveCalendar() {
 
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between pb-2">
-        <CardTitle className="text-lg font-semibold flex items-center gap-2">
-          <Users className="h-5 w-5 text-primary" />
-          Team Calendar
-        </CardTitle>
-        <div className="flex items-center gap-1">
-          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handlePrevMonth}>
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-          <span className="text-sm font-medium min-w-[120px] text-center">
-            {format(currentMonth, "MMMM yyyy")}
-          </span>
-          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleNextMonth}>
-            <ChevronRight className="h-4 w-4" />
-          </Button>
+      <CardHeader className="pb-2">
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <CardTitle className="text-lg font-semibold flex items-center gap-2">
+            <Users className="h-5 w-5 text-primary" />
+            Team Calendar
+          </CardTitle>
+          <div className="flex items-center gap-1">
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handlePrevMonth}>
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <span className="text-sm font-medium min-w-[100px] text-center">
+              {format(currentMonth, "MMM yyyy")}
+            </span>
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleNextMonth}>
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
