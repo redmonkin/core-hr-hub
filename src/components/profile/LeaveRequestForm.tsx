@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { CalendarIcon, Send, Loader2, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { format, differenceInDays, subDays, startOfDay } from "date-fns";
+import { format, differenceInDays, subDays, startOfDay, eachDayOfInterval, isWeekend } from "date-fns";
 import { useLeaveTypes, useSubmitLeaveRequest } from "@/hooks/useLeaveRequests";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -63,9 +63,11 @@ export function LeaveRequestForm({ employeeId }: LeaveRequestFormProps) {
     return balances;
   }, [leaveTypes, approvedRequests]);
 
-  const daysCount = startDate && endDate 
-    ? differenceInDays(endDate, startDate) + 1 
-    : 0;
+  const daysCount = useMemo(() => {
+    if (!startDate || !endDate) return 0;
+    return eachDayOfInterval({ start: startDate, end: endDate })
+      .filter((d) => !isWeekend(d)).length;
+  }, [startDate, endDate]);
 
   const isRetroactiveRequest = useMemo(() => {
     if (!startDate) return false;
