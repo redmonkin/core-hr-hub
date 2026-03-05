@@ -485,7 +485,7 @@ const Attendance = () => {
                               ? format(new Date(todayRecord.clock_in), "hh:mm a")
                               : "--:--"}
                           </p>
-                          {todayRecord?.clock_in && calculateLateArrival(todayRecord.clock_in) > 0 && (
+                          {isAdminOrHR && todayRecord?.clock_in && calculateLateArrival(todayRecord.clock_in) > 0 && (
                             <Badge variant="destructive" className="text-xs">
                               <AlertTriangle className="h-3 w-3 mr-1" />
                               {formatLateDuration(calculateLateArrival(todayRecord.clock_in))} late
@@ -743,10 +743,12 @@ const Attendance = () => {
                       {myData.totalDays > 0 ? (myData.totalHours / myData.totalDays).toFixed(1) : "0"}h
                     </p>
                   </div>
-                  <div className="rounded-lg border bg-muted/50 p-4">
-                    <p className="text-sm text-muted-foreground">Late Arrivals</p>
-                    <p className="text-2xl font-bold">{myData.lateDays}</p>
-                  </div>
+                  {isAdminOrHR && (
+                    <div className="rounded-lg border bg-muted/50 p-4">
+                      <p className="text-sm text-muted-foreground">Late Arrivals</p>
+                      <p className="text-2xl font-bold">{myData.lateDays}</p>
+                    </div>
+                  )}
                 </div>
               );
             })()}
@@ -762,7 +764,7 @@ const Attendance = () => {
             </div>
             {attendanceRecords && attendanceRecords.length > 0 && (
               <div className="flex flex-wrap items-center gap-3">
-                {countLateArrivals() > 0 && (
+                {isAdminOrHR && countLateArrivals() > 0 && (
                   <div className="flex items-center gap-2 rounded-lg bg-red-50 px-3 py-2 border border-red-100">
                     <AlertTriangle className="h-4 w-4 text-red-500" />
                     <div className="text-sm">
@@ -771,13 +773,15 @@ const Attendance = () => {
                     </div>
                   </div>
                 )}
-                <div className="flex items-center gap-2 rounded-lg bg-muted px-3 py-2">
-                  <Timer className="h-4 w-4 text-orange-500" />
-                  <div className="text-sm">
-                    <span className="text-muted-foreground">Overtime: </span>
-                    <span className="font-semibold text-orange-600">{calculateMonthlyOvertime().toFixed(2)} hrs</span>
+                {isAdminOrHR && (
+                  <div className="flex items-center gap-2 rounded-lg bg-muted px-3 py-2">
+                    <Timer className="h-4 w-4 text-orange-500" />
+                    <div className="text-sm">
+                      <span className="text-muted-foreground">Overtime: </span>
+                      <span className="font-semibold text-orange-600">{calculateMonthlyOvertime().toFixed(2)} hrs</span>
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
             )}
           </CardHeader>
@@ -809,7 +813,7 @@ const Attendance = () => {
                       >
                         Total Hours
                       </SortableTableHead>
-                      <TableHead>Overtime</TableHead>
+                      {isAdminOrHR && <TableHead>Overtime</TableHead>}
                       <TableHead>Mode</TableHead>
                       <TableHead>Location</TableHead>
                       <SortableTableHead
@@ -844,7 +848,7 @@ const Attendance = () => {
                           <TableCell>
                             <div className="flex items-center gap-2">
                               {record.clock_in ? format(new Date(record.clock_in), "hh:mm a") : "-"}
-                              {lateMinutes > 0 && (
+                              {isAdminOrHR && lateMinutes > 0 && (
                                 <Badge variant="destructive" className="text-xs">
                                   <AlertTriangle className="h-3 w-3 mr-1" />
                                   {formatLateDuration(lateMinutes)} late
@@ -858,15 +862,17 @@ const Attendance = () => {
                           <TableCell>
                             {record.total_hours ? `${record.total_hours.toFixed(2)} hrs` : "-"}
                           </TableCell>
-                          <TableCell>
-                            {overtime > 0 ? (
-                              <Badge variant="secondary" className="text-xs">
-                                +{overtime.toFixed(2)} hrs
-                              </Badge>
-                            ) : (
-                              <span className="text-muted-foreground">-</span>
-                            )}
-                          </TableCell>
+                          {isAdminOrHR && (
+                            <TableCell>
+                              {overtime > 0 ? (
+                                <Badge variant="secondary" className="text-xs">
+                                  +{overtime.toFixed(2)} hrs
+                                </Badge>
+                              ) : (
+                                <span className="text-muted-foreground">-</span>
+                              )}
+                            </TableCell>
+                          )}
                           <TableCell>
                             {record.work_mode ? (
                               <Badge variant={record.work_mode === 'wfo' ? 'default' : 'secondary'} className="text-xs">
