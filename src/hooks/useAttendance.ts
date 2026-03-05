@@ -224,6 +224,7 @@ export function useAttendanceReport(month: Date) {
         totalHours: number;
         presentDays: number;
         lateDays: number;
+        wfoDays: number;
       }>();
 
       records?.forEach((record) => {
@@ -242,6 +243,7 @@ export function useAttendanceReport(month: Date) {
             totalHours: 0,
             presentDays: 0,
             lateDays: 0,
+            wfoDays: 0,
           });
         }
 
@@ -251,6 +253,7 @@ export function useAttendanceReport(month: Date) {
         empData.totalHours += record.total_hours || 0;
         if (record.status === "present") empData.presentDays++;
         if (record.status === "late") empData.lateDays++;
+        if (record.work_mode === "wfo") empData.wfoDays++;
       });
 
       return Array.from(employeeMap.values());
