@@ -109,16 +109,16 @@ export function TeamLeaveCalendar() {
               modifiersStyles={modifiersStyles}
               className={cn("p-0 pointer-events-auto")}
               classNames={{
-                months: "flex flex-col",
-                month: "space-y-2",
+                months: "flex flex-col w-full",
+                month: "space-y-2 w-full",
                 caption: "hidden",
                 nav: "hidden",
                 table: "w-full border-collapse",
-                head_row: "flex justify-between",
-                head_cell: "text-muted-foreground rounded-md w-9 font-normal text-xs",
+                head_row: "flex justify-between w-full",
+                head_cell: "text-muted-foreground font-normal text-xs flex-1 text-center",
                 row: "flex w-full mt-1 justify-between",
-                cell: "h-9 w-9 text-center text-sm p-0 relative",
-                day: "h-9 w-9 p-0 font-normal hover:bg-accent rounded-full",
+                cell: "flex-1 text-center text-sm p-0 relative aspect-square",
+                day: "h-full w-full p-0 font-normal hover:bg-accent rounded-full flex items-center justify-center",
                 day_selected: "bg-primary text-primary-foreground hover:bg-primary",
                 day_today: "border border-primary",
                 day_outside: "text-muted-foreground opacity-50",
