@@ -741,10 +741,14 @@ const Attendance = () => {
                 );
               }
               return (
-                <div className="grid gap-4 sm:grid-cols-4">
+                <div className="grid gap-4 sm:grid-cols-5">
                   <div className="rounded-lg border bg-muted/50 p-4">
                     <p className="text-sm text-muted-foreground">Present Days</p>
                     <p className="text-2xl font-bold">{myData.presentDays}</p>
+                  </div>
+                  <div className="rounded-lg border bg-primary/10 p-4">
+                    <p className="text-sm text-muted-foreground">From Office</p>
+                    <p className="text-2xl font-bold text-primary">{myData.wfoDays}</p>
                   </div>
                   <div className="rounded-lg border bg-muted/50 p-4">
                     <p className="text-sm text-muted-foreground">Total Hours</p>
