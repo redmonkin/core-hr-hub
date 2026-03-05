@@ -69,6 +69,7 @@ function getStatusBadge(status: string) {
 
 const Attendance = () => {
   const { user } = useAuth();
+  const { isAdminOrHR } = useIsAdminOrHR();
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth().toString());
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
   const [workMode, setWorkMode] = useState<WorkMode>('wfo');
