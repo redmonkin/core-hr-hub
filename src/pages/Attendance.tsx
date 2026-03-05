@@ -285,9 +285,20 @@ const Attendance = () => {
         // Location is mandatory — block clock-in
         return;
       }
+
+      // Auto-detect work mode if office location is configured
+      let detectedMode = mode;
+      if (officeLocation?.latitude && officeLocation?.longitude) {
+        const distance = getDistanceMeters(
+          location.latitude, location.longitude,
+          officeLocation.latitude, officeLocation.longitude
+        );
+        const radius = officeLocation.radius_meters || 500;
+        detectedMode = distance <= radius ? 'wfo' : 'wfh';
+      }
       
-      await clockIn.mutateAsync({ employeeId: currentEmployee.id, location, workMode: mode });
-      const modeLabel = mode === 'wfh' ? 'Work From Home' : 'Work From Office';
+      await clockIn.mutateAsync({ employeeId: currentEmployee.id, location, workMode: detectedMode });
+      const modeLabel = detectedMode === 'wfh' ? 'Work From Home' : 'Work From Office';
       toast.success(`Clocked in (${modeLabel}) with location`);
     } catch (error) {
       toast.error("Failed to clock in");
