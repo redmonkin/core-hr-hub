@@ -36,6 +36,7 @@ import { format, startOfMonth, endOfMonth, eachDayOfInterval } from "date-fns";
 import { useAttendance, useTodayAttendance, useClockIn, useClockOut, useAttendanceReport, LocationData, WorkMode } from "@/hooks/useAttendance";
 import { useIsAdminOrHR } from "@/hooks/useUserRole";
 import { useActiveBreak, useBreaksForRecord, usePause, useResume, calculateTotalBreakHours } from "@/hooks/useAttendanceBreaks";
+import { useOfficeLocation, getDistanceMeters } from "@/components/settings/OfficeLocationSettings";
 import { getExpectedHours, getShiftEndTime } from "@/lib/shiftUtils";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -104,6 +105,7 @@ const Attendance = () => {
   const { data: reportData, isLoading: reportLoading } = useAttendanceReport(targetDate);
   const { data: activeBreak } = useActiveBreak(todayRecord?.id);
   const { data: todayBreaks } = useBreaksForRecord(todayRecord?.id);
+  const { data: officeLocation } = useOfficeLocation();
   const clockIn = useClockIn();
   const clockOut = useClockOut();
   const pauseMutation = usePause();
@@ -283,9 +285,20 @@ const Attendance = () => {
         // Location is mandatory — block clock-in
         return;
       }
+
+      // Auto-detect work mode if office location is configured
+      let detectedMode = mode;
+      if (officeLocation?.latitude && officeLocation?.longitude) {
+        const distance = getDistanceMeters(
+          location.latitude, location.longitude,
+          officeLocation.latitude, officeLocation.longitude
+        );
+        const radius = officeLocation.radius_meters || 500;
+        detectedMode = distance <= radius ? 'wfo' : 'wfh';
+      }
       
-      await clockIn.mutateAsync({ employeeId: currentEmployee.id, location, workMode: mode });
-      const modeLabel = mode === 'wfh' ? 'Work From Home' : 'Work From Office';
+      await clockIn.mutateAsync({ employeeId: currentEmployee.id, location, workMode: detectedMode });
+      const modeLabel = detectedMode === 'wfh' ? 'Work From Home' : 'Work From Office';
       toast.success(`Clocked in (${modeLabel}) with location`);
     } catch (error) {
       toast.error("Failed to clock in");
