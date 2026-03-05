@@ -1,4 +1,5 @@
 import { ReactNode, useState } from "react";
+import { PWAInstallBanner } from "@/components/layout/PWAInstallBanner";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
@@ -301,6 +302,8 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         {/* Page content */}
         <main className="p-4 lg:p-8">{children}</main>
       </div>
+
+      <PWAInstallBanner />
     </div>
   );
 }
