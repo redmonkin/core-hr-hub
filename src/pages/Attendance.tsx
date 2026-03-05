@@ -105,6 +105,7 @@ const Attendance = () => {
   const { data: reportData, isLoading: reportLoading } = useAttendanceReport(targetDate);
   const { data: activeBreak } = useActiveBreak(todayRecord?.id);
   const { data: todayBreaks } = useBreaksForRecord(todayRecord?.id);
+  const { data: officeLocation } = useOfficeLocation();
   const clockIn = useClockIn();
   const clockOut = useClockOut();
   const pauseMutation = usePause();
