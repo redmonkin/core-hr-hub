@@ -101,7 +101,7 @@ export function LeaveRequestForm({ employeeId }: LeaveRequestFormProps) {
     setReason("");
   };
 
-  const isValid = leaveTypeId && startDate && endDate && daysCount > 0 && reason.trim().length > 0;
+  const isValid = leaveTypeId && startDate && endDate && daysCount > 0 && reason.trim().length >= 10;
   const selectedBalance = leaveTypeId ? leaveBalances[leaveTypeId] : null;
 
   return (
@@ -266,9 +266,13 @@ export function LeaveRequestForm({ employeeId }: LeaveRequestFormProps) {
             <Textarea
               value={reason}
               onChange={(e) => setReason(e.target.value)}
-              placeholder="Provide a reason for your leave request..."
+              placeholder="Provide a reason for your leave request (min. 10 characters)..."
               rows={3}
+              minLength={10}
             />
+            {reason.trim().length > 0 && reason.trim().length < 10 && (
+              <p className="text-xs text-destructive">Reason must be at least 10 characters ({reason.trim().length}/10)</p>
+            )}
           </div>
 
           <Button type="submit" disabled={!isValid || submitMutation.isPending} className="w-full">
