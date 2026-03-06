@@ -1298,74 +1298,120 @@ const Onboarding = () => {
 
           <TabsContent value="pending" className="mt-6">
             <div className="space-y-4">
-              {loadingOnboarding ? (
-                <Card>
-                  <CardContent className="p-6 text-center text-muted-foreground">
-                    Loading onboarding employees...
-                  </CardContent>
-                </Card>
-              ) : onboardingEmployees.length === 0 ? (
-                <Card>
-                  <CardContent className="p-6 text-center text-muted-foreground">
-                    No employees currently in onboarding
-                  </CardContent>
-                </Card>
-              ) : (
-                onboardingEmployees.map((employee) => {
-                  const name = `${employee.first_name} ${employee.last_name}`;
-                  const departmentName = employee.departments?.name || 'Unassigned';
-                  const hireDate = employee.hire_date 
-                    ? new Date(employee.hire_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-                    : 'TBD';
-                  
-                  return (
-                    <Card key={employee.id}>
+              {/* Approved requests awaiting employee creation */}
+              {approvedRequests.filter(r => !hasEmployeeRecord(r.user_id)).length > 0 && (
+                <>
+                  <h3 className="text-sm font-medium text-muted-foreground">Approved Requests – Awaiting Employee Creation</h3>
+                  {approvedRequests.filter(r => !hasEmployeeRecord(r.user_id)).map((request) => (
+                    <Card key={request.id}>
                       <CardContent className="p-6">
                         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                           <div className="flex items-center gap-4">
                             <Avatar className="h-12 w-12">
-                              <AvatarImage src={employee.avatar_url || undefined} />
-                              <AvatarFallback>
-                                {name.split(" ").map((n) => n[0]).join("")}
-                              </AvatarFallback>
+                              <AvatarFallback>{getInitials(request.full_name)}</AvatarFallback>
                             </Avatar>
                             <div>
-                              <h3 className="font-semibold text-foreground">{name}</h3>
+                              <h3 className="font-semibold text-foreground">{request.full_name}</h3>
                               <p className="text-sm text-muted-foreground">
-                                {departmentName} · Starts {hireDate}
+                                {request.email} · Approved on {format(new Date(request.reviewed_at || request.updated_at), "MMM d, yyyy")}
                               </p>
+                              {request.message && (
+                                <p className="text-xs text-muted-foreground mt-1 italic">"{request.message}"</p>
+                              )}
                             </div>
                           </div>
                           <div className="flex items-center gap-2 sm:gap-4 flex-wrap">
-                            <Badge variant="secondary">Onboarding</Badge>
+                            <Badge variant="default" className="bg-primary/10 text-primary hover:bg-primary/10">Approved</Badge>
                             <Button 
-                              variant="ghost" 
                               size="sm"
-                              onClick={() => handleResendInvite(employee)}
-                              disabled={resendingInvite === employee.id}
-                              title="Resend login invitation email"
+                              onClick={() => handleCreateEmployeeFromRequest(request)}
                             >
-                              {resendingInvite === employee.id ? (
-                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                              ) : (
-                                <Send className="mr-2 h-4 w-4" />
-                              )}
-                              {resendingInvite === employee.id ? 'Sending...' : 'Resend Invite'}
-                            </Button>
-                            <Button 
-                              variant="outline" 
-                              size="sm"
-                              onClick={() => setSelectedEmployee(employee)}
-                            >
-                              View Details
+                              <UserPlus className="mr-2 h-4 w-4" />
+                              Create Employee
                             </Button>
                           </div>
                         </div>
                       </CardContent>
                     </Card>
-                  );
-                })
+                  ))}
+                </>
               )}
+
+              {/* Existing onboarding employees */}
+              {onboardingEmployees.length > 0 && (
+                <>
+                  <h3 className="text-sm font-medium text-muted-foreground">Employees in Onboarding</h3>
+                  {onboardingEmployees.map((employee) => {
+                    const name = `${employee.first_name} ${employee.last_name}`;
+                    const departmentName = employee.departments?.name || 'Unassigned';
+                    const hireDate = employee.hire_date 
+                      ? new Date(employee.hire_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                      : 'TBD';
+                    
+                    return (
+                      <Card key={employee.id}>
+                        <CardContent className="p-6">
+                          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                            <div className="flex items-center gap-4">
+                              <Avatar className="h-12 w-12">
+                                <AvatarImage src={employee.avatar_url || undefined} />
+                                <AvatarFallback>
+                                  {name.split(" ").map((n) => n[0]).join("")}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div>
+                                <h3 className="font-semibold text-foreground">{name}</h3>
+                                <p className="text-sm text-muted-foreground">
+                                  {departmentName} · Starts {hireDate}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2 sm:gap-4 flex-wrap">
+                              <Badge variant="secondary">Onboarding</Badge>
+                              <Button 
+                                variant="ghost" 
+                                size="sm"
+                                onClick={() => handleResendInvite(employee)}
+                                disabled={resendingInvite === employee.id}
+                                title="Resend login invitation email"
+                              >
+                                {resendingInvite === employee.id ? (
+                                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                ) : (
+                                  <Send className="mr-2 h-4 w-4" />
+                                )}
+                                {resendingInvite === employee.id ? 'Sending...' : 'Resend Invite'}
+                              </Button>
+                              <Button 
+                                variant="outline" 
+                                size="sm"
+                                onClick={() => setSelectedEmployee(employee)}
+                              >
+                                View Details
+                              </Button>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </>
+              )}
+
+              {/* Empty state */}
+              {loadingOnboarding || loadingRequests ? (
+                <Card>
+                  <CardContent className="p-6 text-center text-muted-foreground">
+                    Loading...
+                  </CardContent>
+                </Card>
+              ) : onboardingEmployees.length === 0 && approvedRequests.filter(r => !hasEmployeeRecord(r.user_id)).length === 0 ? (
+                <Card>
+                  <CardContent className="p-6 text-center text-muted-foreground">
+                    No employees currently in onboarding
+                  </CardContent>
+                </Card>
+              ) : null}
             </div>
           </TabsContent>
 
