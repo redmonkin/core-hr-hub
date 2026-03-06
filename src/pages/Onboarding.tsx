@@ -458,7 +458,7 @@ const Onboarding = () => {
           designation: data.designation.trim(),
           manager_id: data.managerId || null,
           hire_date: data.joinDate,
-          status: 'onboarding',
+          status: 'active',
           user_id: linkedUserId || null,
           working_hours_start: data.workingHoursStart ? `${data.workingHoursStart}:00` : '09:00:00',
           working_hours_end: data.workingHoursEnd ? `${data.workingHoursEnd}:00` : '18:00:00',
