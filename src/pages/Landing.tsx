@@ -25,7 +25,13 @@ import Footer from "@/components/layout/Footer";
 import { isProductionDomain } from "@/lib/domain";
 
 const Landing = () => {
+  const { user, isLoading } = useAuth();
   const isProduction = isProductionDomain();
+
+  if (!isLoading && user) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
   const features = [
     {
       icon: <Users className="h-6 w-6" />,
