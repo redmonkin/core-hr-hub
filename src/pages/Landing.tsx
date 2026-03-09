@@ -1,6 +1,7 @@
-import { Link } from "react-router-dom";
+import { Link, Navigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent } from "@/components/ui/card";
 import { 
   Users, 
@@ -24,7 +25,13 @@ import Footer from "@/components/layout/Footer";
 import { isProductionDomain } from "@/lib/domain";
 
 const Landing = () => {
+  const { user, isLoading } = useAuth();
   const isProduction = isProductionDomain();
+
+  if (!isLoading && user) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
   const features = [
     {
       icon: <Users className="h-6 w-6" />,
