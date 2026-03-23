@@ -171,7 +171,7 @@ serve(async (req) => {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${supabaseServiceKey}`,
+            "x-push-secret": Deno.env.get("CRON_SECRET") || "",
           },
           body: JSON.stringify({
             user_ids: [manager.user_id],
