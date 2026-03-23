@@ -123,38 +123,13 @@ serve(async (req) => {
   }
 
   try {
-    // Authentication: Verify the caller has a valid service_role JWT
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
+    // Authentication: Verify the caller using a shared secret
+    const pushSecret = req.headers.get("x-push-secret");
+    const expectedSecret = Deno.env.get("CRON_SECRET");
+    if (!expectedSecret || !pushSecret || pushSecret !== expectedSecret) {
       return new Response(
-        JSON.stringify({ error: "Unauthorized" }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    const token = authHeader.replace("Bearer ", "");
-    // Decode JWT payload to check the role claim
-    const payloadPart = token.split(".")[1];
-    if (!payloadPart) {
-      return new Response(
-        JSON.stringify({ error: "Unauthorized" }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-    
-    try {
-      const decoded = JSON.parse(atob(payloadPart));
-      // Only allow service_role callers (other edge functions using SUPABASE_SERVICE_ROLE_KEY)
-      if (decoded.role !== "service_role") {
-        return new Response(
-          JSON.stringify({ error: "Forbidden: service_role required" }),
-          { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-    } catch {
-      return new Response(
-        JSON.stringify({ error: "Unauthorized" }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify({ error: "Forbidden: invalid or missing x-push-secret" }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
