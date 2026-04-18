@@ -35,15 +35,15 @@ export interface LocationData {
 
 export type WorkMode = 'wfh' | 'wfo';
 
-export function useAttendance(month?: Date) {
+export function useAttendance(month?: Date, employeeId?: string) {
   const targetMonth = month || new Date();
   const start = format(startOfMonth(targetMonth), "yyyy-MM-dd");
   const end = format(endOfMonth(targetMonth), "yyyy-MM-dd");
 
   return useQuery({
-    queryKey: ["attendance", start, end],
+    queryKey: ["attendance", start, end, employeeId ?? "all"],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from("attendance_records")
         .select(`
           *,
@@ -53,9 +53,16 @@ export function useAttendance(month?: Date) {
         .lte("date", end)
         .order("date", { ascending: false });
 
+      if (employeeId) {
+        query = query.eq("employee_id", employeeId);
+      }
+
+      const { data, error } = await query;
+
       if (error) throw error;
       return (data || []) as unknown as AttendanceRecord[];
     },
+    enabled: employeeId === undefined ? true : !!employeeId,
   });
 }
 

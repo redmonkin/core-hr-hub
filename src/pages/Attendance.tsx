@@ -101,7 +101,7 @@ const Attendance = () => {
 
   // Now fetch today's attendance for the current employee specifically
   const { data: todayRecord, isLoading: todayLoading } = useTodayAttendance(currentEmployee?.id);
-  const { data: attendanceRecords, isLoading: recordsLoading } = useAttendance(targetDate);
+  const { data: attendanceRecords, isLoading: recordsLoading } = useAttendance(targetDate, currentEmployee?.id);
   const { data: reportData, isLoading: reportLoading } = useAttendanceReport(targetDate);
   const { data: activeBreak } = useActiveBreak(todayRecord?.id);
   const { data: todayBreaks } = useBreaksForRecord(todayRecord?.id);
