@@ -458,6 +458,12 @@ const Reports = () => {
         <div id="report-attendance">
           <AttendanceReport />
         </div>
+          </TabsContent>
+
+          <TabsContent value="employee">
+            <EmployeeReport />
+          </TabsContent>
+        </Tabs>
       </div>
     </DashboardLayout>
   );
