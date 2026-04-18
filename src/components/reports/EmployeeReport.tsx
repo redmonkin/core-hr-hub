@@ -126,10 +126,23 @@ export function EmployeeReport() {
       if (typesRes.error) throw typesRes.error;
 
       const types = typesRes.data || [];
+      const allRequests = requestsRes.data || [];
+
+      // Dynamically calculate used days from approved requests for the year
+      const usedByType = new Map<string, number>();
+      allRequests
+        .filter((r) => r.status === "approved")
+        .forEach((r) => {
+          usedByType.set(
+            r.leave_type_id,
+            (usedByType.get(r.leave_type_id) ?? 0) + Number(r.days_count ?? 0)
+          );
+        });
+
       const balances = (types).map((t) => {
         const b = balancesRes.data?.find((b) => b.leave_type_id === t.id);
         const total = b?.total_days ?? t.days_per_year;
-        const used = b?.used_days ?? 0;
+        const used = usedByType.get(t.id) ?? 0;
         return {
           type_id: t.id,
           type_name: t.name,
