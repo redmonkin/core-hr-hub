@@ -184,6 +184,15 @@ export function LeaveRequestForm({ employeeId }: LeaveRequestFormProps) {
             </div>
           )}
 
+          {exceedsBalance && (
+            <Alert variant="destructive">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertDescription>
+                Not enough leave balance. You can apply for at most {selectedBalance?.remaining} day{selectedBalance?.remaining !== 1 ? "s" : ""}.
+              </AlertDescription>
+            </Alert>
+          )}
+
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label>Start Date</Label>
