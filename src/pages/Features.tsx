@@ -47,6 +47,10 @@ import documentsImg from "@/assets/features/documents.png";
 import securityImg from "@/assets/features/security.png";
 import analyticsImg from "@/assets/features/analytics.png";
 import settingsImg from "@/assets/features/settings.png";
+import payrollImg from "@/assets/features/payroll.png";
+import assetsImg from "@/assets/features/assets.png";
+import performanceImg from "@/assets/features/performance.png";
+import notificationsImg from "@/assets/features/notifications.png";
 
 const featureSections = [
   {
@@ -79,6 +83,7 @@ const featureSections = [
     icon: <CreditCard className="h-8 w-8" />,
     title: "Payroll Processing",
     description: "Comprehensive payroll management with automatic calculations, tax handling, and detailed reporting.",
+    image: payrollImg,
     details: [
       { icon: <Wallet className="h-5 w-5" />, text: "Flexible salary structures with allowances and deductions" },
       { icon: <FileCheck className="h-5 w-5" />, text: "Automated payslip generation and distribution" },
@@ -91,6 +96,7 @@ const featureSections = [
     icon: <Package className="h-8 w-8" />,
     title: "Asset Management",
     description: "Track company assets throughout their lifecycle from procurement to retirement.",
+    image: assetsImg,
     details: [
       { icon: <Laptop className="h-5 w-5" />, text: "Comprehensive asset inventory with categories and serial tracking" },
       { icon: <Users className="h-5 w-5" />, text: "Employee assignment history and current allocations" },
@@ -103,6 +109,7 @@ const featureSections = [
     icon: <Target className="h-8 w-8" />,
     title: "Performance Management",
     description: "Goal setting, continuous feedback, and structured performance reviews to drive employee growth.",
+    image: performanceImg,
     details: [
       { icon: <Trophy className="h-5 w-5" />, text: "SMART goal setting with progress tracking and milestones" },
       { icon: <TrendingUp className="h-5 w-5" />, text: "Customizable review cycles (quarterly, semi-annual, annual)" },
@@ -115,6 +122,7 @@ const featureSections = [
     icon: <Bell className="h-8 w-8" />,
     title: "Notifications & Communication",
     description: "Stay informed with automated notifications for all important HR events and deadlines.",
+    image: notificationsImg,
     details: [
       { icon: <Mail className="h-5 w-5" />, text: "Email notifications for leave approvals and status updates" },
       { icon: <BellRing className="h-5 w-5" />, text: "Review schedule reminders and deadline alerts" },
