@@ -32,7 +32,8 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import { EmployeeLeaveEligibility } from "./EmployeeLeaveEligibility";
+import { EmployeeLeaveEligibility, type EmployeeLeaveEligibilityHandle } from "./EmployeeLeaveEligibility";
+import { useRef } from "react";
 
 const WEEKDAYS = [
   { value: 0, label: 'Sun' },
@@ -162,6 +163,7 @@ export function EmployeeEditDialog({ employee, open, onOpenChange }: EmployeeEdi
 
   const [showHistory, setShowHistory] = useState(false);
   const [isDepartmentManager, setIsDepartmentManager] = useState(false);
+  const eligibilityRef = useRef<EmployeeLeaveEligibilityHandle>(null);
 
   // Update salary data when structure is loaded
   useEffect(() => {
@@ -406,7 +408,12 @@ export function EmployeeEditDialog({ employee, open, onOpenChange }: EmployeeEdi
       if (salaryData.basic_salary) {
         await salaryMutation.mutateAsync(salaryData);
       }
-      
+
+      // Save leave eligibility selections
+      if (eligibilityRef.current) {
+        await eligibilityRef.current.save();
+      }
+
       toast.success("Employee updated successfully");
       onOpenChange(false);
     } catch {
@@ -990,7 +997,7 @@ export function EmployeeEditDialog({ employee, open, onOpenChange }: EmployeeEdi
 
               <TabsContent value="leaves" className="space-y-4 mt-4">
                 {employee?.id ? (
-                  <EmployeeLeaveEligibility employeeId={employee.id} />
+                  <EmployeeLeaveEligibility ref={eligibilityRef} employeeId={employee.id} />
                 ) : (
                   <div className="text-sm text-muted-foreground">
                     Save the employee first to manage leave eligibility.
