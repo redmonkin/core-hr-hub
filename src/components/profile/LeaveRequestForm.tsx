@@ -17,7 +17,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useCompanyHolidays } from "@/hooks/useCompanyHolidays";
 import { Badge } from "@/components/ui/badge";
 
-const UNPAID_LEAVE_ID = "__unpaid_leave__";
+const UNPAID_LEAVE_NAME = "Unpaid Leave";
 
 interface LeaveRequestFormProps {
   employeeId: string;
