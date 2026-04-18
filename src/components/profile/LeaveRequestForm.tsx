@@ -101,8 +101,9 @@ export function LeaveRequestForm({ employeeId }: LeaveRequestFormProps) {
     setReason("");
   };
 
-  const isValid = leaveTypeId && startDate && endDate && daysCount > 0 && reason.trim().length >= 10;
   const selectedBalance = leaveTypeId ? leaveBalances[leaveTypeId] : null;
+  const exceedsBalance = !!selectedBalance && daysCount > 0 && (selectedBalance.remaining - daysCount) < 0;
+  const isValid = leaveTypeId && startDate && endDate && daysCount > 0 && reason.trim().length >= 10 && !exceedsBalance;
 
   return (
     <Card>
@@ -181,6 +182,15 @@ export function LeaveRequestForm({ employeeId }: LeaveRequestFormProps) {
                 </div>
               )}
             </div>
+          )}
+
+          {exceedsBalance && (
+            <Alert variant="destructive">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertDescription>
+                Not enough leave balance. You can apply for at most {selectedBalance?.remaining} day{selectedBalance?.remaining !== 1 ? "s" : ""}.
+              </AlertDescription>
+            </Alert>
           )}
 
           <div className="grid gap-4 sm:grid-cols-2">
