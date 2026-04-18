@@ -101,8 +101,9 @@ export function LeaveRequestForm({ employeeId }: LeaveRequestFormProps) {
     setReason("");
   };
 
-  const isValid = leaveTypeId && startDate && endDate && daysCount > 0 && reason.trim().length >= 10;
   const selectedBalance = leaveTypeId ? leaveBalances[leaveTypeId] : null;
+  const exceedsBalance = !!selectedBalance && daysCount > 0 && (selectedBalance.remaining - daysCount) < 0;
+  const isValid = leaveTypeId && startDate && endDate && daysCount > 0 && reason.trim().length >= 10 && !exceedsBalance;
 
   return (
     <Card>
