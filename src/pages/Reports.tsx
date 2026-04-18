@@ -24,11 +24,13 @@ import {
   Line,
   Legend,
 } from "recharts";
-import { Download, FileText, Users, Calendar, CreditCard, TrendingUp, TrendingDown, UserPlus, UserMinus, Loader2, ShieldAlert } from "lucide-react";
+import { Download, FileText, Users, Calendar, CreditCard, TrendingUp, TrendingDown, UserPlus, UserMinus, Loader2, ShieldAlert, User } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PayrollSummaryReport } from "@/components/reports/PayrollSummaryReport";
 import { LeaveBalanceReport } from "@/components/reports/LeaveBalanceReport";
 import { AssetInventoryReport } from "@/components/reports/AssetInventoryReport";
 import { AttendanceReport } from "@/components/reports/AttendanceReport";
+import { EmployeeReport } from "@/components/reports/EmployeeReport";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useIsAdminOrHR } from "@/hooks/useUserRole";
 import {
