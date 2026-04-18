@@ -24,11 +24,13 @@ import {
   Line,
   Legend,
 } from "recharts";
-import { Download, FileText, Users, Calendar, CreditCard, TrendingUp, TrendingDown, UserPlus, UserMinus, Loader2, ShieldAlert } from "lucide-react";
+import { Download, FileText, Users, Calendar, CreditCard, TrendingUp, TrendingDown, UserPlus, UserMinus, Loader2, ShieldAlert, User } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PayrollSummaryReport } from "@/components/reports/PayrollSummaryReport";
 import { LeaveBalanceReport } from "@/components/reports/LeaveBalanceReport";
 import { AssetInventoryReport } from "@/components/reports/AssetInventoryReport";
 import { AttendanceReport } from "@/components/reports/AttendanceReport";
+import { EmployeeReport } from "@/components/reports/EmployeeReport";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useIsAdminOrHR } from "@/hooks/useUserRole";
 import {
@@ -97,24 +99,38 @@ const Reports = () => {
     <DashboardLayout>
       <div className="space-y-6">
         {/* Header */}
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h2 className="text-2xl font-bold text-foreground">Reports & Analytics</h2>
-            <p className="text-muted-foreground">Insights and data visualization</p>
-          </div>
-          <Select value={selectedYear} onValueChange={setSelectedYear}>
-            <SelectTrigger className="w-[140px]">
-              <SelectValue placeholder="Year" />
-            </SelectTrigger>
-            <SelectContent>
-              {YEARS.map((y) => (
-                <SelectItem key={y} value={y}>
-                  {y}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        <div>
+          <h2 className="text-2xl font-bold text-foreground">Reports & Analytics</h2>
+          <p className="text-muted-foreground">Insights and data visualization</p>
         </div>
+
+        <Tabs defaultValue="overview" className="space-y-6">
+          <TabsList>
+            <TabsTrigger value="overview">
+              <FileText className="mr-2 h-4 w-4" />
+              Overview
+            </TabsTrigger>
+            <TabsTrigger value="employee">
+              <User className="mr-2 h-4 w-4" />
+              Employee Report
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="overview" className="space-y-6">
+            <div className="flex justify-end">
+              <Select value={selectedYear} onValueChange={setSelectedYear}>
+                <SelectTrigger className="w-[140px]">
+                  <SelectValue placeholder="Year" />
+                </SelectTrigger>
+                <SelectContent>
+                  {YEARS.map((y) => (
+                    <SelectItem key={y} value={y}>
+                      {y}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
         {/* Quick Reports */}
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -442,6 +458,12 @@ const Reports = () => {
         <div id="report-attendance">
           <AttendanceReport />
         </div>
+          </TabsContent>
+
+          <TabsContent value="employee">
+            <EmployeeReport />
+          </TabsContent>
+        </Tabs>
       </div>
     </DashboardLayout>
   );
