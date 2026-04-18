@@ -11,10 +11,13 @@ import { CalendarIcon, Send, Loader2, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format, differenceInDays, subDays, startOfDay, eachDayOfInterval, isWeekend, parseISO, isSameDay } from "date-fns";
 import { useLeaveTypes, useSubmitLeaveRequest } from "@/hooks/useLeaveRequests";
+import { useLeaveEligibility } from "@/hooks/useLeaveEligibility";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useCompanyHolidays } from "@/hooks/useCompanyHolidays";
 import { Badge } from "@/components/ui/badge";
+
+const UNPAID_LEAVE_ID = "__unpaid_leave__";
 
 interface LeaveRequestFormProps {
   employeeId: string;
