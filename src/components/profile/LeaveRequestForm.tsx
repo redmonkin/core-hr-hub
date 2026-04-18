@@ -29,11 +29,19 @@ export function LeaveRequestForm({ employeeId }: LeaveRequestFormProps) {
   const [endDate, setEndDate] = useState<Date>();
   const [reason, setReason] = useState("");
 
-  const { data: leaveTypes, isLoading: isLoadingTypes } = useLeaveTypes();
+  const { data: allLeaveTypes, isLoading: isLoadingTypes } = useLeaveTypes();
+  const { data: eligibility } = useLeaveEligibility(employeeId);
   const submitMutation = useSubmitLeaveRequest();
   const { data: holidays = [] } = useCompanyHolidays();
 
   const currentYear = new Date().getFullYear();
+
+  // Filter leave types to only those the employee is eligible for
+  const leaveTypes = useMemo(() => {
+    if (!allLeaveTypes) return [];
+    const eligibleIds = new Set((eligibility ?? []).map((e) => e.leave_type_id));
+    return allLeaveTypes.filter((t) => eligibleIds.has(t.id));
+  }, [allLeaveTypes, eligibility]);
 
   // Fetch approved leave requests to calculate used days
   const { data: approvedRequests } = useQuery({
@@ -67,6 +75,8 @@ export function LeaveRequestForm({ employeeId }: LeaveRequestFormProps) {
     });
     return balances;
   }, [leaveTypes, approvedRequests]);
+
+  const isUnpaid = leaveTypeId === UNPAID_LEAVE_ID;
 
   const daysCount = useMemo(() => {
     if (!startDate || !endDate) return 0;
