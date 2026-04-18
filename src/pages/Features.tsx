@@ -53,6 +53,7 @@ const featureSections = [
     icon: <Users className="h-8 w-8" />,
     title: "Employee Management",
     description: "Centralized employee database with complete lifecycle management from onboarding to offboarding.",
+    image: employeeMgmtImg,
     details: [
       { icon: <UserPlus className="h-5 w-5" />, text: "Complete employee profiles with personal and professional details" },
       { icon: <FolderOpen className="h-5 w-5" />, text: "Document storage for contracts, certificates, and compliance files" },
@@ -65,6 +66,7 @@ const featureSections = [
     icon: <Calendar className="h-8 w-8" />,
     title: "Leave & Attendance Management",
     description: "Streamlined time-off requests and real-time attendance tracking with automated workflows.",
+    image: leaveAttendanceImg,
     details: [
       { icon: <CalendarCheck className="h-5 w-5" />, text: "Multiple leave types with customizable policies and accrual rules" },
       { icon: <Clock className="h-5 w-5" />, text: "Clock in/out with geolocation and IP-based verification" },
@@ -125,6 +127,7 @@ const featureSections = [
     icon: <FileText className="h-8 w-8" />,
     title: "Document Management",
     description: "Secure, centralized storage for all employee documents with easy access and organization.",
+    image: documentsImg,
     details: [
       { icon: <Upload className="h-5 w-5" />, text: "Drag-and-drop document uploads with categorization" },
       { icon: <Lock className="h-5 w-5" />, text: "Role-based access control for sensitive documents" },
@@ -137,6 +140,7 @@ const featureSections = [
     icon: <Shield className="h-8 w-8" />,
     title: "Security & Access Control",
     description: "Enterprise-grade security with granular permissions and comprehensive audit trails.",
+    image: securityImg,
     details: [
       { icon: <UserCog className="h-5 w-5" />, text: "Role-based access for admins, HR, managers, and employees" },
       { icon: <Eye className="h-5 w-5" />, text: "Field-level permissions for sensitive data" },
@@ -149,6 +153,7 @@ const featureSections = [
     icon: <BarChart3 className="h-8 w-8" />,
     title: "Analytics & Reporting",
     description: "Data-driven insights with customizable dashboards and exportable reports.",
+    image: analyticsImg,
     details: [
       { icon: <PieChart className="h-5 w-5" />, text: "Real-time dashboards with key HR metrics" },
       { icon: <FileText className="h-5 w-5" />, text: "Pre-built reports for payroll, leave, and assets" },
@@ -161,6 +166,7 @@ const featureSections = [
     icon: <Settings className="h-8 w-8" />,
     title: "Customizable Settings",
     description: "Flexible configuration options to adapt the platform to your organization's unique needs.",
+    image: settingsImg,
     details: [
       { icon: <Sliders className="h-5 w-5" />, text: "Custom leave types with individual policies and limits" },
       { icon: <Calendar className="h-5 w-5" />, text: "Working days and holiday calendar configuration" },
@@ -169,7 +175,7 @@ const featureSections = [
     ],
     reversed: true
   }
-];
+] as const;
 
 const Features = () => {
   const isProduction = isProductionDomain();
