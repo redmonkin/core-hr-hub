@@ -108,6 +108,12 @@ export function EmployeeViewDialog({ employee, open, onOpenChange }: EmployeeVie
                 <Mail className="h-4 w-4 text-muted-foreground" />
                 <span className="text-muted-foreground">{employee.email}</span>
               </div>
+              {employee.phone && (
+                <div className="flex items-center gap-3 text-sm">
+                  <Phone className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-muted-foreground">{employee.phone}</span>
+                </div>
+              )}
               <div className="flex items-center gap-3 text-sm">
                 <Building2 className="h-4 w-4 text-muted-foreground" />
                 <span className="text-muted-foreground">{employee.department}</span>
