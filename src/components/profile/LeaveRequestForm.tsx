@@ -174,9 +174,22 @@ export function LeaveRequestForm({ employeeId }: LeaveRequestFormProps) {
           {leaveTypes && leaveTypes.length > 0 && (
             <div className="flex flex-wrap gap-2">
               {leaveTypes.map((type) => {
+                const isSelected = type.id === leaveTypeId;
+                const isUnpaidType = type.id === unpaidLeaveType?.id;
+                if (isUnpaidType) {
+                  return (
+                    <Badge
+                      key={type.id}
+                      variant={isSelected ? "default" : "outline"}
+                      className="cursor-pointer text-xs py-1 px-2.5"
+                      onClick={() => setLeaveTypeId(type.id)}
+                    >
+                      {type.name}: ∞
+                    </Badge>
+                  );
+                }
                 const bal = leaveBalances[type.id];
                 if (!bal) return null;
-                const isSelected = type.id === leaveTypeId;
                 return (
                   <Badge
                     key={type.id}
@@ -203,8 +216,20 @@ export function LeaveRequestForm({ employeeId }: LeaveRequestFormProps) {
               <SelectContent>
                 {isLoadingTypes ? (
                   <SelectItem value="loading" disabled>Loading...</SelectItem>
+                ) : leaveTypes.length === 0 ? (
+                  <SelectItem value="none" disabled>
+                    No leave types allocated. Contact HR.
+                  </SelectItem>
                 ) : (
-                  leaveTypes?.map((type) => {
+                  leaveTypes.map((type) => {
+                    const isUnpaidType = type.id === unpaidLeaveType?.id;
+                    if (isUnpaidType) {
+                      return (
+                        <SelectItem key={type.id} value={type.id}>
+                          {type.name} (Unpaid · Unlimited)
+                        </SelectItem>
+                      );
+                    }
                     const bal = leaveBalances[type.id];
                     const exhausted = bal && bal.remaining <= 0;
                     return (
