@@ -262,11 +262,22 @@ const Features = () => {
                   </ul>
                 </div>
                 <div className={`${feature.reversed ? 'lg:order-1' : ''}`}>
-                  <div className="bg-gradient-to-br from-primary/10 via-primary/5 to-transparent rounded-3xl p-8 lg:p-12 aspect-square flex items-center justify-center">
-                    <div className="text-primary opacity-20">
-                      {React.cloneElement(feature.icon, { className: "h-48 w-48" })}
+                  {('image' in feature) && feature.image ? (
+                    <div className="rounded-2xl overflow-hidden border border-border shadow-2xl bg-muted">
+                      <img
+                        src={feature.image}
+                        alt={`${feature.title} interface preview`}
+                        loading="lazy"
+                        className="w-full h-auto block"
+                      />
                     </div>
-                  </div>
+                  ) : (
+                    <div className="bg-gradient-to-br from-primary/10 via-primary/5 to-transparent rounded-3xl p-8 lg:p-12 aspect-square flex items-center justify-center">
+                      <div className="text-primary opacity-20">
+                        {React.cloneElement(feature.icon, { className: "h-48 w-48" })}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
