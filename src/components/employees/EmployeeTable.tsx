@@ -38,6 +38,7 @@ export interface Employee {
   employeeCode: string;
   name: string;
   email: string;
+  phone?: string | null;
   avatar?: string;
   department: string;
   designation: string;

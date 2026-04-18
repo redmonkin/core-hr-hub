@@ -8,7 +8,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { Mail, Building2, Briefcase, Calendar, UserCheck, Crown, Hash } from "lucide-react";
+import { Mail, Phone, Building2, Briefcase, Calendar, UserCheck, Crown, Hash } from "lucide-react";
 import { Employee } from "./EmployeeTable";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -108,6 +108,12 @@ export function EmployeeViewDialog({ employee, open, onOpenChange }: EmployeeVie
                 <Mail className="h-4 w-4 text-muted-foreground" />
                 <span className="text-muted-foreground">{employee.email}</span>
               </div>
+              {employee.phone && (
+                <div className="flex items-center gap-3 text-sm">
+                  <Phone className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-muted-foreground">{employee.phone}</span>
+                </div>
+              )}
               <div className="flex items-center gap-3 text-sm">
                 <Building2 className="h-4 w-4 text-muted-foreground" />
                 <span className="text-muted-foreground">{employee.department}</span>

@@ -7,6 +7,7 @@ export interface Employee {
   employeeCode: string;
   name: string;
   email: string;
+  phone?: string | null;
   avatar?: string;
   department: string;
   designation: string;
@@ -57,6 +58,7 @@ export function useEmployees() {
         employeeCode: emp.employee_code,
         name: `${emp.first_name} ${emp.last_name}`,
         email: emp.email,
+        phone: emp.phone,
         avatar: emp.avatar_url || undefined,
         department: emp.department?.name || "Unassigned",
         designation: emp.designation,
