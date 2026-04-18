@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { isValidEmployeeCode } from "@/hooks/useNextEmployeeCode";
 import {
@@ -33,7 +33,6 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { EmployeeLeaveEligibility, type EmployeeLeaveEligibilityHandle } from "./EmployeeLeaveEligibility";
-import { useRef } from "react";
 
 const WEEKDAYS = [
   { value: 0, label: 'Sun' },
