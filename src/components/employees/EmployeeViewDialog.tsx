@@ -8,7 +8,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { Mail, Building2, Briefcase, Calendar, UserCheck, Crown, Hash } from "lucide-react";
+import { Mail, Phone, Building2, Briefcase, Calendar, UserCheck, Crown, Hash } from "lucide-react";
 import { Employee } from "./EmployeeTable";
 import { supabase } from "@/integrations/supabase/client";
 
