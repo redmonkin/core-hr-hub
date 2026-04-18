@@ -47,6 +47,10 @@ import documentsImg from "@/assets/features/documents.png";
 import securityImg from "@/assets/features/security.png";
 import analyticsImg from "@/assets/features/analytics.png";
 import settingsImg from "@/assets/features/settings.png";
+import payrollImg from "@/assets/features/payroll.png";
+import assetsImg from "@/assets/features/assets.png";
+import performanceImg from "@/assets/features/performance.png";
+import notificationsImg from "@/assets/features/notifications.png";
 
 const featureSections = [
   {
