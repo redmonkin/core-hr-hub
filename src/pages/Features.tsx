@@ -41,6 +41,12 @@ import {
 import hrHubLogo from "@/assets/hr-hub-logo.svg";
 import Footer from "@/components/layout/Footer";
 import { isProductionDomain } from "@/lib/domain";
+import employeeMgmtImg from "@/assets/features/employee-management.png";
+import leaveAttendanceImg from "@/assets/features/leave-attendance.png";
+import documentsImg from "@/assets/features/documents.png";
+import securityImg from "@/assets/features/security.png";
+import analyticsImg from "@/assets/features/analytics.png";
+import settingsImg from "@/assets/features/settings.png";
 
 const featureSections = [
   {
