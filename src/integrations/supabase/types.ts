@@ -1228,6 +1228,7 @@ export type Database = {
       }
       is_admin_or_hr: { Args: { _user_id: string }; Returns: boolean }
       is_manager_of: { Args: { _employee_id: string }; Returns: boolean }
+      is_not_blocked: { Args: never; Returns: boolean }
     }
     Enums: {
       app_role: "admin" | "hr" | "manager" | "employee"
