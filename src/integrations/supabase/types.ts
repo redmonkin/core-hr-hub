@@ -367,6 +367,30 @@ export type Database = {
           },
         ]
       }
+      employee_leave_eligibility: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          employee_id: string
+          id: string
+          leave_type_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          employee_id: string
+          id?: string
+          leave_type_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          employee_id?: string
+          id?: string
+          leave_type_id?: string
+        }
+        Relationships: []
+      }
       employees: {
         Row: {
           address: string | null
