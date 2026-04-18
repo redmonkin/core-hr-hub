@@ -36,12 +36,50 @@ export function LeaveRequestForm({ employeeId }: LeaveRequestFormProps) {
 
   const currentYear = new Date().getFullYear();
 
-  // Filter leave types to only those the employee is eligible for
+  // Resolve (or lazily create) the special "Unpaid Leave" leave type.
+  // Unpaid leave is always available to everyone, with no day limit.
+  const { data: unpaidLeaveType } = useQuery({
+    queryKey: ["unpaid-leave-type"],
+    queryFn: async () => {
+      const { data: existing } = await supabase
+        .from("leave_types")
+        .select("id, name, is_paid, days_per_year")
+        .ilike("name", UNPAID_LEAVE_NAME)
+        .maybeSingle();
+      if (existing) return existing;
+
+      const { data: created, error: insErr } = await supabase
+        .from("leave_types")
+        .insert({
+          name: UNPAID_LEAVE_NAME,
+          is_paid: false,
+          days_per_year: 0,
+          description: "Unpaid leave — unlimited, available to all employees.",
+        })
+        .select("id, name, is_paid, days_per_year")
+        .single();
+      if (insErr) throw insErr;
+      return created;
+    },
+  });
+
+  // Filter allocated paid leave types, then append the always-available Unpaid Leave option.
   const leaveTypes = useMemo(() => {
-    if (!allLeaveTypes) return [];
     const eligibleIds = new Set((eligibility ?? []).map((e) => e.leave_type_id));
-    return allLeaveTypes.filter((t) => eligibleIds.has(t.id));
-  }, [allLeaveTypes, eligibility]);
+    const allocated = (allLeaveTypes ?? []).filter(
+      (t) => eligibleIds.has(t.id) && t.id !== unpaidLeaveType?.id
+    );
+    if (unpaidLeaveType) {
+      allocated.push({
+        id: unpaidLeaveType.id,
+        name: unpaidLeaveType.name,
+        is_paid: false,
+        days_per_year: 0,
+        description: "Unlimited",
+      });
+    }
+    return allocated;
+  }, [allLeaveTypes, eligibility, unpaidLeaveType]);
 
   // Fetch approved leave requests to calculate used days
   const { data: approvedRequests } = useQuery({
@@ -60,10 +98,14 @@ export function LeaveRequestForm({ employeeId }: LeaveRequestFormProps) {
     enabled: !!employeeId,
   });
 
+  const isUnpaid = !!unpaidLeaveType && leaveTypeId === unpaidLeaveType.id;
+
   const leaveBalances = useMemo(() => {
     if (!leaveTypes) return {};
     const balances: Record<string, { total: number; used: number; remaining: number }> = {};
     leaveTypes.forEach((type) => {
+      // Skip balance tracking for Unpaid Leave (unlimited)
+      if (type.id === unpaidLeaveType?.id) return;
       const used = approvedRequests
         ?.filter((r) => r.leave_type_id === type.id)
         .reduce((sum, r) => sum + r.days_count, 0) || 0;
@@ -74,9 +116,8 @@ export function LeaveRequestForm({ employeeId }: LeaveRequestFormProps) {
       };
     });
     return balances;
-  }, [leaveTypes, approvedRequests]);
+  }, [leaveTypes, approvedRequests, unpaidLeaveType]);
 
-  const isUnpaid = leaveTypeId === UNPAID_LEAVE_ID;
 
   const daysCount = useMemo(() => {
     if (!startDate || !endDate) return 0;
