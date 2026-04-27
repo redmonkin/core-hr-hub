@@ -17,10 +17,22 @@ export function useLeaveBalances(employeeId: string | undefined) {
     queryFn: async () => {
       if (!employeeId) return [];
 
-      // Fetch all leave types with their days_per_year
+      const { data: eligibility, error: eligibilityError } = await supabase
+        .from("employee_leave_eligibility")
+        .select("leave_type_id")
+        .eq("employee_id", employeeId);
+
+      if (eligibilityError) throw eligibilityError;
+
+      const eligibleLeaveTypeIds = (eligibility || []).map((row) => row.leave_type_id);
+
+      if (eligibleLeaveTypeIds.length === 0) return [];
+
+      // Fetch assigned leave types with their days_per_year
       const { data: leaveTypes, error: typesError } = await supabase
         .from("leave_types")
         .select("id, name, days_per_year, is_paid")
+        .in("id", eligibleLeaveTypeIds)
         .order("name");
 
       if (typesError) throw typesError;
