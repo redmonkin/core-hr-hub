@@ -105,7 +105,7 @@ export function EmployeeReport() {
   const { data: leaveData, isLoading: loadingLeave } = useQuery({
     queryKey: ["employee-report-leaves", selectedEmployeeId, year],
     queryFn: async () => {
-      const [balancesRes, requestsRes, typesRes] = await Promise.all([
+      const [balancesRes, requestsRes, typesRes, eligibilityRes] = await Promise.all([
         supabase
           .from("leave_balances")
           .select("leave_type_id, total_days, used_days")
@@ -119,14 +119,20 @@ export function EmployeeReport() {
           .lte("start_date", `${year}-12-31`)
           .order("start_date", { ascending: false }),
         supabase.from("leave_types").select("id, name, days_per_year"),
+        supabase
+          .from("employee_leave_eligibility")
+          .select("leave_type_id")
+          .eq("employee_id", selectedEmployeeId),
       ]);
 
       if (balancesRes.error) throw balancesRes.error;
       if (requestsRes.error) throw requestsRes.error;
       if (typesRes.error) throw typesRes.error;
+      if (eligibilityRes.error) throw eligibilityRes.error;
 
-      const types = typesRes.data || [];
-      const allRequests = requestsRes.data || [];
+      const eligibleTypeIds = new Set((eligibilityRes.data || []).map((row) => row.leave_type_id));
+      const types = (typesRes.data || []).filter((type) => eligibleTypeIds.has(type.id));
+      const allRequests = (requestsRes.data || []).filter((request) => eligibleTypeIds.has(request.leave_type_id));
 
       // Dynamically calculate used days from approved requests for the year
       const usedByType = new Map<string, number>();
