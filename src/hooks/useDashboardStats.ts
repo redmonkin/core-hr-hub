@@ -4,6 +4,43 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useEffect } from "react";
 import { useIsAdminOrHR } from "@/hooks/useUserRole";
 
+async function getEligibleLeaveTotals(employeeId: string, currentYear: number) {
+  const yearStart = `${currentYear}-01-01`;
+  const yearEnd = `${currentYear}-12-31`;
+
+  const { data: eligibility } = await supabase
+    .from("employee_leave_eligibility")
+    .select("leave_type_id")
+    .eq("employee_id", employeeId);
+
+  const eligibleLeaveTypeIds = (eligibility || []).map((row) => row.leave_type_id);
+
+  if (eligibleLeaveTypeIds.length === 0) {
+    return { totalLeaves: 0, usedLeaves: 0, availableLeaves: 0 };
+  }
+
+  const { data: leaveTypes } = await supabase
+    .from("leave_types")
+    .select("id, days_per_year")
+    .in("id", eligibleLeaveTypeIds);
+
+  const totalLeaves = leaveTypes?.reduce((sum, lt) => sum + (lt.days_per_year || 0), 0) || 0;
+
+  const { data: approvedLeaves } = await supabase
+    .from("leave_requests")
+    .select("days_count")
+    .eq("employee_id", employeeId)
+    .eq("status", "approved")
+    .in("leave_type_id", eligibleLeaveTypeIds)
+    .gte("start_date", yearStart)
+    .lte("start_date", yearEnd);
+
+  const usedLeaves = approvedLeaves?.reduce((sum, r) => sum + (r.days_count || 0), 0) || 0;
+  const availableLeaves = Math.max(totalLeaves - usedLeaves, 0);
+
+  return { totalLeaves, usedLeaves, availableLeaves };
+}
+
 export function useDashboardStats() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -69,27 +106,7 @@ export function useDashboardStats() {
 
         // Calculate leave balances dynamically from leave_types and approved requests
         const currentYear = new Date().getFullYear();
-        const yearStart = `${currentYear}-01-01`;
-        const yearEnd = `${currentYear}-12-31`;
-
-        // Get all leave types with their days_per_year
-        const { data: leaveTypes } = await supabase
-          .from("leave_types")
-          .select("id, days_per_year");
-
-        const totalLeaves = leaveTypes?.reduce((sum, lt) => sum + (lt.days_per_year || 0), 0) || 0;
-
-        // Get approved leave requests for current year
-        const { data: approvedLeaves } = await supabase
-          .from("leave_requests")
-          .select("days_count")
-          .eq("employee_id", myEmployee.id)
-          .eq("status", "approved")
-          .gte("start_date", yearStart)
-          .lte("start_date", yearEnd);
-
-        const usedLeaves = approvedLeaves?.reduce((sum, r) => sum + (r.days_count || 0), 0) || 0;
-        const availableLeaves = totalLeaves - usedLeaves;
+        const { totalLeaves, usedLeaves, availableLeaves } = await getEligibleLeaveTotals(myEmployee.id, currentYear);
 
         // Get my assigned assets
         const { data: myAssets } = await supabase
@@ -163,25 +180,7 @@ export function useDashboardStats() {
 
       // Calculate leave balances dynamically
       const currentYear = new Date().getFullYear();
-      const yearStart = `${currentYear}-01-01`;
-      const yearEnd = `${currentYear}-12-31`;
-
-      const { data: leaveTypes } = await supabase
-        .from("leave_types")
-        .select("id, days_per_year");
-
-      const totalLeaves = leaveTypes?.reduce((sum, lt) => sum + (lt.days_per_year || 0), 0) || 0;
-
-      const { data: approvedLeaves } = await supabase
-        .from("leave_requests")
-        .select("days_count")
-        .eq("employee_id", myEmployee.id)
-        .eq("status", "approved")
-        .gte("start_date", yearStart)
-        .lte("start_date", yearEnd);
-
-      const usedLeaves = approvedLeaves?.reduce((sum, r) => sum + (r.days_count || 0), 0) || 0;
-      const availableLeaves = totalLeaves - usedLeaves;
+      const { totalLeaves, usedLeaves, availableLeaves } = await getEligibleLeaveTotals(myEmployee.id, currentYear);
 
       // Get my assigned assets
       const { data: myAssets } = await supabase
