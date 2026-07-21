@@ -30,6 +30,7 @@ import { Download, FileText, Wallet, ChevronDown, ChevronUp, Plus, Minus } from 
 import { downloadPayslip } from "@/lib/payslipPdfGenerator";
 import { fetchImageAsDataUrl } from "@/lib/pdfTheme";
 import { useCompanyBranding } from "@/hooks/useCompanyBranding";
+import { format, startOfMonth, endOfMonth } from "date-fns";
 
 interface PayslipViewerProps {
   employeeId: string;
@@ -128,6 +129,22 @@ export function PayslipViewer({ employeeId, employeeName, employeeCode }: Paysli
     enabled: !!employeeId,
   });
 
+  // Fetch employment details for the payslip header (joining date, designation, department)
+  const { data: employeeInfo } = useQuery({
+    queryKey: ["my-employee-info", employeeId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("employees")
+        .select("hire_date, designation, department:departments(name)")
+        .eq("id", employeeId)
+        .maybeSingle();
+
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!employeeId,
+  });
+
   const getAllowanceBreakdown = () => {
     if (!salaryStructure) return [];
     const items = [];
@@ -150,6 +167,16 @@ export function PayslipViewer({ employeeId, employeeName, employeeCode }: Paysli
     const monthName = MONTHS.find((m) => m.value === String(record.month))?.label || "";
     const logoDataUrl = await fetchImageAsDataUrl(branding?.logoUrl);
 
+    const periodStart = startOfMonth(new Date(record.year, record.month - 1));
+    const periodEnd = endOfMonth(periodStart);
+    const { count: workedDays } = await supabase
+      .from("attendance_records")
+      .select("id", { count: "exact", head: true })
+      .eq("employee_id", employeeId)
+      .eq("status", "present")
+      .gte("date", format(periodStart, "yyyy-MM-dd"))
+      .lte("date", format(periodEnd, "yyyy-MM-dd"));
+
     downloadPayslip({
       employeeName,
       employeeCode,
@@ -165,6 +192,10 @@ export function PayslipViewer({ employeeId, employeeName, employeeCode }: Paysli
       companyName: branding?.companyName || undefined,
       companyAddress: branding?.companyAddress || undefined,
       logoDataUrl,
+      dateOfJoining: employeeInfo?.hire_date ? format(new Date(employeeInfo.hire_date), "yyyy-MM-dd") : undefined,
+      designation: employeeInfo?.designation ?? undefined,
+      department: employeeInfo?.department?.name ?? undefined,
+      workedDays: workedDays ?? undefined,
       salaryBreakdown: salaryStructure ? {
         hra: salaryStructure.hra ?? undefined,
         transport_allowance: salaryStructure.transport_allowance ?? undefined,

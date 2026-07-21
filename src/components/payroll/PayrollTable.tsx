@@ -29,6 +29,7 @@ import { fetchImageAsDataUrl } from "@/lib/pdfTheme";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useCompanyBranding } from "@/hooks/useCompanyBranding";
+import { format, startOfMonth, endOfMonth } from "date-fns";
 
 export interface PayrollRecord {
   id: string;
@@ -171,6 +172,22 @@ export function PayrollTable({
         .limit(1)
         .maybeSingle();
 
+      const { data: employeeInfo } = await supabase
+        .from("employees")
+        .select("hire_date, designation, department:departments(name)")
+        .eq("id", record.employeeId)
+        .maybeSingle();
+
+      const periodStart = startOfMonth(new Date(record.year, record.monthNum - 1));
+      const periodEnd = endOfMonth(periodStart);
+      const { count: workedDays } = await supabase
+        .from("attendance_records")
+        .select("id", { count: "exact", head: true })
+        .eq("employee_id", record.employeeId)
+        .eq("status", "present")
+        .gte("date", format(periodStart, "yyyy-MM-dd"))
+        .lte("date", format(periodEnd, "yyyy-MM-dd"));
+
       const monthName = MONTH_NAMES[record.monthNum - 1] || "";
       const logoDataUrl = await fetchImageAsDataUrl(branding?.logoUrl);
 
@@ -189,6 +206,10 @@ export function PayrollTable({
         companyName: branding?.companyName || undefined,
         companyAddress: branding?.companyAddress || undefined,
         logoDataUrl,
+        dateOfJoining: employeeInfo?.hire_date ? format(new Date(employeeInfo.hire_date), "yyyy-MM-dd") : undefined,
+        designation: employeeInfo?.designation ?? undefined,
+        department: employeeInfo?.department?.name ?? undefined,
+        workedDays: workedDays ?? undefined,
         salaryBreakdown: salaryStructure ? {
           hra: salaryStructure.hra ?? undefined,
           transport_allowance: salaryStructure.transport_allowance ?? undefined,
