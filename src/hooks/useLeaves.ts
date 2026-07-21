@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
+import { toast } from "sonner";
 
 export interface LeaveRequest {
   id: string;
@@ -147,6 +148,9 @@ export function useUpdateLeaveStatus() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["leave-requests"] });
       queryClient.invalidateQueries({ queryKey: ["leave-stats"] });
+    },
+    onError: (error) => {
+      toast.error("Failed to update leave request: " + error.message);
     },
   });
 }

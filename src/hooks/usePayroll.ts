@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
+import { toast } from "sonner";
 
 export interface PayrollRecord {
   id: string;
@@ -198,6 +199,9 @@ export function useGeneratePayroll() {
       queryClient.invalidateQueries({ queryKey: ["payroll-records"] });
       queryClient.invalidateQueries({ queryKey: ["payroll-stats"] });
     },
+    onError: (error) => {
+      toast.error("Failed to generate payroll: " + error.message);
+    },
   });
 }
 
@@ -225,6 +229,9 @@ export function useUpdatePayrollStatus() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["payroll-records"] });
       queryClient.invalidateQueries({ queryKey: ["payroll-stats"] });
+    },
+    onError: (error) => {
+      toast.error("Failed to update payroll status: " + error.message);
     },
   });
 }
@@ -254,6 +261,9 @@ export function useBulkUpdatePayrollStatus() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["payroll-records"] });
       queryClient.invalidateQueries({ queryKey: ["payroll-stats"] });
+    },
+    onError: (error) => {
+      toast.error("Failed to update payroll status: " + error.message);
     },
   });
 }
@@ -368,6 +378,9 @@ export function useCreateSalaryStructure() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["salary-structures"] });
     },
+    onError: (error) => {
+      toast.error("Failed to save salary structure: " + error.message);
+    },
   });
 }
 
@@ -386,6 +399,9 @@ export function useUpdateSalaryStructure() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["salary-structures"] });
     },
+    onError: (error) => {
+      toast.error("Failed to update salary structure: " + error.message);
+    },
   });
 }
 
@@ -403,6 +419,9 @@ export function useDeleteSalaryStructure() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["salary-structures"] });
+    },
+    onError: (error) => {
+      toast.error("Failed to delete salary structure: " + error.message);
     },
   });
 }

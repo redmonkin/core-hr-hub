@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
+import { toast } from "sonner";
 
 export interface Employee {
   id: string;
@@ -136,6 +137,9 @@ export function useBulkDeleteEmployees() {
       queryClient.invalidateQueries({ queryKey: ["leave-requests"] });
       queryClient.invalidateQueries({ queryKey: ["payroll"] });
     },
+    onError: (error) => {
+      toast.error("Failed to delete employees: " + error.message);
+    },
   });
 }
 
@@ -158,6 +162,9 @@ export function useBulkUpdateEmployeeStatus() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["employees"] });
       queryClient.invalidateQueries({ queryKey: ["employee-stats"] });
+    },
+    onError: (error) => {
+      toast.error("Failed to update employee status: " + error.message);
     },
   });
 }

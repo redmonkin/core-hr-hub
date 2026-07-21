@@ -30,6 +30,15 @@ export function useEmployeeDocuments(employeeId: string | undefined) {
   });
 }
 
+const MAX_DOCUMENT_SIZE_BYTES = 10 * 1024 * 1024; // 10MB
+const ALLOWED_DOCUMENT_TYPES = [
+  "application/pdf",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "image/jpeg",
+  "image/png",
+];
+
 export function useUploadDocument() {
   const queryClient = useQueryClient();
 
@@ -43,6 +52,13 @@ export function useUploadDocument() {
       file: File;
       documentType: string;
     }) => {
+      if (file.size > MAX_DOCUMENT_SIZE_BYTES) {
+        throw new Error("File is too large. Maximum size is 10MB.");
+      }
+      if (!ALLOWED_DOCUMENT_TYPES.includes(file.type)) {
+        throw new Error("Unsupported file type. Allowed: PDF, DOC, DOCX, JPG, PNG.");
+      }
+
       const fileExt = file.name.split(".").pop();
       // Sanitize filename: replace spaces and special characters with underscores
       const sanitizedName = file.name
