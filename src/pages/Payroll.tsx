@@ -37,6 +37,8 @@ import autoTable from "jspdf-autotable";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { usePayrollRecords, usePayrollStats, useGeneratePayroll, useUpdatePayrollStatus, useBulkUpdatePayrollStatus, type PayrollRecord } from "@/hooks/usePayroll";
+import { useCompanyBranding } from "@/hooks/useCompanyBranding";
+import { drawPdfHeader, drawPdfFooter, fetchImageAsDataUrl, formatCurrencyForPdf, PDF_TABLE_HEAD_STYLE, PDF_COLORS } from "@/lib/pdfTheme";
 import { useIsAdminOrHR } from "@/hooks/useUserRole";
 import { usePagination } from "@/hooks/usePagination";
 
@@ -67,6 +69,7 @@ const Payroll = () => {
   const [selectedRecord, setSelectedRecord] = useState<PayrollRecord | null>(null);
   const { toast } = useToast();
   const { isAdminOrHR, isLoading: roleLoading } = useIsAdminOrHR();
+  const { data: branding } = useCompanyBranding();
 
   const currentDate = new Date();
   const currentMonth = currentDate.getMonth() + 1;
@@ -379,7 +382,7 @@ const Payroll = () => {
     });
   };
 
-  const exportToPDF = (startDate: Date | undefined, endDate: Date | undefined) => {
+  const exportToPDF = async (startDate: Date | undefined, endDate: Date | undefined) => {
     const dataToExport = getFilteredByDateRange(startDate, endDate);
     if (dataToExport.length === 0) {
       toast({
@@ -392,26 +395,34 @@ const Payroll = () => {
 
     const doc = new jsPDF({ orientation: "landscape" });
     const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const margin = 20;
+    const logoDataUrl = await fetchImageAsDataUrl(branding?.logoUrl);
 
-    doc.setFontSize(20);
-    doc.text("Payroll Report", pageWidth / 2, 20, { align: "center" });
+    const dateRangeText = startDate || endDate
+      ? `Period: ${startDate ? format(startDate, "PP") : "Beginning"} - ${endDate ? format(endDate, "PP") : "Present"}`
+      : undefined;
 
+    let currentY = drawPdfHeader(doc, {
+      title: "Payroll Report",
+      subtitle: dateRangeText,
+      companyName: branding?.companyName,
+      companyAddress: branding?.companyAddress,
+      logoDataUrl,
+      pageWidth,
+      margin,
+    });
+
+    doc.setTextColor(...PDF_COLORS.dark);
     doc.setFontSize(10);
-    doc.text(`Generated on: ${format(new Date(), "PPP")}`, 14, 30);
-    if (startDate || endDate) {
-      const dateRangeText = `Period: ${startDate ? format(startDate, "PP") : "Beginning"} - ${endDate ? format(endDate, "PP") : "Present"}`;
-      doc.text(dateRangeText, 14, 36);
-      doc.text(`Total Records: ${dataToExport.length}`, 14, 42);
-      const totalNet = dataToExport.reduce((sum, r) => sum + r.netSalary, 0);
-      doc.text(`Total Net Salary: ${formatCurrency(totalNet)}`, 14, 48);
-    } else {
-      doc.text(`Total Records: ${dataToExport.length}`, 14, 36);
-      const totalNet = dataToExport.reduce((sum, r) => sum + r.netSalary, 0);
-      doc.text(`Total Net Salary: ${formatCurrency(totalNet)}`, 14, 42);
-    }
+    doc.setFont("helvetica", "normal");
+    doc.text(`Total Records: ${dataToExport.length}`, margin, currentY);
+    const totalNet = dataToExport.reduce((sum, r) => sum + r.netSalary, 0);
+    doc.text(`Total Net Salary: ${formatCurrencyForPdf(totalNet)}`, margin, currentY + 6);
+    currentY += 16;
 
     autoTable(doc, {
-      startY: startDate || endDate ? 56 : 50,
+      startY: currentY,
       head: [["Emp Code", "Name", "Email", "Month", "Year", "Basic", "Allowances", "Deductions", "Net Salary", "Status"]],
       body: dataToExport.map((record) => [
         record.employeeCode,
@@ -419,15 +430,21 @@ const Payroll = () => {
         record.employee.email,
         record.month,
         record.year,
-        formatCurrency(record.basic),
-        formatCurrency(record.allowances),
-        formatCurrency(record.deductions),
-        formatCurrency(record.netSalary),
+        formatCurrencyForPdf(record.basic),
+        formatCurrencyForPdf(record.allowances),
+        formatCurrencyForPdf(record.deductions),
+        formatCurrencyForPdf(record.netSalary),
         record.status.charAt(0).toUpperCase() + record.status.slice(1),
       ]),
       styles: { fontSize: 8 },
-      headStyles: { fillColor: [59, 130, 246] },
+      headStyles: PDF_TABLE_HEAD_STYLE,
     });
+
+    const pageCount = doc.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      drawPdfFooter(doc, { pageWidth, pageHeight, margin, pageNumber: i, totalPages: pageCount });
+    }
 
     doc.save(`payroll-report-${format(new Date(), "yyyy-MM-dd")}.pdf`);
     toast({

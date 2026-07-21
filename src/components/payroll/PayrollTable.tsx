@@ -25,8 +25,11 @@ import {
 import { Download, Eye, MoreVertical, CheckCircle, Clock, CreditCard, CalendarCheck, Loader2, X } from "lucide-react";
 import { useState } from "react";
 import { downloadPayslip } from "@/lib/payslipPdfGenerator";
+import { fetchImageAsDataUrl } from "@/lib/pdfTheme";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useCompanyBranding } from "@/hooks/useCompanyBranding";
+import { format, startOfMonth, endOfMonth } from "date-fns";
 
 export interface PayrollRecord {
   id: string;
@@ -88,6 +91,7 @@ export function PayrollTable({
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const { toast } = useToast();
+  const { data: branding } = useCompanyBranding();
 
   const toggleSelection = (id: string) => {
     setSelectedIds((prev) => {
@@ -168,7 +172,24 @@ export function PayrollTable({
         .limit(1)
         .maybeSingle();
 
+      const { data: employeeInfo } = await supabase
+        .from("employees")
+        .select("hire_date, designation, department:departments!employees_department_id_fkey(name)")
+        .eq("id", record.employeeId)
+        .maybeSingle();
+
+      const periodStart = startOfMonth(new Date(record.year, record.monthNum - 1));
+      const periodEnd = endOfMonth(periodStart);
+      const { count: workedDays } = await supabase
+        .from("attendance_records")
+        .select("id", { count: "exact", head: true })
+        .eq("employee_id", record.employeeId)
+        .eq("status", "present")
+        .gte("date", format(periodStart, "yyyy-MM-dd"))
+        .lte("date", format(periodEnd, "yyyy-MM-dd"));
+
       const monthName = MONTH_NAMES[record.monthNum - 1] || "";
+      const logoDataUrl = await fetchImageAsDataUrl(branding?.logoUrl);
 
       downloadPayslip({
         employeeName: record.employee.name,
@@ -182,6 +203,13 @@ export function PayrollTable({
         allowances: record.allowances,
         deductions: record.deductions,
         netSalary: record.netSalary,
+        companyName: branding?.companyName || undefined,
+        companyAddress: branding?.companyAddress || undefined,
+        logoDataUrl,
+        dateOfJoining: employeeInfo?.hire_date ? format(new Date(employeeInfo.hire_date), "yyyy-MM-dd") : undefined,
+        designation: employeeInfo?.designation ?? undefined,
+        department: employeeInfo?.department?.name ?? undefined,
+        workedDays: workedDays ?? undefined,
         salaryBreakdown: salaryStructure ? {
           hra: salaryStructure.hra ?? undefined,
           transport_allowance: salaryStructure.transport_allowance ?? undefined,

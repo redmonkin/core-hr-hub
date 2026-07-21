@@ -24,6 +24,8 @@ import { useLeaveRequests, useLeaveStats } from "@/hooks/useLeaves";
 import { useIsAdminOrHR } from "@/hooks/useUserRole";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { useCompanyBranding } from "@/hooks/useCompanyBranding";
+import { drawPdfHeader, drawPdfFooter, fetchImageAsDataUrl, PDF_TABLE_HEAD_STYLE, PDF_COLORS } from "@/lib/pdfTheme";
 import { DateRangeExportDialog } from "@/components/export/DateRangeExportDialog";
 import { format, parseISO, isWithinInterval, isAfter, isBefore } from "date-fns";
 const Leaves = () => {
@@ -39,6 +41,7 @@ const Leaves = () => {
     isAdminOrHR,
     roles
   } = useIsAdminOrHR();
+  const { data: branding } = useCompanyBranding();
 
   // Approval dialog state
   const [selectedRequest, setSelectedRequest] = useState<LeaveRequest | null>(null);
@@ -197,31 +200,55 @@ const Leaves = () => {
       description: `${filteredRequests.length} leave requests exported to CSV`
     });
   };
-  const exportToPDF = (startDate?: Date, endDate?: Date) => {
+  const exportToPDF = async (startDate?: Date, endDate?: Date) => {
     const allRequests = [...pendingRequests, ...processedRequests];
     const filteredRequests = filterByDateRange(allRequests, startDate, endDate);
     const doc = new jsPDF();
-    doc.setFontSize(18);
-    doc.text("Leave Requests Report", 14, 22);
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const margin = 20;
+    const logoDataUrl = await fetchImageAsDataUrl(branding?.logoUrl);
+
+    const subtitle = startDate || endDate
+      ? `Date Range: ${startDate ? format(startDate, "PP") : "Start"} - ${endDate ? format(endDate, "PP") : "End"}`
+      : undefined;
+
+    let currentY = drawPdfHeader(doc, {
+      title: "Leave Requests Report",
+      subtitle,
+      companyName: branding?.companyName,
+      companyAddress: branding?.companyAddress,
+      logoDataUrl,
+      pageWidth,
+      margin,
+    });
+
+    doc.setTextColor(...PDF_COLORS.dark);
     doc.setFontSize(10);
-    doc.text(`Generated on ${new Date().toLocaleDateString()}`, 14, 30);
+    doc.setFont("helvetica", "normal");
     if (startDate || endDate) {
-      doc.text(`Date Range: ${startDate ? format(startDate, "PP") : "Start"} - ${endDate ? format(endDate, "PP") : "End"}`, 14, 36);
-      doc.text(`Total Requests: ${filteredRequests.length}`, 14, 42);
+      doc.text(`Total Requests: ${filteredRequests.length}`, margin, currentY);
     } else {
-      doc.text(`Total Requests: ${filteredRequests.length} | Pending: ${pendingRequests.length} | Processed: ${processedRequests.length}`, 14, 36);
+      doc.text(`Total Requests: ${filteredRequests.length} | Pending: ${pendingRequests.length} | Processed: ${processedRequests.length}`, margin, currentY);
     }
+    currentY += 10;
+
     autoTable(doc, {
-      startY: startDate || endDate ? 50 : 44,
+      startY: currentY,
       head: [["Employee", "Department", "Type", "Start Date", "End Date", "Days", "Status"]],
       body: filteredRequests.map(req => [req.employee.name, req.employee.department, req.type, req.startDate, req.endDate, req.days.toString(), req.status]),
       styles: {
         fontSize: 8
       },
-      headStyles: {
-        fillColor: [59, 130, 246]
-      }
+      headStyles: PDF_TABLE_HEAD_STYLE
     });
+
+    const pageCount = doc.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      drawPdfFooter(doc, { pageWidth, pageHeight, margin, pageNumber: i, totalPages: pageCount });
+    }
+
     const dateRange = startDate || endDate ? `-${startDate ? format(startDate, "yyyy-MM-dd") : "start"}-to-${endDate ? format(endDate, "yyyy-MM-dd") : "end"}` : "";
     doc.save(`leave-requests${dateRange}-${new Date().toISOString().split("T")[0]}.pdf`);
     toast({

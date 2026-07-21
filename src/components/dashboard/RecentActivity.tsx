@@ -58,7 +58,7 @@ async function fetchActivityLogs(): Promise<ActivityItem[]> {
   });
 
   // Resolve missing names from profiles table
-  let nameMap: Record<string, string> = {};
+  const nameMap: Record<string, string> = {};
   if (userIdsToResolve.size > 0) {
     const { data: profiles } = await supabase
       .from("profiles")
@@ -89,7 +89,7 @@ async function fetchActivityLogs(): Promise<ActivityItem[]> {
 
     // Format action text based on entity type and action
     let formattedAction = action.replace(/_/g, " ");
-    let userName = employeeName;
+    const userName = employeeName;
     let type = String(entityName);
     
     if (log.entity_type === "leave_request") {

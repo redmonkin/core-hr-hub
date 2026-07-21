@@ -8,6 +8,7 @@ import { MapPin, Loader2, Save } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import type { Json } from "@/integrations/supabase/types";
 
 export interface OfficeLocation {
   address: string;
@@ -81,7 +82,7 @@ export default function OfficeLocationSettings() {
       if (existingRow) {
         const { error } = await supabase
           .from("organization_settings")
-          .update({ setting_value: location as any })
+          .update({ setting_value: location as unknown as Json })
           .eq("id", existingRow.id);
         if (error) throw error;
       } else {
@@ -89,7 +90,7 @@ export default function OfficeLocationSettings() {
           .from("organization_settings")
           .insert({
             setting_key: "office_location",
-            setting_value: location as any,
+            setting_value: location as unknown as Json,
           });
         if (error) throw error;
       }

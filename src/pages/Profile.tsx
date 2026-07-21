@@ -65,6 +65,8 @@ interface ProfileForm {
   working_days: number[];
 }
 
+const ALLOWED_TABS = ["profile", "leaves", "attendance", "assets", "reviews", "payslips", "documents"] as const;
+
 const Profile = () => {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -72,8 +74,7 @@ const Profile = () => {
   const [searchParams, setSearchParams] = useSearchParams();
 
   const tabParam = (searchParams.get("tab") || "").toLowerCase();
-  const allowedTabs = ["profile", "leaves", "attendance", "assets", "reviews", "payslips", "documents"] as const;
-  const initialTab = allowedTabs.includes(tabParam as (typeof allowedTabs)[number]) ? tabParam : "profile";
+  const initialTab = ALLOWED_TABS.includes(tabParam as (typeof ALLOWED_TABS)[number]) ? tabParam : "profile";
 
   const [activeTab, setActiveTab] = useState<string>(initialTab);
   const [isEditing, setIsEditing] = useState(false);
@@ -90,7 +91,7 @@ const Profile = () => {
   });
 
   useEffect(() => {
-    if (allowedTabs.includes(tabParam as (typeof allowedTabs)[number]) && tabParam !== activeTab) {
+    if (ALLOWED_TABS.includes(tabParam as (typeof ALLOWED_TABS)[number]) && tabParam !== activeTab) {
       setActiveTab(tabParam);
     }
   }, [tabParam, activeTab]);

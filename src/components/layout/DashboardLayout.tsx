@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { Loader2 } from "lucide-react";
 import { useIsAdminOrHR } from "@/hooks/useUserRole";
+import { useCompanyBranding } from "@/hooks/useCompanyBranding";
 import {
   Users,
   Calendar,
@@ -79,6 +80,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const { user, signOut, isSigningOut } = useAuth();
   const { isAdminOrHR } = useIsAdminOrHR();
   const { data: versionData } = useVersionCheck();
+  const { data: branding } = useCompanyBranding();
 
   const filteredNavItems = navItems.filter(item => {
     if (item.adminOnly && !isAdminOrHR) return false;
@@ -128,7 +130,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           {/* Logo */}
           <div className="flex h-20 items-center justify-between border-b border-border px-6">
             <Link to="/dashboard" className="flex items-center gap-3">
-              <img src={hrHubLogo} alt="Peoplo" className="h-10 w-auto" />
+              <img src={branding?.iconUrl || hrHubLogo} alt="Peoplo" className="h-10 w-auto" />
               <span className="text-xl font-bold text-foreground">Peoplo</span>
             </Link>
             <Button

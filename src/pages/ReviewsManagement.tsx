@@ -65,7 +65,7 @@ const ReviewsManagement = () => {
   const createMutation = useCreateReview();
 
   // Filter reviews by status
-  const filteredReviews = reviews?.filter((review: any) => 
+  const filteredReviews = reviews?.filter((review) =>
     statusFilter === "all" ? true : review.status === statusFilter
   );
 
@@ -232,7 +232,7 @@ const ReviewsManagement = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredReviews.map((review: any) => (
+                  {filteredReviews.map((review) => (
                     <TableRow key={review.id}>
                       <TableCell>
                         <div className="flex items-center gap-3">

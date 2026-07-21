@@ -22,14 +22,14 @@ export function useActiveBreak(attendanceRecordId?: string) {
     queryFn: async () => {
       if (!attendanceRecordId) return null;
       const { data, error } = await supabase
-        .from("attendance_breaks" as any)
+        .from("attendance_breaks")
         .select("*")
         .eq("attendance_record_id", attendanceRecordId)
         .is("resume_time", null)
         .maybeSingle();
 
       if (error) throw error;
-      return data as unknown as AttendanceBreak | null;
+      return data as AttendanceBreak | null;
     },
     enabled: !!attendanceRecordId,
   });
@@ -41,13 +41,13 @@ export function useBreaksForRecord(attendanceRecordId?: string) {
     queryFn: async () => {
       if (!attendanceRecordId) return [];
       const { data, error } = await supabase
-        .from("attendance_breaks" as any)
+        .from("attendance_breaks")
         .select("*")
         .eq("attendance_record_id", attendanceRecordId)
         .order("pause_time", { ascending: true });
 
       if (error) throw error;
-      return (data || []) as unknown as AttendanceBreak[];
+      return (data || []) as AttendanceBreak[];
     },
     enabled: !!attendanceRecordId,
   });
@@ -65,14 +65,14 @@ export function usePause() {
       location?: LocationData;
     }) => {
       const { data, error } = await supabase
-        .from("attendance_breaks" as any)
+        .from("attendance_breaks")
         .insert({
           attendance_record_id: attendanceRecordId,
           pause_time: new Date().toISOString(),
           pause_latitude: location?.latitude,
           pause_longitude: location?.longitude,
           pause_location_name: location?.locationName,
-        } as any)
+        })
         .select()
         .single();
 
@@ -98,13 +98,13 @@ export function useResume() {
       location?: LocationData;
     }) => {
       const { data, error } = await supabase
-        .from("attendance_breaks" as any)
+        .from("attendance_breaks")
         .update({
           resume_time: new Date().toISOString(),
           resume_latitude: location?.latitude,
           resume_longitude: location?.longitude,
           resume_location_name: location?.locationName,
-        } as any)
+        })
         .eq("id", breakId)
         .select()
         .single();

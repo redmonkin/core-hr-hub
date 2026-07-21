@@ -60,7 +60,7 @@ export function useAttendance(month?: Date, employeeId?: string) {
       const { data, error } = await query;
 
       if (error) throw error;
-      return (data || []) as unknown as AttendanceRecord[];
+      return (data || []) as AttendanceRecord[];
     },
     enabled: employeeId === undefined ? true : !!employeeId,
   });
@@ -84,7 +84,7 @@ export function useTodayAttendance(employeeId?: string) {
         .maybeSingle();
 
       if (todayError) throw todayError;
-      if (todayData) return todayData as unknown as AttendanceRecord | null;
+      if (todayData) return todayData as AttendanceRecord | null;
 
       // If no today record, check for yesterday's unclosed record (cross-midnight shifts)
       const { data: yesterdayData, error: yesterdayError } = await supabase
@@ -96,7 +96,7 @@ export function useTodayAttendance(employeeId?: string) {
         .maybeSingle();
 
       if (yesterdayError) throw yesterdayError;
-      return yesterdayData as unknown as AttendanceRecord | null;
+      return yesterdayData as AttendanceRecord | null;
     },
     enabled: !!employeeId,
   });
@@ -121,7 +121,7 @@ export function useClockIn() {
           clock_in_longitude: location?.longitude,
           clock_in_location_name: location?.locationName,
           work_mode: workMode,
-        } as any)
+        })
         .select()
         .single();
 
@@ -146,7 +146,7 @@ export function useClockOut() {
 
       // Auto-resume any open break before clocking out
       const { data: openBreak } = await supabase
-        .from("attendance_breaks" as any)
+        .from("attendance_breaks")
         .select("id")
         .eq("attendance_record_id", recordId)
         .is("resume_time", null)
@@ -154,20 +154,20 @@ export function useClockOut() {
 
       if (openBreak) {
         await supabase
-          .from("attendance_breaks" as any)
-          .update({ resume_time: clockOutTime.toISOString() } as any)
-          .eq("id", (openBreak as any).id);
+          .from("attendance_breaks")
+          .update({ resume_time: clockOutTime.toISOString() })
+          .eq("id", openBreak.id);
       }
 
       // Calculate total break duration
       const { data: breaks } = await supabase
-        .from("attendance_breaks" as any)
+        .from("attendance_breaks")
         .select("pause_time, resume_time")
         .eq("attendance_record_id", recordId);
 
       let breakHours = 0;
       if (breaks) {
-        breakHours = (breaks as any[]).reduce((total: number, b: any) => {
+        breakHours = breaks.reduce((total, b) => {
           const resumeMs = b.resume_time ? new Date(b.resume_time).getTime() : clockOutTime.getTime();
           const pauseMs = new Date(b.pause_time).getTime();
           return total + (resumeMs - pauseMs) / (1000 * 60 * 60);
@@ -184,7 +184,7 @@ export function useClockOut() {
           clock_out_latitude: location?.latitude,
           clock_out_longitude: location?.longitude,
           clock_out_location_name: location?.locationName,
-        } as any)
+        })
         .eq("id", recordId)
         .select()
         .single();

@@ -36,6 +36,8 @@ import { BulkAssignManagerDialog } from "@/components/employees/BulkAssignManage
 import { toast } from "sonner";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { useCompanyBranding } from "@/hooks/useCompanyBranding";
+import { drawPdfHeader, drawPdfFooter, fetchImageAsDataUrl, PDF_TABLE_HEAD_STYLE, PDF_COLORS } from "@/lib/pdfTheme";
 import { DateRangeExportDialog } from "@/components/export/DateRangeExportDialog";
 import { format, parseISO, isWithinInterval, parse } from "date-fns";
 import { usePagination } from "@/hooks/usePagination";
@@ -64,6 +66,7 @@ const Employees = () => {
   const { data: employees = [], isLoading: isLoadingEmployees } = useEmployees();
   const { data: departments = [] } = useDepartments();
   const { isAdminOrHR, isLoading: isLoadingRole } = useIsAdminOrHR();
+  const { data: branding } = useCompanyBranding();
   const bulkDeleteMutation = useBulkDeleteEmployees();
   const bulkStatusMutation = useBulkUpdateEmployeeStatus();
 
@@ -152,23 +155,36 @@ const Employees = () => {
     toast.success(`${dataToExport.length} employees exported to CSV`);
   };
 
-  const exportToPDF = (startDate?: Date, endDate?: Date) => {
+  const exportToPDF = async (startDate?: Date, endDate?: Date) => {
     const dataToExport = filterByDateRange(sortedEmployees, startDate, endDate);
     const doc = new jsPDF();
-    
-    doc.setFontSize(18);
-    doc.text("Employee Directory", 14, 22);
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const margin = 20;
+    const logoDataUrl = await fetchImageAsDataUrl(branding?.logoUrl);
+
+    const subtitle = startDate || endDate
+      ? `Date Range: ${startDate ? format(startDate, "PP") : "Start"} - ${endDate ? format(endDate, "PP") : "End"}`
+      : undefined;
+
+    let currentY = drawPdfHeader(doc, {
+      title: "Employee Directory",
+      subtitle,
+      companyName: branding?.companyName,
+      companyAddress: branding?.companyAddress,
+      logoDataUrl,
+      pageWidth,
+      margin,
+    });
+
+    doc.setTextColor(...PDF_COLORS.dark);
     doc.setFontSize(10);
-    doc.text(`Generated on ${new Date().toLocaleDateString()}`, 14, 30);
-    if (startDate || endDate) {
-      doc.text(`Date Range: ${startDate ? format(startDate, "PP") : "Start"} - ${endDate ? format(endDate, "PP") : "End"}`, 14, 36);
-      doc.text(`Total Employees: ${dataToExport.length}`, 14, 42);
-    } else {
-      doc.text(`Total Employees: ${dataToExport.length}`, 14, 36);
-    }
+    doc.setFont("helvetica", "normal");
+    doc.text(`Total Employees: ${dataToExport.length}`, margin, currentY);
+    currentY += 10;
 
     autoTable(doc, {
-      startY: startDate || endDate ? 50 : 44,
+      startY: currentY,
       head: [["Emp. No.", "Name", "Email", "Department", "Designation", "Status", "Join Date"]],
       body: dataToExport.map((emp) => [
         emp.employeeCode,
@@ -180,8 +196,14 @@ const Employees = () => {
         emp.joinDate,
       ]),
       styles: { fontSize: 8 },
-      headStyles: { fillColor: [59, 130, 246] },
+      headStyles: PDF_TABLE_HEAD_STYLE,
     });
+
+    const pageCount = doc.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      drawPdfFooter(doc, { pageWidth, pageHeight, margin, pageNumber: i, totalPages: pageCount });
+    }
 
     const dateRange = startDate || endDate ? `-${startDate ? format(startDate, "yyyy-MM-dd") : "start"}-to-${endDate ? format(endDate, "yyyy-MM-dd") : "end"}` : "";
     doc.save(`employee-directory${dateRange}-${new Date().toISOString().split("T")[0]}.pdf`);
@@ -192,7 +214,7 @@ const Employees = () => {
     const selectedEmployees = employees.filter(e => ids.includes(e.id));
     
     switch (action) {
-      case 'export':
+      case 'export': {
         // Export selected employees to CSV
         const headers = ["Employee No.", "Name", "Email", "Department", "Designation", "Status", "Join Date"];
         const csvContent = [
@@ -218,13 +240,15 @@ const Employees = () => {
         toast.success(`${selectedEmployees.length} employees exported`);
         setSelectedEmployeeIds([]);
         break;
-        
-      case 'email':
+      }
+
+      case 'email': {
         // Copy emails to clipboard
         const emails = selectedEmployees.map(e => e.email).join(', ');
         navigator.clipboard.writeText(emails);
         toast.success(`${selectedEmployees.length} email addresses copied to clipboard`);
         break;
+      }
         
       case 'activate':
         bulkStatusMutation.mutate(
