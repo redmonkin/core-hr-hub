@@ -26,7 +26,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Building2, CalendarDays, Plus, Pencil, Trash2, Loader2, ShieldAlert, Users, Hash, Globe, MapPin } from "lucide-react";
+import { Building2, CalendarDays, Plus, Pencil, Trash2, Loader2, ShieldAlert, Users, Hash, Globe, MapPin, Palette } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useDepartments } from "@/hooks/useEmployees";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -36,6 +36,7 @@ import { UserRolesManager } from "@/components/settings/UserRolesManager";
 import { EmployeeCodeSettings } from "@/components/settings/EmployeeCodeSettings";
 import DomainWhitelistSettings from "@/components/settings/DomainWhitelistSettings";
 import OfficeLocationSettings from "@/components/settings/OfficeLocationSettings";
+import { BrandingSettings } from "@/components/settings/BrandingSettings";
 
 // Fetch leave types
 const useLeaveTypes = () => {
@@ -323,6 +324,13 @@ const Settings = () => {
                 <span className="sm:hidden">Office</span>
               </TabsTrigger>
             )}
+            {isAdmin && (
+              <TabsTrigger value="branding" className="w-full justify-center gap-2 sm:w-auto">
+                <Palette className="h-4 w-4" />
+                <span className="hidden sm:inline">Branding</span>
+                <span className="sm:hidden">Brand</span>
+              </TabsTrigger>
+            )}
           </TabsList>
 
           {/* Departments Tab */}
@@ -585,6 +593,13 @@ const Settings = () => {
           {isAdmin && (
             <TabsContent value="office-location" className="mt-6">
               <OfficeLocationSettings />
+            </TabsContent>
+          )}
+
+          {/* Branding Tab - Admin Only */}
+          {isAdmin && (
+            <TabsContent value="branding" className="mt-6">
+              <BrandingSettings />
             </TabsContent>
           )}
         </Tabs>
