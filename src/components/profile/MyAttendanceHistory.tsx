@@ -56,11 +56,11 @@ export function MyAttendanceHistory({ employeeId }: MyAttendanceHistoryProps) {
     queryFn: async () => {
       if (recordIds.length === 0) return [];
       const { data, error } = await supabase
-        .from("attendance_breaks" as any)
+        .from("attendance_breaks")
         .select("*")
         .in("attendance_record_id", recordIds);
       if (error) throw error;
-      return (data || []) as unknown as AttendanceBreak[];
+      return (data || []) as AttendanceBreak[];
     },
     enabled: recordIds.length > 0,
   });

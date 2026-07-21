@@ -88,6 +88,8 @@ const useOnboardingEmployees = () => {
   });
 };
 
+type OnboardingEmployee = NonNullable<ReturnType<typeof useOnboardingEmployees>["data"]>[number];
+
 // Fetch documents for a specific employee
 const useEmployeeDocuments = (employeeId: string | null) => {
   return useQuery({
@@ -254,7 +256,7 @@ const Onboarding = () => {
   const searchParams = new URLSearchParams(currentLocation.search);
   const initialTab = searchParams.get('tab') || 'add';
   const [activeTab, setActiveTab] = useState(initialTab);
-  const [selectedEmployee, setSelectedEmployee] = useState<any | null>(null);
+  const [selectedEmployee, setSelectedEmployee] = useState<OnboardingEmployee | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [editFormData, setEditFormData] = useState({
     firstName: '',
@@ -398,10 +400,10 @@ const Onboarding = () => {
         title: "Success",
         description: "Document uploaded successfully",
       });
-    } catch (error: any) {
+    } catch (error) {
       toast({
         title: "Error",
-        description: error.message || "Failed to upload document",
+        description: error instanceof Error ? error.message : "Failed to upload document",
         variant: "destructive",
       });
     } finally {
@@ -635,7 +637,7 @@ const Onboarding = () => {
   });
 
   // Resend invite handler
-  const handleResendInvite = async (employee: any) => {
+  const handleResendInvite = async (employee: OnboardingEmployee) => {
     setResendingInvite(employee.id);
     try {
       const selectedDept = departments.find(d => d.id === employee.department_id);
@@ -671,10 +673,10 @@ const Onboarding = () => {
           ? `${employee.first_name} already has an account. No new invite needed.`
           : `A new invitation email has been sent to ${employee.email}.`,
       });
-    } catch (error: any) {
+    } catch (error) {
       toast({
         title: "Error",
-        description: error.message || "Failed to resend invite.",
+        description: error instanceof Error ? error.message : "Failed to resend invite.",
         variant: "destructive",
       });
     } finally {
@@ -747,7 +749,7 @@ const Onboarding = () => {
     setActiveTab('add');
   };
 
-  const openEditMode = (employee: any) => {
+  const openEditMode = (employee: OnboardingEmployee) => {
     // Parse working hours from TIME format (HH:MM:SS) to input format (HH:MM)
     const parseTime = (time: string | null) => {
       if (!time) return '09:00';

@@ -134,7 +134,7 @@ serve(async (req) => {
     console.log(`Found preferences for ${preferencesMap.size} users`);
 
     const notifications: { user_id: string; title: string; message: string; type: string; link: string }[] = [];
-    const emailPromises: Promise<any>[] = [];
+    const emailPromises: Promise<unknown>[] = [];
     const goalUpdates: { id: string; last_reminder_sent: string }[] = [];
 
     for (const goalData of goals || []) {
@@ -274,10 +274,10 @@ serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       }
     );
-  } catch (error: any) {
+  } catch (error) {
     console.error("Error in goal-reminders function:", error);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: error instanceof Error ? error.message : String(error) }),
       {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
