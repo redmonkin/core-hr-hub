@@ -1066,7 +1066,7 @@ export type Database = {
           id: string
           medical_allowance: number | null
           other_allowances: number | null
-          other_deductions: number | null
+          pf_deduction: number | null
           tax_deduction: number | null
           transport_allowance: number | null
         }
@@ -1082,7 +1082,7 @@ export type Database = {
           id?: string
           medical_allowance?: number | null
           other_allowances?: number | null
-          other_deductions?: number | null
+          pf_deduction?: number | null
           tax_deduction?: number | null
           transport_allowance?: number | null
         }
@@ -1098,7 +1098,7 @@ export type Database = {
           id?: string
           medical_allowance?: number | null
           other_allowances?: number | null
-          other_deductions?: number | null
+          pf_deduction?: number | null
           tax_deduction?: number | null
           transport_allowance?: number | null
         }
@@ -1122,7 +1122,7 @@ export type Database = {
           id: string
           medical_allowance: number | null
           other_allowances: number | null
-          other_deductions: number | null
+          pf_deduction: number | null
           tax_deduction: number | null
           transport_allowance: number | null
           updated_at: string
@@ -1136,7 +1136,7 @@ export type Database = {
           id?: string
           medical_allowance?: number | null
           other_allowances?: number | null
-          other_deductions?: number | null
+          pf_deduction?: number | null
           tax_deduction?: number | null
           transport_allowance?: number | null
           updated_at?: string
@@ -1150,7 +1150,7 @@ export type Database = {
           id?: string
           medical_allowance?: number | null
           other_allowances?: number | null
-          other_deductions?: number | null
+          pf_deduction?: number | null
           tax_deduction?: number | null
           transport_allowance?: number | null
           updated_at?: string

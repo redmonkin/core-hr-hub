@@ -91,7 +91,7 @@ export function PayslipViewDialog({ open, onOpenChange, record }: PayslipViewDia
     if (!salaryStructure) return [];
     const items = [];
     if (salaryStructure.tax_deduction) items.push({ label: "Tax Deduction", amount: Number(salaryStructure.tax_deduction) });
-    if (salaryStructure.other_deductions) items.push({ label: "Other Deductions", amount: Number(salaryStructure.other_deductions) });
+    if (salaryStructure.pf_deduction) items.push({ label: "PF Deduction", amount: Number(salaryStructure.pf_deduction) });
     return items;
   };
 

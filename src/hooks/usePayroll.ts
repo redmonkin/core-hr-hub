@@ -151,7 +151,7 @@ export function useGeneratePayroll() {
           medical_allowance,
           other_allowances,
           tax_deduction,
-          other_deductions
+          pf_deduction
         `);
 
       if (salaryError) throw salaryError;
@@ -170,7 +170,7 @@ export function useGeneratePayroll() {
 
         const totalDeductions =
           Number(salary.tax_deduction || 0) +
-          Number(salary.other_deductions || 0);
+          Number(salary.pf_deduction || 0);
 
         const netSalary =
           Number(salary.basic_salary) + totalAllowances - totalDeductions;
@@ -280,7 +280,7 @@ export interface SalaryStructure {
   medicalAllowance: number;
   otherAllowances: number;
   taxDeduction: number;
-  otherDeductions: number;
+  pfDeduction: number;
   effectiveFrom: string;
   totalAllowances: number;
   totalDeductions: number;
@@ -302,7 +302,7 @@ export function useSalaryStructures() {
           medical_allowance,
           other_allowances,
           tax_deduction,
-          other_deductions,
+          pf_deduction,
           effective_from,
           employee:employees(
             first_name,
@@ -324,7 +324,7 @@ export function useSalaryStructures() {
 
         const totalDeductions =
           Number(structure.tax_deduction || 0) +
-          Number(structure.other_deductions || 0);
+          Number(structure.pf_deduction || 0);
 
         const netSalary =
           Number(structure.basic_salary) + totalAllowances - totalDeductions;
@@ -341,7 +341,7 @@ export function useSalaryStructures() {
           medicalAllowance: Number(structure.medical_allowance || 0),
           otherAllowances: Number(structure.other_allowances || 0),
           taxDeduction: Number(structure.tax_deduction || 0),
-          otherDeductions: Number(structure.other_deductions || 0),
+          pfDeduction: Number(structure.pf_deduction || 0),
           effectiveFrom: structure.effective_from,
           totalAllowances,
           totalDeductions,
@@ -360,7 +360,7 @@ export interface CreateSalaryStructureData {
   medical_allowance?: number;
   other_allowances?: number;
   tax_deduction?: number;
-  other_deductions?: number;
+  pf_deduction?: number;
   effective_from: string;
 }
 

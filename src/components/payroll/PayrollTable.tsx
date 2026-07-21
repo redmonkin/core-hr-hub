@@ -188,7 +188,7 @@ export function PayrollTable({
           medical_allowance: salaryStructure.medical_allowance ?? undefined,
           other_allowances: salaryStructure.other_allowances ?? undefined,
           tax_deduction: salaryStructure.tax_deduction ?? undefined,
-          other_deductions: salaryStructure.other_deductions ?? undefined,
+          pf_deduction: salaryStructure.pf_deduction ?? undefined,
         } : undefined,
       }, `Payslip_${record.employeeCode}_${monthName}_${record.year}.pdf`);
       

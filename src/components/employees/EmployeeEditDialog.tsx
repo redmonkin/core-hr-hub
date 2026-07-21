@@ -79,7 +79,7 @@ interface SalaryFormData {
   medical_allowance: string;
   other_allowances: string;
   tax_deduction: string;
-  other_deductions: string;
+  pf_deduction: string;
   effective_from: string;
 }
 
@@ -122,7 +122,7 @@ export function EmployeeEditDialog({ employee, open, onOpenChange }: EmployeeEdi
     medical_allowance: "",
     other_allowances: "",
     tax_deduction: "",
-    other_deductions: "",
+    pf_deduction: "",
     effective_from: new Date().toISOString().split("T")[0],
   });
 
@@ -174,7 +174,7 @@ export function EmployeeEditDialog({ employee, open, onOpenChange }: EmployeeEdi
         medical_allowance: salaryStructure.medical_allowance?.toString() || "",
         other_allowances: salaryStructure.other_allowances?.toString() || "",
         tax_deduction: salaryStructure.tax_deduction?.toString() || "",
-        other_deductions: salaryStructure.other_deductions?.toString() || "",
+        pf_deduction: salaryStructure.pf_deduction?.toString() || "",
         effective_from: salaryStructure.effective_from || new Date().toISOString().split("T")[0],
       });
     } else {
@@ -185,7 +185,7 @@ export function EmployeeEditDialog({ employee, open, onOpenChange }: EmployeeEdi
         medical_allowance: "",
         other_allowances: "",
         tax_deduction: "",
-        other_deductions: "",
+        pf_deduction: "",
         effective_from: new Date().toISOString().split("T")[0],
       });
     }
@@ -365,7 +365,7 @@ export function EmployeeEditDialog({ employee, open, onOpenChange }: EmployeeEdi
         medical_allowance: parseFloat(data.medical_allowance) || 0,
         other_allowances: parseFloat(data.other_allowances) || 0,
         tax_deduction: parseFloat(data.tax_deduction) || 0,
-        other_deductions: parseFloat(data.other_deductions) || 0,
+        pf_deduction: parseFloat(data.pf_deduction) || 0,
         effective_from: data.effective_from,
       };
 
@@ -428,7 +428,7 @@ export function EmployeeEditDialog({ employee, open, onOpenChange }: EmployeeEdi
     const medical = parseFloat(salaryData.medical_allowance) || 0;
     const other = parseFloat(salaryData.other_allowances) || 0;
     const tax = parseFloat(salaryData.tax_deduction) || 0;
-    const otherDed = parseFloat(salaryData.other_deductions) || 0;
+    const otherDed = parseFloat(salaryData.pf_deduction) || 0;
 
     const totalAllowances = hra + transport + medical + other;
     const totalDeductions = tax + otherDed;
@@ -771,9 +771,12 @@ export function EmployeeEditDialog({ employee, open, onOpenChange }: EmployeeEdi
                   </div>
                 ) : (
                   <>
+                    <p className="text-xs text-muted-foreground">
+                      All amounts below are <span className="font-medium text-foreground">monthly</span> figures, not annual (CTC).
+                    </p>
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label htmlFor="basic_salary">Basic Salary *</Label>
+                        <Label htmlFor="basic_salary">Basic Salary (Monthly) *</Label>
                         <div className="relative">
                           <IndianRupee className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                           <Input
@@ -877,14 +880,14 @@ export function EmployeeEditDialog({ employee, open, onOpenChange }: EmployeeEdi
                           </div>
                         </div>
                         <div className="space-y-2">
-                          <Label htmlFor="other_deductions">Other Deductions</Label>
+                          <Label htmlFor="pf_deduction">PF Deduction</Label>
                           <div className="relative">
                             <IndianRupee className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                             <Input
-                              id="other_deductions"
+                              id="pf_deduction"
                               type="number"
-                              value={salaryData.other_deductions}
-                              onChange={(e) => setSalaryData({ ...salaryData, other_deductions: e.target.value })}
+                              value={salaryData.pf_deduction}
+                              onChange={(e) => setSalaryData({ ...salaryData, pf_deduction: e.target.value })}
                               className="pl-9"
                               placeholder="0"
                             />
@@ -942,7 +945,7 @@ export function EmployeeEditDialog({ employee, open, onOpenChange }: EmployeeEdi
                                     Number(history.other_allowances || 0);
                                   const historyDeductions =
                                     Number(history.tax_deduction || 0) +
-                                    Number(history.other_deductions || 0);
+                                    Number(history.pf_deduction || 0);
                                   const historyNet =
                                     Number(history.basic_salary) + historyAllowances - historyDeductions;
 

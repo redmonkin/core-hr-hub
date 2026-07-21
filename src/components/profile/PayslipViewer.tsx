@@ -42,7 +42,7 @@ interface SalaryStructure {
   medical_allowance: number | null;
   other_allowances: number | null;
   tax_deduction: number | null;
-  other_deductions: number | null;
+  pf_deduction: number | null;
 }
 
 const MONTHS = [
@@ -139,7 +139,7 @@ export function PayslipViewer({ employeeId, employeeName, employeeCode }: Paysli
     if (!salaryStructure) return [];
     const items = [];
     if (salaryStructure.tax_deduction) items.push({ label: "Tax Deduction", amount: salaryStructure.tax_deduction });
-    if (salaryStructure.other_deductions) items.push({ label: "Other Deductions", amount: salaryStructure.other_deductions });
+    if (salaryStructure.pf_deduction) items.push({ label: "PF Deduction", amount: salaryStructure.pf_deduction });
     return items;
   };
 
@@ -164,7 +164,7 @@ export function PayslipViewer({ employeeId, employeeName, employeeCode }: Paysli
         medical_allowance: salaryStructure.medical_allowance ?? undefined,
         other_allowances: salaryStructure.other_allowances ?? undefined,
         tax_deduction: salaryStructure.tax_deduction ?? undefined,
-        other_deductions: salaryStructure.other_deductions ?? undefined,
+        pf_deduction: salaryStructure.pf_deduction ?? undefined,
       } : undefined,
     }, `Payslip_${employeeCode}_${monthName}_${record.year}.pdf`);
   };
@@ -261,7 +261,7 @@ export function PayslipViewer({ employeeId, employeeName, employeeCode }: Paysli
                           <span className="text-red-600">
                             -{formatCurrency(
                               (salaryStructure.tax_deduction || 0) +
-                                (salaryStructure.other_deductions || 0)
+                                (salaryStructure.pf_deduction || 0)
                             )}
                           </span>
                         </div>
@@ -285,7 +285,7 @@ export function PayslipViewer({ employeeId, employeeName, employeeCode }: Paysli
                         (salaryStructure.medical_allowance || 0) +
                         (salaryStructure.other_allowances || 0) -
                         (salaryStructure.tax_deduction || 0) -
-                        (salaryStructure.other_deductions || 0)
+                        (salaryStructure.pf_deduction || 0)
                     )}
                   </span>
                 </div>
