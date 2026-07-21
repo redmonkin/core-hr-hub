@@ -73,7 +73,7 @@ export function SalaryStructureManager() {
     medical_allowance: "",
     other_allowances: "",
     tax_deduction: "",
-    other_deductions: "",
+    pf_deduction: "",
     effective_from: new Date().toISOString().split("T")[0],
   });
 
@@ -103,7 +103,7 @@ export function SalaryStructureManager() {
       medical_allowance: "",
       other_allowances: "",
       tax_deduction: "",
-      other_deductions: "",
+      pf_deduction: "",
       effective_from: new Date().toISOString().split("T")[0],
     });
   };
@@ -123,7 +123,7 @@ export function SalaryStructureManager() {
         medical_allowance: formData.medical_allowance ? parseFloat(formData.medical_allowance) : undefined,
         other_allowances: formData.other_allowances ? parseFloat(formData.other_allowances) : undefined,
         tax_deduction: formData.tax_deduction ? parseFloat(formData.tax_deduction) : undefined,
-        other_deductions: formData.other_deductions ? parseFloat(formData.other_deductions) : undefined,
+        pf_deduction: formData.pf_deduction ? parseFloat(formData.pf_deduction) : undefined,
         effective_from: formData.effective_from,
       },
       {
@@ -149,7 +149,7 @@ export function SalaryStructureManager() {
       medical_allowance: structure.medicalAllowance.toString(),
       other_allowances: structure.otherAllowances.toString(),
       tax_deduction: structure.taxDeduction.toString(),
-      other_deductions: structure.otherDeductions.toString(),
+      pf_deduction: structure.pfDeduction.toString(),
       effective_from: structure.effectiveFrom,
     });
     setIsEditDialogOpen(true);
@@ -170,7 +170,7 @@ export function SalaryStructureManager() {
         medical_allowance: formData.medical_allowance ? parseFloat(formData.medical_allowance) : 0,
         other_allowances: formData.other_allowances ? parseFloat(formData.other_allowances) : 0,
         tax_deduction: formData.tax_deduction ? parseFloat(formData.tax_deduction) : 0,
-        other_deductions: formData.other_deductions ? parseFloat(formData.other_deductions) : 0,
+        pf_deduction: formData.pf_deduction ? parseFloat(formData.pf_deduction) : 0,
         effective_from: formData.effective_from,
       },
       {
@@ -216,15 +216,19 @@ export function SalaryStructureManager() {
       (parseFloat(formData.other_allowances) || 0);
     const deductions =
       (parseFloat(formData.tax_deduction) || 0) +
-      (parseFloat(formData.other_deductions) || 0);
+      (parseFloat(formData.pf_deduction) || 0);
     return basic + allowances - deductions;
   };
 
   const SalaryFormFields = () => (
     <div className="space-y-4">
+      <p className="text-xs text-muted-foreground">
+        All amounts below are <span className="font-medium text-foreground">monthly</span> figures, not annual (CTC).
+      </p>
+
       <div className="grid grid-cols-2 gap-4">
         <div className="col-span-2 space-y-2">
-          <Label>Basic Salary *</Label>
+          <Label>Basic Salary (Monthly) *</Label>
           <Input
             type="number"
             value={formData.basic_salary}
@@ -289,11 +293,11 @@ export function SalaryStructureManager() {
             />
           </div>
           <div className="space-y-2">
-            <Label className="text-xs">Other</Label>
+            <Label className="text-xs">PF</Label>
             <Input
               type="number"
-              value={formData.other_deductions}
-              onChange={(e) => setFormData({ ...formData, other_deductions: e.target.value })}
+              value={formData.pf_deduction}
+              onChange={(e) => setFormData({ ...formData, pf_deduction: e.target.value })}
               placeholder="0"
             />
           </div>
