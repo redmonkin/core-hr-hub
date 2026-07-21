@@ -233,28 +233,32 @@ export function generatePayslipPDF(data: PayslipData): jsPDF {
   doc.setFont("helvetica", "normal");
   doc.text(amountToWords(data.netSalary), center, currentY, { align: "center" });
 
-  currentY += 24;
-
-  // === SIGNATURES ===
-  const sigLineWidth = 60;
-  const leftSigX = margin;
-  const rightSigX = pageWidth - margin - sigLineWidth;
-
-  doc.setFontSize(10);
-  doc.text("Employer Signature", leftSigX, currentY);
-  doc.text("Employee Signature", rightSigX, currentY);
-
-  const sigLineY = currentY + 24;
-  doc.setDrawColor(...COLORS.dark);
-  doc.setLineWidth(0.3);
-  doc.line(leftSigX, sigLineY, leftSigX + sigLineWidth, sigLineY);
-  doc.line(rightSigX, sigLineY, rightSigX + sigLineWidth, sigLineY);
+  const pageHeight = doc.internal.pageSize.getHeight();
 
   // === FOOTER ===
+  doc.setDrawColor(...COLORS.ruleLight);
+  doc.setLineWidth(0.3);
+  doc.line(margin, pageHeight - 35, pageWidth - margin, pageHeight - 35);
+
   doc.setTextColor(...COLORS.gray);
-  doc.setFontSize(9);
-  doc.setFont("helvetica", "normal");
-  doc.text("This is system generated payslip", center, sigLineY + 20, { align: "center" });
+  doc.setFontSize(8);
+  doc.setFont("helvetica", "italic");
+  doc.text(
+    "This is a computer-generated payslip and does not require a signature.",
+    center,
+    pageHeight - 25,
+    { align: "center" }
+  );
+  doc.text(
+    `Generated on ${new Date().toLocaleDateString("en-IN", {
+      day: "numeric",
+      month: "long",
+      year: "numeric"
+    })}`,
+    center,
+    pageHeight - 18,
+    { align: "center" }
+  );
 
   return doc;
 }
