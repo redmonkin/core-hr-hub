@@ -135,7 +135,7 @@ export function PayslipViewer({ employeeId, employeeName, employeeCode }: Paysli
     queryFn: async () => {
       const { data, error } = await supabase
         .from("employees")
-        .select("hire_date, designation, department:departments(name)")
+        .select("hire_date, designation, department:departments!employees_department_id_fkey(name)")
         .eq("id", employeeId)
         .maybeSingle();
 
