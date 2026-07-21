@@ -31,6 +31,7 @@ import { TaxDocumentsViewer } from "@/components/profile/TaxDocumentsViewer";
 import { MyAttendanceHistory } from "@/components/profile/MyAttendanceHistory";
 import { MyAssets } from "@/components/profile/MyAssets";
 import { MyPerformanceReviews } from "@/components/profile/MyPerformanceReviews";
+import { ChangeEmailDialog } from "@/components/profile/ChangeEmailDialog";
 
 interface EmployeeProfile {
   id: string;
@@ -398,7 +399,10 @@ const Profile = () => {
                     <div className="grid gap-4 sm:grid-cols-2">
                       <div className="space-y-2">
                         <Label>Email</Label>
-                        <Input value={employee.email} disabled />
+                        <div className="flex items-center gap-2">
+                          <Input value={employee.email} disabled className="flex-1" />
+                          <ChangeEmailDialog currentEmail={employee.email} />
+                        </div>
                       </div>
                       <div className="space-y-2">
                         <Label>Phone</Label>

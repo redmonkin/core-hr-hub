@@ -12,6 +12,7 @@ import { z } from "zod";
 import hrHubLogo from "@/assets/hr-hub-logo.svg";
 import hrHubLogoLight from "@/assets/hr-hub-logo-light.svg";
 import { supabase } from "@/integrations/supabase/client";
+import { checkEmailDomainAllowed } from "@/lib/domainWhitelist";
 
 const loginSchema = z.object({
   email: z.string().trim().email("Please enter a valid email address"),
@@ -140,36 +141,15 @@ const Auth = () => {
     setIsLoading(true);
 
     // Check domain whitelist before signup
-    try {
-      const { data: settings } = await supabase
-        .from('organization_settings')
-        .select('setting_value')
-        .eq('setting_key', 'domain_whitelist')
-        .single();
-
-      if (settings?.setting_value) {
-        const whitelist = settings.setting_value as unknown as { enabled: boolean; domains: string[] };
-        
-        if (whitelist.enabled && whitelist.domains.length > 0) {
-          const emailDomain = signupEmail.split('@')[1]?.toLowerCase();
-          const isAllowed = whitelist.domains.some(domain => 
-            emailDomain === domain.toLowerCase()
-          );
-          
-          if (!isAllowed) {
-            setIsLoading(false);
-            toast({
-              title: "Registration Restricted",
-              description: `Only email addresses from approved domains are allowed to register. Please contact your administrator.`,
-              variant: "destructive",
-            });
-            return;
-          }
-        }
-      }
-    } catch (error) {
-      // If we can't fetch settings, allow signup to continue
-      console.error("Error checking domain whitelist:", error);
+    const domainCheck = await checkEmailDomainAllowed(signupEmail);
+    if (!domainCheck.allowed) {
+      setIsLoading(false);
+      toast({
+        title: "Registration Restricted",
+        description: domainCheck.message,
+        variant: "destructive",
+      });
+      return;
     }
 
     const { error } = await signUp(signupEmail, signupPassword, signupName);
