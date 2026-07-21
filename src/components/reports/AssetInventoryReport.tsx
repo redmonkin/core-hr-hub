@@ -5,6 +5,8 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Download, Package } from "lucide-react";
 import { useAssetReport } from "@/hooks/useAssetReport";
+import { useCompanyBranding } from "@/hooks/useCompanyBranding";
+import { drawPdfHeader, drawPdfFooter, fetchImageAsDataUrl, formatCurrencyForPdf, PDF_TABLE_HEAD_STYLE, PDF_COLORS } from "@/lib/pdfTheme";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
@@ -27,52 +29,62 @@ function getStatusBadge(status: string) {
 
 export function AssetInventoryReport() {
   const { data: report, isLoading, error } = useAssetReport();
+  const { data: branding } = useCompanyBranding();
 
   const exportToPDF = async () => {
     if (!report) return;
 
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const margin = 20;
+    const logoDataUrl = await fetchImageAsDataUrl(branding?.logoUrl);
 
-    // Header
-    doc.setFontSize(20);
-    doc.text("Asset Inventory Report", pageWidth / 2, 20, { align: "center" });
-
-    doc.setFontSize(10);
-    doc.text(`Generated: ${new Date().toLocaleDateString()}`, pageWidth / 2, 28, {
-      align: "center",
+    let yPos = drawPdfHeader(doc, {
+      title: "Asset Inventory Report",
+      companyName: branding?.companyName,
+      companyAddress: branding?.companyAddress,
+      logoDataUrl,
+      pageWidth,
+      margin,
     });
 
     // Summary statistics
-    doc.setFontSize(14);
-    doc.text("Summary", 14, 42);
+    doc.setTextColor(...PDF_COLORS.dark);
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "bold");
+    doc.text("Summary", margin, yPos);
+    yPos += 8;
 
     doc.setFontSize(10);
-    doc.text(`Total Assets: ${report.totalAssets}`, 14, 52);
-    doc.text(`Total Value: ${formatCurrency(report.totalValue)}`, 14, 58);
+    doc.setFont("helvetica", "normal");
+    doc.text(`Total Assets: ${report.totalAssets}`, margin, yPos);
+    yPos += 6;
+    doc.text(`Total Value: ${formatCurrencyForPdf(report.totalValue)}`, margin, yPos);
+    yPos += 10;
 
     // Status breakdown
-    let yPos = 68;
-    doc.text("By Status:", 14, yPos);
+    doc.text("By Status:", margin, yPos);
     yPos += 6;
     report.byStatus.forEach((item) => {
-      doc.text(`  ${item.status}: ${item.count}`, 14, yPos);
+      doc.text(`  ${item.status}: ${item.count}`, margin, yPos);
       yPos += 5;
     });
 
     // Category breakdown
     yPos += 4;
-    doc.text("By Category:", 14, yPos);
+    doc.text("By Category:", margin, yPos);
     yPos += 6;
     report.byCategory.forEach((item) => {
-      doc.text(`  ${item.category}: ${item.count}`, 14, yPos);
+      doc.text(`  ${item.category}: ${item.count}`, margin, yPos);
       yPos += 5;
     });
 
     // Asset details table
-    yPos += 10;
-    doc.setFontSize(14);
-    doc.text("Asset Details", 14, yPos);
+    yPos += 6;
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "bold");
+    doc.text("Asset Details", margin, yPos);
 
     autoTable(doc, {
       startY: yPos + 6,
@@ -82,12 +94,18 @@ export function AssetInventoryReport() {
         asset.name,
         asset.category,
         asset.status,
-        formatCurrency(asset.purchaseCost),
+        formatCurrencyForPdf(asset.purchaseCost),
         asset.assignedTo,
       ]),
       styles: { fontSize: 8 },
-      headStyles: { fillColor: [59, 130, 246] },
+      headStyles: PDF_TABLE_HEAD_STYLE,
     });
+
+    const pageCount = doc.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      drawPdfFooter(doc, { pageWidth, pageHeight, margin, pageNumber: i, totalPages: pageCount });
+    }
 
     doc.save(`asset-inventory-report-${new Date().toISOString().split("T")[0]}.pdf`);
   };

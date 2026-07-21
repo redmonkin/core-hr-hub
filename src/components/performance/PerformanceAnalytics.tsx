@@ -22,6 +22,8 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { useCompanyBranding } from "@/hooks/useCompanyBranding";
+import { drawPdfHeader, drawPdfFooter, fetchImageAsDataUrl, PDF_TABLE_HEAD_STYLE } from "@/lib/pdfTheme";
 import {
   LineChart,
   Line,
@@ -44,6 +46,7 @@ interface PerformanceAnalyticsProps {
 export function PerformanceAnalytics({ employeeId }: PerformanceAnalyticsProps) {
   const [startDate, setStartDate] = useState<Date | undefined>(subMonths(new Date(), 6));
   const [endDate, setEndDate] = useState<Date | undefined>(new Date());
+  const { data: branding } = useCompanyBranding();
 
   // Fetch KPIs for trend analysis
   const { data: goals, isLoading: goalsLoading } = useQuery({
@@ -203,22 +206,31 @@ export function PerformanceAnalytics({ employeeId }: PerformanceAnalyticsProps) 
   };
 
   // Export to PDF
-  const exportToPDF = () => {
+  const exportToPDF = async () => {
     const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const margin = 20;
     const dateRange = `${startDate ? format(startDate, "MMM d, yyyy") : "All"} to ${endDate ? format(endDate, "MMM d, yyyy") : "All"}`;
-    
-    doc.setFontSize(18);
-    doc.text("Performance Analytics Report", 14, 22);
-    
-    doc.setFontSize(11);
-    doc.text(`Date Range: ${dateRange}`, 14, 32);
-    
+    const logoDataUrl = await fetchImageAsDataUrl(branding?.logoUrl);
+
+    const currentY = drawPdfHeader(doc, {
+      title: "Performance Analytics Report",
+      subtitle: `Date Range: ${dateRange}`,
+      companyName: branding?.companyName,
+      companyAddress: branding?.companyAddress,
+      logoDataUrl,
+      pageWidth,
+      margin,
+    });
+
     // Summary section
-    doc.setFontSize(14);
-    doc.text("Summary", 14, 45);
-    
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "bold");
+    doc.text("Summary", margin, currentY);
+
     autoTable(doc, {
-      startY: 50,
+      startY: currentY + 5,
       head: [["Metric", "Value"]],
       body: [
         ["Total KPIs", filteredGoals.length.toString()],
@@ -227,13 +239,15 @@ export function PerformanceAnalytics({ employeeId }: PerformanceAnalyticsProps) 
         ["Average Rating", avgRating.toString()],
       ],
       theme: "striped",
+      headStyles: PDF_TABLE_HEAD_STYLE,
     });
 
     // Goals section
-    const goalsStartY = (doc as any).lastAutoTable.finalY + 15;
-    doc.setFontSize(14);
-    doc.text("KPIs", 14, goalsStartY);
-    
+    const goalsStartY = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 15;
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "bold");
+    doc.text("KPIs", margin, goalsStartY);
+
     if (filteredGoals.length > 0) {
       autoTable(doc, {
         startY: goalsStartY + 5,
@@ -246,14 +260,16 @@ export function PerformanceAnalytics({ employeeId }: PerformanceAnalyticsProps) 
           goal.due_date || "N/A",
         ]),
         theme: "striped",
+        headStyles: PDF_TABLE_HEAD_STYLE,
       });
     }
 
     // Reviews section
-    const reviewsStartY = (doc as any).lastAutoTable.finalY + 15;
-    doc.setFontSize(14);
-    doc.text("Performance Reviews", 14, reviewsStartY);
-    
+    const reviewsStartY = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 15;
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "bold");
+    doc.text("Performance Reviews", margin, reviewsStartY);
+
     if (filteredReviews.length > 0) {
       autoTable(doc, {
         startY: reviewsStartY + 5,
@@ -265,7 +281,14 @@ export function PerformanceAnalytics({ employeeId }: PerformanceAnalyticsProps) 
           review.status,
         ]),
         theme: "striped",
+        headStyles: PDF_TABLE_HEAD_STYLE,
       });
+    }
+
+    const pageCount = doc.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      drawPdfFooter(doc, { pageWidth, pageHeight, margin, pageNumber: i, totalPages: pageCount });
     }
 
     doc.save(`performance_analytics_${startDate ? format(startDate, "yyyy-MM-dd") : "all"}_to_${endDate ? format(endDate, "yyyy-MM-dd") : "all"}.pdf`);

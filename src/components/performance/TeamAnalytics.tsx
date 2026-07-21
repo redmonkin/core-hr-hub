@@ -32,6 +32,8 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { useCompanyBranding } from "@/hooks/useCompanyBranding";
+import { drawPdfHeader, drawPdfFooter, fetchImageAsDataUrl, PDF_TABLE_HEAD_STYLE } from "@/lib/pdfTheme";
 import {
   LineChart,
   Line,
@@ -56,6 +58,7 @@ export function TeamAnalytics({ isManager, managerId }: TeamAnalyticsProps) {
   const [startDate, setStartDate] = useState<Date | undefined>(subMonths(new Date(), 6));
   const [endDate, setEndDate] = useState<Date | undefined>(new Date());
   const [selectedDepartment, setSelectedDepartment] = useState<string>("all");
+  const { data: branding } = useCompanyBranding();
 
   // Fetch all employees (filtered by manager if manager view)
   const { data: employees, isLoading: employeesLoading } = useQuery({
@@ -274,22 +277,31 @@ export function TeamAnalytics({ isManager, managerId }: TeamAnalyticsProps) {
     toast.success("CSV exported successfully");
   };
 
-  const exportToPDF = () => {
+  const exportToPDF = async () => {
     const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const margin = 20;
     const dateRange = `${startDate ? format(startDate, "MMM d, yyyy") : "All"} to ${endDate ? format(endDate, "MMM d, yyyy") : "All"}`;
-    
-    doc.setFontSize(18);
-    doc.text("Team Performance Analytics", 14, 22);
-    
-    doc.setFontSize(11);
-    doc.text(`Date Range: ${dateRange}`, 14, 32);
-    
+    const logoDataUrl = await fetchImageAsDataUrl(branding?.logoUrl);
+
+    const currentY = drawPdfHeader(doc, {
+      title: "Team Performance Analytics",
+      subtitle: `Date Range: ${dateRange}`,
+      companyName: branding?.companyName,
+      companyAddress: branding?.companyAddress,
+      logoDataUrl,
+      pageWidth,
+      margin,
+    });
+
     // Summary
-    doc.setFontSize(14);
-    doc.text("Summary", 14, 45);
-    
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "bold");
+    doc.text("Summary", margin, currentY);
+
     autoTable(doc, {
-      startY: 50,
+      startY: currentY + 5,
       head: [["Metric", "Value"]],
       body: [
         ["Total Employees", teamStats.totalEmployees.toString()],
@@ -301,13 +313,15 @@ export function TeamAnalytics({ isManager, managerId }: TeamAnalyticsProps) {
         ["Average Rating", teamStats.avgRating.toString()],
       ],
       theme: "striped",
+      headStyles: PDF_TABLE_HEAD_STYLE,
     });
 
     // Employee rankings
-    const startY = (doc as any).lastAutoTable.finalY + 15;
-    doc.setFontSize(14);
-    doc.text("Employee Performance", 14, startY);
-    
+    const startY = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 15;
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "bold");
+    doc.text("Employee Performance", margin, startY);
+
     autoTable(doc, {
       startY: startY + 5,
       head: [["Employee", "Designation", "Goals", "Completed", "Progress", "Avg Rating"]],
@@ -320,7 +334,14 @@ export function TeamAnalytics({ isManager, managerId }: TeamAnalyticsProps) {
         emp.avgRating.toFixed(1),
       ]),
       theme: "striped",
+      headStyles: PDF_TABLE_HEAD_STYLE,
     });
+
+    const pageCount = doc.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      drawPdfFooter(doc, { pageWidth, pageHeight, margin, pageNumber: i, totalPages: pageCount });
+    }
 
     doc.save(`team_analytics_${startDate ? format(startDate, "yyyy-MM-dd") : "all"}_to_${endDate ? format(endDate, "yyyy-MM-dd") : "all"}.pdf`);
     toast.success("PDF exported successfully");

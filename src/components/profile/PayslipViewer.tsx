@@ -28,6 +28,8 @@ import {
 } from "@/components/ui/collapsible";
 import { Download, FileText, Wallet, ChevronDown, ChevronUp, Plus, Minus } from "lucide-react";
 import { downloadPayslip } from "@/lib/payslipPdfGenerator";
+import { fetchImageAsDataUrl } from "@/lib/pdfTheme";
+import { useCompanyBranding } from "@/hooks/useCompanyBranding";
 
 interface PayslipViewerProps {
   employeeId: string;
@@ -89,6 +91,7 @@ export function PayslipViewer({ employeeId, employeeName, employeeCode }: Paysli
   const currentDate = new Date();
   const [selectedYear, setSelectedYear] = useState(String(currentDate.getFullYear()));
   const [expandedRecord, setExpandedRecord] = useState<string | null>(null);
+  const { data: branding } = useCompanyBranding();
 
   // Fetch payroll records for the employee
   const { data: payrollRecords, isLoading } = useQuery({
@@ -143,8 +146,9 @@ export function PayslipViewer({ employeeId, employeeName, employeeCode }: Paysli
     return items;
   };
 
-  const handleDownloadPayslip = (record: typeof payrollRecords extends (infer T)[] ? T : never) => {
+  const handleDownloadPayslip = async (record: typeof payrollRecords extends (infer T)[] ? T : never) => {
     const monthName = MONTHS.find((m) => m.value === String(record.month))?.label || "";
+    const logoDataUrl = await fetchImageAsDataUrl(branding?.logoUrl);
 
     downloadPayslip({
       employeeName,
@@ -158,6 +162,9 @@ export function PayslipViewer({ employeeId, employeeName, employeeCode }: Paysli
       allowances: Number(record.total_allowances) || 0,
       deductions: Number(record.total_deductions) || 0,
       netSalary: record.net_salary,
+      companyName: branding?.companyName || undefined,
+      companyAddress: branding?.companyAddress || undefined,
+      logoDataUrl,
       salaryBreakdown: salaryStructure ? {
         hra: salaryStructure.hra ?? undefined,
         transport_allowance: salaryStructure.transport_allowance ?? undefined,

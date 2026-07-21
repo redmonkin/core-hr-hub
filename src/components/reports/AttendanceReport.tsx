@@ -21,6 +21,8 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Download, Clock, AlertTriangle, Timer, Loader2 } from "lucide-react";
 import { useAttendanceReportData } from "@/hooks/useAttendanceReport";
+import { useCompanyBranding } from "@/hooks/useCompanyBranding";
+import { drawPdfHeader, drawPdfFooter, fetchImageAsDataUrl, PDF_TABLE_HEAD_STYLE, PDF_COLORS } from "@/lib/pdfTheme";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
@@ -66,6 +68,7 @@ export function AttendanceReport() {
     parseInt(selectedMonth),
     parseInt(selectedYear)
   );
+  const { data: branding } = useCompanyBranding();
 
   const exportToPDF = async () => {
     if (!summary) return;
@@ -75,27 +78,33 @@ export function AttendanceReport() {
     try {
       const doc = new jsPDF();
       const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+      const margin = 20;
+      const logoDataUrl = await fetchImageAsDataUrl(branding?.logoUrl);
 
-      // Header
-      doc.setFontSize(20);
-      doc.setFont("helvetica", "bold");
-      doc.text("Attendance Report", pageWidth / 2, 20, { align: "center" });
-
-      doc.setFontSize(14);
-      doc.setFont("helvetica", "normal");
-      doc.text(`Late Arrivals & Overtime - ${summary.monthName}`, pageWidth / 2, 30, { align: "center" });
+      let currentY = drawPdfHeader(doc, {
+        title: "Attendance Report",
+        subtitle: `Late Arrivals & Overtime — ${summary.monthName}`,
+        companyName: branding?.companyName,
+        companyAddress: branding?.companyAddress,
+        logoDataUrl,
+        pageWidth,
+        margin,
+      });
 
       // Summary stats
+      doc.setTextColor(...PDF_COLORS.dark);
       doc.setFontSize(10);
-      doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 14, 45);
-      doc.text(`Total Employees: ${summary.totalEmployees}`, 14, 52);
-      doc.text(`Total Late Arrivals: ${summary.totalLateArrivals}`, 14, 59);
-      doc.text(`Total Overtime: ${formatHours(summary.totalOvertimeHours)}`, 14, 66);
-      doc.text(`Average Late Time: ${formatDuration(summary.avgLateMinutes)}`, 14, 73);
+      doc.setFont("helvetica", "normal");
+      doc.text(`Total Employees: ${summary.totalEmployees}`, margin, currentY);
+      doc.text(`Total Late Arrivals: ${summary.totalLateArrivals}`, margin, currentY + 7);
+      doc.text(`Total Overtime: ${formatHours(summary.totalOvertimeHours)}`, margin, currentY + 14);
+      doc.text(`Average Late Time: ${formatDuration(summary.avgLateMinutes)}`, margin, currentY + 21);
+      currentY += 32;
 
       // Employee details table
       autoTable(doc, {
-        startY: 85,
+        startY: currentY,
         head: [["Employee", "Code", "Department", "Days Worked", "Total Hours", "Late Arrivals", "Late Time", "Overtime"]],
         body: summary.records.map((record) => [
           record.employeeName,
@@ -118,9 +127,9 @@ export function AttendanceReport() {
           formatHours(summary.totalOvertimeHours),
         ]],
         theme: "striped",
-        headStyles: { fillColor: [59, 130, 246], fontSize: 8 },
+        headStyles: PDF_TABLE_HEAD_STYLE,
         bodyStyles: { fontSize: 8 },
-        footStyles: { fillColor: [243, 244, 246], textColor: [0, 0, 0], fontStyle: "bold", fontSize: 8 },
+        footStyles: { fillColor: PDF_COLORS.ruleLight, textColor: PDF_COLORS.dark, fontStyle: "bold", fontSize: 8 },
         columnStyles: {
           0: { cellWidth: 30 },
           1: { cellWidth: 20 },
@@ -137,14 +146,7 @@ export function AttendanceReport() {
       const pageCount = doc.getNumberOfPages();
       for (let i = 1; i <= pageCount; i++) {
         doc.setPage(i);
-        doc.setFontSize(8);
-        doc.setFont("helvetica", "normal");
-        doc.text(
-          `Page ${i} of ${pageCount}`,
-          pageWidth / 2,
-          doc.internal.pageSize.getHeight() - 10,
-          { align: "center" }
-        );
+        drawPdfFooter(doc, { pageWidth, pageHeight, margin, pageNumber: i, totalPages: pageCount });
       }
 
       doc.save(`Attendance_Report_${summary.monthName.replace(" ", "_")}.pdf`);

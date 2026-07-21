@@ -26,6 +26,8 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { DateRangeExportDialog } from "@/components/export/DateRangeExportDialog";
 import { format, parseISO, isWithinInterval, isAfter, isBefore } from "date-fns";
+import { useCompanyBranding } from "@/hooks/useCompanyBranding";
+import { drawPdfHeader, drawPdfFooter, fetchImageAsDataUrl, PDF_TABLE_HEAD_STYLE, PDF_COLORS } from "@/lib/pdfTheme";
 const Assets = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
@@ -61,6 +63,7 @@ const Assets = () => {
   const {
     isAdminOrHR
   } = useIsAdminOrHR();
+  const { data: branding } = useCompanyBranding();
   const createAsset = useCreateAsset();
   const updateAsset = useUpdateAsset();
   const deleteAsset = useDeleteAsset();
@@ -141,30 +144,50 @@ const Assets = () => {
     link.click();
     toast.success(`${dataToExport.length} assets exported to CSV`);
   };
-  const exportToPDF = (startDate?: Date, endDate?: Date) => {
+  const exportToPDF = async (startDate?: Date, endDate?: Date) => {
     const dataToExport = filterByDateRange(sortedAssets, startDate, endDate);
     const doc = new jsPDF();
-    doc.setFontSize(18);
-    doc.text("Asset Inventory", 14, 22);
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const margin = 20;
+    const logoDataUrl = await fetchImageAsDataUrl(branding?.logoUrl);
+
+    const subtitle = startDate || endDate
+      ? `Date Range: ${startDate ? format(startDate, "PP") : "Start"} - ${endDate ? format(endDate, "PP") : "End"}`
+      : undefined;
+
+    let currentY = drawPdfHeader(doc, {
+      title: "Asset Inventory",
+      subtitle,
+      companyName: branding?.companyName,
+      companyAddress: branding?.companyAddress,
+      logoDataUrl,
+      pageWidth,
+      margin,
+    });
+
+    doc.setTextColor(...PDF_COLORS.dark);
     doc.setFontSize(10);
-    doc.text(`Generated on ${new Date().toLocaleDateString()}`, 14, 30);
-    if (startDate || endDate) {
-      doc.text(`Date Range: ${startDate ? format(startDate, "PP") : "Start"} - ${endDate ? format(endDate, "PP") : "End"}`, 14, 36);
-      doc.text(`Total Assets: ${dataToExport.length}`, 14, 42);
-    } else {
-      doc.text(`Total Assets: ${dataToExport.length}`, 14, 36);
-    }
+    doc.setFont("helvetica", "normal");
+    doc.text(`Total Assets: ${dataToExport.length}`, margin, currentY);
+    currentY += 10;
+
     autoTable(doc, {
-      startY: startDate || endDate ? 50 : 44,
+      startY: currentY,
       head: [["Name", "Category", "Serial Number", "Status", "Cost", "Assigned To"]],
-      body: dataToExport.map(asset => [asset.name, asset.type, asset.serialNumber, asset.status, `₹${asset.cost.toLocaleString()}`, asset.assignedTo?.name || "Unassigned"]),
+      body: dataToExport.map(asset => [asset.name, asset.type, asset.serialNumber, asset.status, `Rs. ${asset.cost.toLocaleString()}`, asset.assignedTo?.name || "Unassigned"]),
       styles: {
         fontSize: 8
       },
-      headStyles: {
-        fillColor: [59, 130, 246]
-      }
+      headStyles: PDF_TABLE_HEAD_STYLE
     });
+
+    const pageCount = doc.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      drawPdfFooter(doc, { pageWidth, pageHeight, margin, pageNumber: i, totalPages: pageCount });
+    }
+
     const dateRange = startDate || endDate ? `-${startDate ? format(startDate, "yyyy-MM-dd") : "start"}-to-${endDate ? format(endDate, "yyyy-MM-dd") : "end"}` : "";
     doc.save(`assets${dateRange}-${new Date().toISOString().split("T")[0]}.pdf`);
     toast.success(`${dataToExport.length} assets exported to PDF`);

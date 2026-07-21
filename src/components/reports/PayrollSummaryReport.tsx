@@ -21,6 +21,8 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Download, FileText, Loader2 } from "lucide-react";
 import { usePayrollSummary } from "@/hooks/usePayrollSummary";
+import { useCompanyBranding } from "@/hooks/useCompanyBranding";
+import { drawPdfHeader, drawPdfFooter, fetchImageAsDataUrl, formatCurrencyForPdf, PDF_TABLE_HEAD_STYLE, PDF_COLORS } from "@/lib/pdfTheme";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
@@ -74,6 +76,7 @@ export function PayrollSummaryReport() {
     parseInt(selectedMonth),
     parseInt(selectedYear)
   );
+  const { data: branding } = useCompanyBranding();
 
   const exportToPDF = async () => {
     if (!summary) return;
@@ -83,33 +86,38 @@ export function PayrollSummaryReport() {
     try {
       const doc = new jsPDF();
       const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+      const margin = 20;
+      const logoDataUrl = await fetchImageAsDataUrl(branding?.logoUrl);
 
-      // Header
-      doc.setFontSize(20);
-      doc.setFont("helvetica", "bold");
-      doc.text("Monthly Payroll Summary Report", pageWidth / 2, 20, { align: "center" });
+      let currentY = drawPdfHeader(doc, {
+        title: "Monthly Payroll Summary Report",
+        subtitle: summary.monthName,
+        companyName: branding?.companyName,
+        companyAddress: branding?.companyAddress,
+        logoDataUrl,
+        pageWidth,
+        margin,
+      });
 
-      doc.setFontSize(14);
-      doc.setFont("helvetica", "normal");
-      doc.text(summary.monthName, pageWidth / 2, 30, { align: "center" });
-
-      // Summary stats
+      doc.setTextColor(...PDF_COLORS.dark);
       doc.setFontSize(10);
-      doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 14, 45);
-      doc.text(`Total Employees: ${summary.employeeCount}`, 14, 52);
+      doc.setFont("helvetica", "normal");
+      doc.text(`Total Employees: ${summary.employeeCount}`, margin, currentY);
+      currentY += 10;
 
       // Summary table
       autoTable(doc, {
-        startY: 60,
+        startY: currentY,
         head: [["Category", "Amount"]],
         body: [
-          ["Total Basic Salary", formatCurrency(summary.totalBasic)],
-          ["Total Allowances", formatCurrency(summary.totalAllowances)],
-          ["Total Deductions", formatCurrency(summary.totalDeductions)],
-          ["Total Net Salary", formatCurrency(summary.totalNetSalary)],
+          ["Total Basic Salary", formatCurrencyForPdf(summary.totalBasic)],
+          ["Total Allowances", formatCurrencyForPdf(summary.totalAllowances)],
+          ["Total Deductions", formatCurrencyForPdf(summary.totalDeductions)],
+          ["Total Net Salary", formatCurrencyForPdf(summary.totalNetSalary)],
         ],
         theme: "grid",
-        headStyles: { fillColor: [59, 130, 246] },
+        headStyles: PDF_TABLE_HEAD_STYLE,
         styles: { fontSize: 10 },
         columnStyles: {
           0: { cellWidth: 80 },
@@ -118,11 +126,12 @@ export function PayrollSummaryReport() {
       });
 
       // Employee details table
-      const finalY = (doc as any).lastAutoTable.finalY || 100;
+      const finalY = (doc as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ?? currentY + 40;
 
+      doc.setTextColor(...PDF_COLORS.dark);
       doc.setFontSize(12);
       doc.setFont("helvetica", "bold");
-      doc.text("Employee Payroll Details", 14, finalY + 15);
+      doc.text("Employee Payroll Details", margin, finalY + 15);
 
       autoTable(doc, {
         startY: finalY + 20,
@@ -130,25 +139,25 @@ export function PayrollSummaryReport() {
         body: summary.records.map((record) => [
           record.employeeName,
           record.department,
-          formatCurrency(record.basicSalary),
-          formatCurrency(record.allowances),
-          formatCurrency(record.deductions),
-          formatCurrency(record.netSalary),
+          formatCurrencyForPdf(record.basicSalary),
+          formatCurrencyForPdf(record.allowances),
+          formatCurrencyForPdf(record.deductions),
+          formatCurrencyForPdf(record.netSalary),
           record.status.charAt(0).toUpperCase() + record.status.slice(1),
         ]),
         foot: [[
           "TOTAL",
           "",
-          formatCurrency(summary.totalBasic),
-          formatCurrency(summary.totalAllowances),
-          formatCurrency(summary.totalDeductions),
-          formatCurrency(summary.totalNetSalary),
+          formatCurrencyForPdf(summary.totalBasic),
+          formatCurrencyForPdf(summary.totalAllowances),
+          formatCurrencyForPdf(summary.totalDeductions),
+          formatCurrencyForPdf(summary.totalNetSalary),
           "",
         ]],
         theme: "striped",
-        headStyles: { fillColor: [59, 130, 246], fontSize: 8 },
+        headStyles: { ...PDF_TABLE_HEAD_STYLE, fontSize: 8 },
         bodyStyles: { fontSize: 8 },
-        footStyles: { fillColor: [243, 244, 246], textColor: [0, 0, 0], fontStyle: "bold", fontSize: 8 },
+        footStyles: { fillColor: PDF_COLORS.ruleLight, textColor: PDF_COLORS.dark, fontStyle: "bold", fontSize: 8 },
         columnStyles: {
           0: { cellWidth: 35 },
           1: { cellWidth: 30 },
@@ -164,14 +173,7 @@ export function PayrollSummaryReport() {
       const pageCount = doc.getNumberOfPages();
       for (let i = 1; i <= pageCount; i++) {
         doc.setPage(i);
-        doc.setFontSize(8);
-        doc.setFont("helvetica", "normal");
-        doc.text(
-          `Page ${i} of ${pageCount}`,
-          pageWidth / 2,
-          doc.internal.pageSize.getHeight() - 10,
-          { align: "center" }
-        );
+        drawPdfFooter(doc, { pageWidth, pageHeight, margin, pageNumber: i, totalPages: pageCount });
       }
 
       doc.save(`Payroll_Summary_${summary.monthName.replace(" ", "_")}.pdf`);

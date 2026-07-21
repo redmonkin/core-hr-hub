@@ -25,8 +25,10 @@ import {
 import { Download, Eye, MoreVertical, CheckCircle, Clock, CreditCard, CalendarCheck, Loader2, X } from "lucide-react";
 import { useState } from "react";
 import { downloadPayslip } from "@/lib/payslipPdfGenerator";
+import { fetchImageAsDataUrl } from "@/lib/pdfTheme";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useCompanyBranding } from "@/hooks/useCompanyBranding";
 
 export interface PayrollRecord {
   id: string;
@@ -88,6 +90,7 @@ export function PayrollTable({
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const { toast } = useToast();
+  const { data: branding } = useCompanyBranding();
 
   const toggleSelection = (id: string) => {
     setSelectedIds((prev) => {
@@ -169,6 +172,7 @@ export function PayrollTable({
         .maybeSingle();
 
       const monthName = MONTH_NAMES[record.monthNum - 1] || "";
+      const logoDataUrl = await fetchImageAsDataUrl(branding?.logoUrl);
 
       downloadPayslip({
         employeeName: record.employee.name,
@@ -182,6 +186,9 @@ export function PayrollTable({
         allowances: record.allowances,
         deductions: record.deductions,
         netSalary: record.netSalary,
+        companyName: branding?.companyName || undefined,
+        companyAddress: branding?.companyAddress || undefined,
+        logoDataUrl,
         salaryBreakdown: salaryStructure ? {
           hra: salaryStructure.hra ?? undefined,
           transport_allowance: salaryStructure.transport_allowance ?? undefined,

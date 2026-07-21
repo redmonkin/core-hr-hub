@@ -47,6 +47,8 @@ import { formatCurrency } from "@/lib/currency";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { toast } from "sonner";
+import { useCompanyBranding } from "@/hooks/useCompanyBranding";
+import { drawPdfHeader, drawPdfFooter, fetchImageAsDataUrl, formatCurrencyForPdf, PDF_TABLE_HEAD_STYLE } from "@/lib/pdfTheme";
 
 const currentYear = new Date().getFullYear();
 const YEARS = Array.from({ length: 5 }, (_, i) => String(currentYear - i));
@@ -69,6 +71,7 @@ export function EmployeeReport() {
   const [comboOpen, setComboOpen] = useState(false);
 
   const year = parseInt(selectedYear);
+  const { data: branding } = useCompanyBranding();
 
   // Fetch all employees for dropdown
   const { data: employees, isLoading: loadingEmployees } = useQuery({
@@ -82,7 +85,7 @@ export function EmployeeReport() {
         `)
         .order("first_name");
       if (error) throw error;
-      return (data || []).map((e: any): EmployeeOption => ({
+      return (data || []).map((e): EmployeeOption => ({
         id: e.id,
         name: `${e.first_name} ${e.last_name}`,
         employee_code: e.employee_code,
@@ -239,26 +242,28 @@ export function EmployeeReport() {
   const monthLabel = (m: number) =>
     format(new Date(year, m - 1, 1), "MMMM");
 
-  const exportPdf = () => {
+  const exportPdf = async () => {
     if (!selectedEmployee) return;
     const doc = new jsPDF();
-    let y = 14;
-    doc.setFontSize(16);
-    doc.text(`Employee Report — ${selectedEmployee.name}`, 14, y);
-    y += 6;
-    doc.setFontSize(10);
-    doc.setTextColor(100);
-    doc.text(
-      `${selectedEmployee.employee_code} • ${selectedEmployee.designation} • Year: ${year}`,
-      14,
-      y
-    );
-    doc.setTextColor(0);
-    y += 8;
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const margin = 20;
+    const logoDataUrl = await fetchImageAsDataUrl(branding?.logoUrl);
+
+    let y = drawPdfHeader(doc, {
+      title: `Employee Report — ${selectedEmployee.name}`,
+      subtitle: `${selectedEmployee.employee_code} • ${selectedEmployee.designation} • Year: ${year}`,
+      companyName: branding?.companyName,
+      companyAddress: branding?.companyAddress,
+      logoDataUrl,
+      pageWidth,
+      margin,
+    });
 
     if (leaveData?.balances?.length) {
       doc.setFontSize(12);
-      doc.text("Leave Balance", 14, y);
+      doc.setFont("helvetica", "bold");
+      doc.text("Leave Balance", margin, y);
       autoTable(doc, {
         startY: y + 2,
         head: [["Type", "Total", "Used", "Remaining"]],
@@ -269,14 +274,15 @@ export function EmployeeReport() {
           b.remaining,
         ]),
         theme: "striped",
-        headStyles: { fillColor: [37, 99, 235] },
+        headStyles: PDF_TABLE_HEAD_STYLE,
       });
-      y = (doc as any).lastAutoTable.finalY + 8;
+      y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 8;
     }
 
     if (attendanceData) {
       doc.setFontSize(12);
-      doc.text("Attendance Summary", 14, y);
+      doc.setFont("helvetica", "bold");
+      doc.text("Attendance Summary", margin, y);
       autoTable(doc, {
         startY: y + 2,
         head: [["Days Logged", "Total Hours", "Present", "Late", "WFO", "WFH"]],
@@ -291,38 +297,40 @@ export function EmployeeReport() {
           ],
         ],
         theme: "striped",
-        headStyles: { fillColor: [37, 99, 235] },
+        headStyles: PDF_TABLE_HEAD_STYLE,
       });
-      y = (doc as any).lastAutoTable.finalY + 8;
+      y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 8;
     }
 
     if (payrollData?.records?.length) {
       doc.setFontSize(12);
-      doc.text("Payroll", 14, y);
+      doc.setFont("helvetica", "bold");
+      doc.text("Payroll", margin, y);
       autoTable(doc, {
         startY: y + 2,
         head: [["Month", "Basic", "Allowances", "Deductions", "Net", "Status"]],
         body: payrollData.records.map((r) => [
           monthLabel(r.month),
-          formatCurrency(Number(r.basic_salary)),
-          formatCurrency(Number(r.total_allowances || 0)),
-          formatCurrency(Number(r.total_deductions || 0)),
-          formatCurrency(Number(r.net_salary)),
+          formatCurrencyForPdf(Number(r.basic_salary)),
+          formatCurrencyForPdf(Number(r.total_allowances || 0)),
+          formatCurrencyForPdf(Number(r.total_deductions || 0)),
+          formatCurrencyForPdf(Number(r.net_salary)),
           r.status,
         ]),
         theme: "striped",
-        headStyles: { fillColor: [37, 99, 235] },
+        headStyles: PDF_TABLE_HEAD_STYLE,
       });
-      y = (doc as any).lastAutoTable.finalY + 8;
+      y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 8;
     }
 
     if (assetData?.all?.length) {
       doc.setFontSize(12);
-      doc.text("Assets", 14, y);
+      doc.setFont("helvetica", "bold");
+      doc.text("Assets", margin, y);
       autoTable(doc, {
         startY: y + 2,
         head: [["Asset", "Code", "Category", "Assigned", "Returned"]],
-        body: assetData.all.map((a: any) => [
+        body: assetData.all.map((a) => [
           a.asset?.name ?? "-",
           a.asset?.asset_code ?? "-",
           a.asset?.category ?? "-",
@@ -330,8 +338,14 @@ export function EmployeeReport() {
           a.returned_date ? format(new Date(a.returned_date), "dd MMM yyyy") : "Active",
         ]),
         theme: "striped",
-        headStyles: { fillColor: [37, 99, 235] },
+        headStyles: PDF_TABLE_HEAD_STYLE,
       });
+    }
+
+    const pageCount = doc.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      drawPdfFooter(doc, { pageWidth, pageHeight, margin, pageNumber: i, totalPages: pageCount });
     }
 
     doc.save(`${selectedEmployee.employee_code}-report-${year}.pdf`);
@@ -766,7 +780,7 @@ export function EmployeeReport() {
                   </TableHeader>
                   <TableBody>
                     {assetData?.all && assetData.all.length > 0 ? (
-                      assetData.all.map((a: any) => (
+                      assetData.all.map((a) => (
                         <TableRow key={a.id}>
                           <TableCell className="font-medium">{a.asset?.name ?? "-"}</TableCell>
                           <TableCell className="font-mono text-xs">

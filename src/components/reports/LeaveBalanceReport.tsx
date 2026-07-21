@@ -19,6 +19,8 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { Download, Calendar, Loader2 } from "lucide-react";
 import { useLeaveBalanceReport } from "@/hooks/useLeaveBalanceReport";
+import { useCompanyBranding } from "@/hooks/useCompanyBranding";
+import { drawPdfHeader, drawPdfFooter, fetchImageAsDataUrl, PDF_TABLE_HEAD_STYLE, PDF_COLORS } from "@/lib/pdfTheme";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
@@ -33,6 +35,7 @@ export function LeaveBalanceReport() {
   const [isExporting, setIsExporting] = useState(false);
 
   const { data: report, isLoading } = useLeaveBalanceReport(parseInt(selectedYear));
+  const { data: branding } = useCompanyBranding();
 
   const exportToPDF = async () => {
     if (!report || report.records.length === 0) return;
@@ -42,20 +45,25 @@ export function LeaveBalanceReport() {
     try {
       const doc = new jsPDF({ orientation: "landscape" });
       const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+      const margin = 20;
+      const logoDataUrl = await fetchImageAsDataUrl(branding?.logoUrl);
 
-      // Header
-      doc.setFontSize(20);
-      doc.setFont("helvetica", "bold");
-      doc.text("Leave Balance Report", pageWidth / 2, 20, { align: "center" });
+      let currentY = drawPdfHeader(doc, {
+        title: "Leave Balance Report",
+        subtitle: `Year: ${report.year}`,
+        companyName: branding?.companyName,
+        companyAddress: branding?.companyAddress,
+        logoDataUrl,
+        pageWidth,
+        margin,
+      });
 
-      doc.setFontSize(14);
-      doc.setFont("helvetica", "normal");
-      doc.text(`Year: ${report.year}`, pageWidth / 2, 30, { align: "center" });
-
-      // Summary info
+      doc.setTextColor(...PDF_COLORS.dark);
       doc.setFontSize(10);
-      doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 14, 45);
-      doc.text(`Total Employees: ${report.records.length}`, 14, 52);
+      doc.setFont("helvetica", "normal");
+      doc.text(`Total Employees: ${report.records.length}`, margin, currentY);
+      currentY += 10;
 
       // Build table headers
       const headers = ["Employee", "Department"];
@@ -82,22 +90,24 @@ export function LeaveBalanceReport() {
       });
 
       autoTable(doc, {
-        startY: 60,
+        startY: currentY,
         head: [headers],
         body: body,
         foot: [totals],
         theme: "striped",
-        headStyles: { fillColor: [59, 130, 246], fontSize: 7, cellPadding: 2 },
+        headStyles: { ...PDF_TABLE_HEAD_STYLE, fontSize: 7, cellPadding: 2 },
         bodyStyles: { fontSize: 7, cellPadding: 2 },
-        footStyles: { fillColor: [243, 244, 246], textColor: [0, 0, 0], fontStyle: "bold", fontSize: 7 },
+        footStyles: { fillColor: PDF_COLORS.ruleLight, textColor: PDF_COLORS.dark, fontStyle: "bold", fontSize: 7 },
         columnStyles: {
           0: { cellWidth: 35 },
           1: { cellWidth: 30 },
         },
         didDrawPage: () => {
           // Legend
+          doc.setTextColor(...PDF_COLORS.gray);
           doc.setFontSize(8);
-          doc.text("T = Total Days | U = Used Days | R = Remaining Days", 14, doc.internal.pageSize.getHeight() - 15);
+          doc.setFont("helvetica", "normal");
+          doc.text("T = Total Days | U = Used Days | R = Remaining Days", margin, doc.internal.pageSize.getHeight() - 24);
         },
       });
 
@@ -105,13 +115,7 @@ export function LeaveBalanceReport() {
       const pageCount = doc.getNumberOfPages();
       for (let i = 1; i <= pageCount; i++) {
         doc.setPage(i);
-        doc.setFontSize(8);
-        doc.text(
-          `Page ${i} of ${pageCount}`,
-          pageWidth / 2,
-          doc.internal.pageSize.getHeight() - 10,
-          { align: "center" }
-        );
+        drawPdfFooter(doc, { pageWidth, pageHeight, margin, pageNumber: i, totalPages: pageCount });
       }
 
       doc.save(`Leave_Balance_Report_${report.year}.pdf`);

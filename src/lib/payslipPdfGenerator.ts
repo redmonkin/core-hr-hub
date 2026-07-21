@@ -1,5 +1,6 @@
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { PDF_COLORS, formatCurrencyForPdf } from "./pdfTheme";
 
 interface PayslipData {
   employeeName: string;
@@ -22,28 +23,17 @@ interface PayslipData {
     pf_deduction?: number;
   };
   companyName?: string;
+  companyAddress?: string;
+  /** Base64 data URL — jsPDF's addImage() needs actual image data, not a remote URL. */
+  logoDataUrl?: string;
 }
 
-// jsPDF's built-in Helvetica font has no Rupee glyph — Intl's "₹" render
-// as a broken superscript in the PDF, so format the number ourselves and
-// prefix "Rs." as plain ASCII text instead of using style: "currency".
-const formatCurrency = (amount: number) => {
-  const formatted = new Intl.NumberFormat("en-IN", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(amount);
-  return `Rs. ${formatted}`;
-};
+const formatCurrency = formatCurrencyForPdf;
 
 // A single restrained accent, plus neutrals — a formal, bank-statement style
-// palette rather than a dashboard's semantic green/red coding.
-const COLORS = {
-  accent: [51, 65, 85] as [number, number, number], // Slate
-  rule: [203, 213, 225] as [number, number, number], // Light slate rule
-  ruleLight: [226, 232, 240] as [number, number, number],
-  gray: [100, 116, 139] as [number, number, number],
-  dark: [15, 23, 42] as [number, number, number],
-};
+// palette rather than a dashboard's semantic green/red coding. Shared with
+// every other generated PDF via src/lib/pdfTheme.ts.
+const COLORS = PDF_COLORS;
 
 export function generatePayslipPDF(data: PayslipData): jsPDF {
   const doc = new jsPDF();
@@ -53,15 +43,27 @@ export function generatePayslipPDF(data: PayslipData): jsPDF {
   const contentWidth = pageWidth - margin * 2;
 
   // === HEADER SECTION ===
+  // Logo is a small mark alongside the name, not a replacement for it — the
+  // name still needs to render even when a logo is present.
+  let textX = margin;
+  if (data.logoDataUrl) {
+    try {
+      doc.addImage(data.logoDataUrl, margin, 12, 14, 14, undefined, "FAST");
+      textX = margin + 18;
+    } catch {
+      // Malformed/unsupported image data shouldn't block payslip generation.
+    }
+  }
+
   doc.setTextColor(...COLORS.dark);
   doc.setFontSize(18);
   doc.setFont("helvetica", "bold");
-  doc.text(data.companyName || "PEOPLO HR", margin, 24);
+  doc.text(data.companyName || "PEOPLO HR", textX, 24);
 
   doc.setTextColor(...COLORS.gray);
   doc.setFontSize(9);
   doc.setFont("helvetica", "normal");
-  doc.text("MONTHLY STATEMENT OF EARNINGS", margin, 31);
+  doc.text("MONTHLY STATEMENT OF EARNINGS", textX, 31);
 
   const statusText = data.status.charAt(0).toUpperCase() + data.status.slice(1);
   doc.setTextColor(...COLORS.dark);
@@ -74,11 +76,20 @@ export function generatePayslipPDF(data: PayslipData): jsPDF {
   doc.setFont("helvetica", "normal");
   doc.text(`Status: ${statusText}`, pageWidth - margin, 31, { align: "right" });
 
+  let ruleY = 38;
+  if (data.companyAddress) {
+    doc.setTextColor(...COLORS.gray);
+    doc.setFontSize(7.5);
+    doc.setFont("helvetica", "normal");
+    doc.text(data.companyAddress, margin, 36, { maxWidth: contentWidth / 2 - 10 });
+    ruleY = 42;
+  }
+
   doc.setDrawColor(...COLORS.accent);
   doc.setLineWidth(0.8);
-  doc.line(margin, 38, pageWidth - margin, 38);
+  doc.line(margin, ruleY, pageWidth - margin, ruleY);
 
-  let currentY = 52;
+  let currentY = ruleY + 14;
 
   // === EMPLOYEE DETAILS SECTION ===
   doc.setTextColor(...COLORS.dark);
