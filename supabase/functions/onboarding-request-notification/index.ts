@@ -113,7 +113,7 @@ serve(async (req) => {
       }
 
       // Notify HR users about the new request
-      const { data: hrUsers, error: hrError } = await supabase
+      const { data: hrUsersRaw, error: hrError } = await supabase
         .from("user_roles")
         .select("user_id")
         .in("role", ["admin", "hr"]);
@@ -122,7 +122,13 @@ serve(async (req) => {
         console.error("Error fetching HR users:", hrError);
       }
 
-      const hrUserIds = (hrUsers || []).map((u: { user_id: string }) => u.user_id);
+      // A user holding both admin and hr roles has two rows above with the same
+      // user_id - dedupe so they don't get notified twice for one event.
+      const hrUsers = Array.from(
+        new Map((hrUsersRaw || []).map((u: { user_id: string }) => [u.user_id, u])).values()
+      );
+
+      const hrUserIds = hrUsers.map((u: { user_id: string }) => u.user_id);
       
       // Get notification preferences
       const { data: hrPreferences } = await supabase
