@@ -3,6 +3,7 @@ import { createClient } from "npm:@supabase/supabase-js@2.87.1";
 import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
+const RESEND_FROM_EMAIL = Deno.env.get("RESEND_FROM_EMAIL") || "HR Hub <onboarding@resend.dev>";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -96,7 +97,7 @@ const sendWelcomeEmail = async (
       Authorization: `Bearer ${RESEND_API_KEY}`,
     },
     body: JSON.stringify({
-      from: "HR Hub <onboarding@resend.dev>",
+      from: RESEND_FROM_EMAIL,
       to: [to],
       subject: "Welcome to the Team! Set Up Your Account",
       html: `
