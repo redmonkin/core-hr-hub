@@ -1,7 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 
 // Current application version - update this when releasing new versions
-export const APP_VERSION = "1.0.0";
+export const APP_VERSION = "1.1.0";
 
 // Production API URL for version checking (used by self-hosted instances)
 export const VERSION_API_URL = "https://peoplo.redmonk.in/functions/v1/version-check";
@@ -30,6 +30,28 @@ export interface VersionResponse {
 // Local changelog data as fallback
 const LOCAL_CHANGELOG: ChangelogEntry[] = [
   {
+    version: "1.1.0",
+    date: "2026-07-22",
+    type: "minor",
+    title: "Payroll, Branding, and Self-Service Email",
+    description: "PF deductions, company branding across the app and all PDFs, self-service email changes, and a round of reliability and security fixes",
+    changes: [
+      { type: "feature", text: "Salary structures now have a dedicated Provident Fund (PF) deduction field instead of a generic \"Other\" deduction" },
+      { type: "feature", text: "Salary entry forms now clearly state that figures are monthly, not annual (CTC)" },
+      { type: "feature", text: "Redesigned payslip PDF with a professional layout: company details, employee joining date, designation, department, worked days, itemized earnings & deductions, and net pay spelled out in words" },
+      { type: "feature", text: "Company branding: admins can set the organization's name, address, logo, and icon from Settings, shown in the sidebar and on generated payslips and reports" },
+      { type: "feature", text: "Every generated PDF report (Attendance, Payroll Summary, Leave Balance, Asset Inventory, Employee Report, Performance & Team Analytics, and list exports) now shares one consistent, branded, professional style" },
+      { type: "feature", text: "Employees can change their own email address from their Profile, with confirmation-by-link and organization domain whitelist enforcement" },
+      { type: "feature", text: "Faster initial page loads via route-level code splitting, plus a global error boundary so unexpected errors show a recovery screen instead of a blank page" },
+      { type: "fix", text: "Corrected currency symbol rendering that displayed incorrectly in generated PDFs" },
+      { type: "fix", text: "Dashboard, Employee Report, and \"My Leave Balance\" now respect each employee's actual leave-type eligibility instead of counting every leave type in the organization" },
+      { type: "fix", text: "Payslip PDF now correctly shows an employee's joining date, designation, and department" },
+      { type: "security", text: "Closed a Row-Level Security gap that allowed blocked users to still read role and permission data" },
+      { type: "security", text: "Added standard security response headers (CSP, X-Frame-Options, and more)" },
+      { type: "docs", text: "Added feature screenshots to the public marketing pages" },
+    ],
+  },
+  {
     version: "1.0.0",
     date: "2025-01-19",
     type: "major",
@@ -55,7 +77,7 @@ const LOCAL_CHANGELOG: ChangelogEntry[] = [
 
 export const FALLBACK_VERSION_RESPONSE: VersionResponse = {
   currentVersion: APP_VERSION,
-  releaseDate: "2025-01-19",
+  releaseDate: "2026-07-22",
   changelog: LOCAL_CHANGELOG,
   hasUpdate: false,
   updateUrl: "https://github.com/redmonkin/core-hr-hub/releases",
