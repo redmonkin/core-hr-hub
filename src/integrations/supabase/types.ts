@@ -765,11 +765,20 @@ export type Database = {
       }
       onboarding_requests: {
         Row: {
+          address: string
           created_at: string
+          date_of_birth: string
+          designation: string
           email: string
           full_name: string
+          gender: string
           id: string
+          id_proof_url: string
+          joining_date: string
           message: string | null
+          offer_letter_url: string
+          phone: string
+          resume_url: string
           reviewed_at: string | null
           reviewed_by: string | null
           status: string
@@ -777,11 +786,20 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          address: string
           created_at?: string
+          date_of_birth: string
+          designation: string
           email: string
           full_name: string
+          gender: string
           id?: string
+          id_proof_url: string
+          joining_date: string
           message?: string | null
+          offer_letter_url: string
+          phone: string
+          resume_url: string
           reviewed_at?: string | null
           reviewed_by?: string | null
           status?: string
@@ -789,11 +807,20 @@ export type Database = {
           user_id: string
         }
         Update: {
+          address?: string
           created_at?: string
+          date_of_birth?: string
+          designation?: string
           email?: string
           full_name?: string
+          gender?: string
           id?: string
+          id_proof_url?: string
+          joining_date?: string
           message?: string | null
+          offer_letter_url?: string
+          phone?: string
+          resume_url?: string
           reviewed_at?: string | null
           reviewed_by?: string | null
           status?: string

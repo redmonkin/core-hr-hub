@@ -185,6 +185,12 @@ interface DocumentUpload {
   url: string | null;
 }
 
+interface SourceRequestDocuments {
+  resume_url?: string;
+  offer_letter_url?: string;
+  id_proof_url?: string;
+}
+
 interface FormData {
   employeeCode: string;
   firstName: string;
@@ -192,6 +198,8 @@ interface FormData {
   email: string;
   phone: string;
   address: string;
+  dateOfBirth: string;
+  gender: string;
   departmentId: string;
   designation: string;
   managerId: string;
@@ -202,6 +210,7 @@ interface FormData {
   workingHoursStart: string;
   workingHoursEnd: string;
   workingDays: number[];
+  sourceRequestDocuments: SourceRequestDocuments | null;
 }
 
 const WEEKDAYS = [
@@ -221,6 +230,8 @@ const initialFormData: FormData = {
   email: '',
   phone: '',
   address: '',
+  dateOfBirth: '',
+  gender: '',
   departmentId: '',
   designation: '',
   managerId: '',
@@ -231,6 +242,7 @@ const initialFormData: FormData = {
   workingHoursStart: '09:00',
   workingHoursEnd: '18:00',
   workingDays: [1, 2, 3, 4, 5], // Mon-Fri
+  sourceRequestDocuments: null,
 };
 
 const REQUIRED_DOCUMENT_TYPES = [
@@ -308,11 +320,11 @@ const Onboarding = () => {
   const rejectedRequests = requests.filter((r) => r.status === "rejected");
 
   // Get signed URL for document download
-  const getDocumentUrl = async (filePath: string) => {
+  const getDocumentUrl = async (filePath: string, bucket: 'employee-documents' | 'onboarding-documents' = 'employee-documents') => {
     const { data, error } = await supabase.storage
-      .from('employee-documents')
+      .from(bucket)
       .createSignedUrl(filePath, 3600); // 1 hour expiry
-    
+
     if (error) {
       toast({
         title: "Error",
@@ -324,15 +336,15 @@ const Onboarding = () => {
     return data.signedUrl;
   };
 
-  const handleViewDocument = async (filePath: string) => {
-    const url = await getDocumentUrl(filePath);
+  const handleViewDocument = async (filePath: string, bucket: 'employee-documents' | 'onboarding-documents' = 'employee-documents') => {
+    const url = await getDocumentUrl(filePath, bucket);
     if (url) {
       window.open(url, '_blank');
     }
   };
 
-  const handleDownloadDocument = async (filePath: string, fileName: string) => {
-    const url = await getDocumentUrl(filePath);
+  const handleDownloadDocument = async (filePath: string, fileName: string, bucket: 'employee-documents' | 'onboarding-documents' = 'employee-documents') => {
+    const url = await getDocumentUrl(filePath, bucket);
     if (url) {
       const link = document.createElement('a');
       link.href = url;
@@ -456,6 +468,8 @@ const Onboarding = () => {
           email: data.email.trim(),
           phone: data.phone.trim() || null,
           address: data.address.trim() || null,
+          date_of_birth: data.dateOfBirth || null,
+          gender: data.gender || null,
           department_id: data.departmentId || null,
           designation: data.designation.trim(),
           manager_id: data.managerId || null,
@@ -473,12 +487,52 @@ const Onboarding = () => {
 
       // Upload documents
       const docsToUpload = Object.entries(documents).filter(([_, doc]) => doc.file);
+      const manuallyUploadedTypes = new Set(docsToUpload.map(([docType]) => docType));
       for (const [docType, doc] of docsToUpload) {
         if (doc.file) {
           try {
             await uploadDocument(employee.id, docType, doc.file);
           } catch (err) {
             console.error(`Failed to upload ${docType}:`, err);
+          }
+        }
+      }
+
+      // Copy any documents already uploaded with the onboarding request (resume,
+      // offer letter, ID proof) into this employee's documents, skipping any type
+      // the admin manually re-uploaded above.
+      if (data.sourceRequestDocuments) {
+        const requestDocs: Array<{ path?: string; docType: string; name: string }> = [
+          { path: data.sourceRequestDocuments.resume_url, docType: 'resume', name: 'Resume' },
+          { path: data.sourceRequestDocuments.offer_letter_url, docType: 'offer_letter', name: 'Offer Letter' },
+          { path: data.sourceRequestDocuments.id_proof_url, docType: 'id_proof', name: 'ID Proof' },
+        ];
+        for (const doc of requestDocs) {
+          if (!doc.path || manuallyUploadedTypes.has(doc.docType)) continue;
+          try {
+            const { data: blob, error: downloadError } = await supabase.storage
+              .from('onboarding-documents')
+              .download(doc.path);
+            if (downloadError || !blob) throw downloadError || new Error('Empty file');
+
+            const ext = doc.path.split('.').pop();
+            const newPath = `${employee.id}/${doc.docType}_${Date.now()}.${ext}`;
+            const { error: uploadError } = await supabase.storage
+              .from('employee-documents')
+              .upload(newPath, blob);
+            if (uploadError) throw uploadError;
+
+            const { error: dbError } = await supabase
+              .from('employee_documents')
+              .insert({
+                employee_id: employee.id,
+                document_type: doc.docType,
+                document_name: doc.name,
+                file_url: newPath,
+              });
+            if (dbError) throw dbError;
+          } catch (err) {
+            console.error(`Failed to copy ${doc.docType} from onboarding request:`, err);
           }
         }
       }
@@ -738,13 +792,24 @@ const Onboarding = () => {
     const nameParts = request.full_name.split(' ');
     const firstName = nameParts[0] || '';
     const lastName = nameParts.slice(1).join(' ') || '';
-    
+
     setFormData(prev => ({
       ...prev,
       firstName,
       lastName,
       email: request.email,
       linkedUserId: request.user_id,
+      phone: request.phone || '',
+      address: request.address || '',
+      dateOfBirth: request.date_of_birth || '',
+      gender: request.gender || '',
+      designation: request.designation || '',
+      joinDate: request.joining_date || '',
+      sourceRequestDocuments: {
+        resume_url: request.resume_url,
+        offer_letter_url: request.offer_letter_url,
+        id_proof_url: request.id_proof_url,
+      },
     }));
     setActiveTab('add');
   };
@@ -1016,14 +1081,44 @@ const Onboarding = () => {
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="address">Address</Label>
-                      <Textarea 
-                        id="address" 
-                        placeholder="Enter full address" 
-                        rows={3} 
+                      <Textarea
+                        id="address"
+                        placeholder="Enter full address"
+                        rows={3}
                         value={formData.address}
                         onChange={(e) => handleInputChange('address', e.target.value)}
                         disabled={isSubmitting}
                       />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="dateOfBirth">Date of Birth</Label>
+                        <Input
+                          id="dateOfBirth"
+                          type="date"
+                          value={formData.dateOfBirth}
+                          onChange={(e) => handleInputChange('dateOfBirth', e.target.value)}
+                          disabled={isSubmitting}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="gender">Gender</Label>
+                        <Select
+                          value={formData.gender}
+                          onValueChange={(value) => handleInputChange('gender', value)}
+                          disabled={isSubmitting}
+                        >
+                          <SelectTrigger id="gender">
+                            <SelectValue placeholder="Select gender" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="male">Male</SelectItem>
+                            <SelectItem value="female">Female</SelectItem>
+                            <SelectItem value="other">Other</SelectItem>
+                            <SelectItem value="prefer_not_to_say">Prefer not to say</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
@@ -2017,7 +2112,7 @@ const Onboarding = () => {
 
         {/* Request Details Dialog */}
         <Dialog open={!!selectedRequest} onOpenChange={(open) => !open && setSelectedRequest(null)}>
-          <DialogContent>
+          <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Request Details</DialogTitle>
               <DialogDescription>
@@ -2040,6 +2135,58 @@ const Onboarding = () => {
                 <div>
                   <h4 className="text-sm font-medium text-muted-foreground">Status</h4>
                   <div className="mt-1">{getRequestStatusBadge(selectedRequest.status)}</div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <h4 className="text-sm font-medium text-muted-foreground">Phone</h4>
+                    <p className="mt-1 text-foreground">{selectedRequest.phone}</p>
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-medium text-muted-foreground">Designation</h4>
+                    <p className="mt-1 text-foreground">{selectedRequest.designation}</p>
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-medium text-muted-foreground">Date of Birth</h4>
+                    <p className="mt-1 text-foreground">
+                      {selectedRequest.date_of_birth && format(new Date(selectedRequest.date_of_birth), "MMM d, yyyy")}
+                    </p>
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-medium text-muted-foreground">Gender</h4>
+                    <p className="mt-1 text-foreground capitalize">{selectedRequest.gender?.replace(/_/g, ' ')}</p>
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-medium text-muted-foreground">Preferred Joining Date</h4>
+                    <p className="mt-1 text-foreground">
+                      {selectedRequest.joining_date && format(new Date(selectedRequest.joining_date), "MMM d, yyyy")}
+                    </p>
+                  </div>
+                </div>
+                <div>
+                  <h4 className="text-sm font-medium text-muted-foreground">Address</h4>
+                  <p className="mt-1 text-foreground">{selectedRequest.address}</p>
+                </div>
+                <div>
+                  <h4 className="text-sm font-medium text-muted-foreground">Documents</h4>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {[
+                      { path: selectedRequest.resume_url, label: 'Resume' },
+                      { path: selectedRequest.offer_letter_url, label: 'Offer Letter' },
+                      { path: selectedRequest.id_proof_url, label: 'ID Proof' },
+                    ].map((doc) => (
+                      doc.path && (
+                        <Button
+                          key={doc.label}
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleViewDocument(doc.path!, 'onboarding-documents')}
+                        >
+                          <Eye className="mr-2 h-3.5 w-3.5" />
+                          {doc.label}
+                        </Button>
+                      )
+                    ))}
+                  </div>
                 </div>
                 <div>
                   <h4 className="text-sm font-medium text-muted-foreground">Message</h4>
