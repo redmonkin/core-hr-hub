@@ -53,15 +53,18 @@ export function useUpdateCompanyBranding() {
     mutationFn: async (branding: CompanyBranding) => {
       const { error } = await supabase
         .from("organization_settings")
-        .update({
-          setting_value: {
-            company_name: branding.companyName,
-            company_address: branding.companyAddress,
-            logo_url: branding.logoUrl,
-            icon_url: branding.iconUrl,
+        .upsert(
+          {
+            setting_key: "company_branding",
+            setting_value: {
+              company_name: branding.companyName,
+              company_address: branding.companyAddress,
+              logo_url: branding.logoUrl,
+              icon_url: branding.iconUrl,
+            },
           },
-        })
-        .eq("setting_key", "company_branding");
+          { onConflict: "setting_key" }
+        );
 
       if (error) throw error;
     },
