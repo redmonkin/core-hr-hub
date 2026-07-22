@@ -59,6 +59,9 @@ interface AttendanceRecord {
   clock_out: string | null;
 }
 
+const CLOCK_IN_TITLE = "Time to Clock In!";
+const CLOCK_OUT_TITLE = "Time to Clock Out!";
+
 // Format time for display (e.g., "09:00:00" -> "9:00 AM")
 const formatTime = (time: string): string => {
   const [hours, minutes] = time.split(':').map(Number);
@@ -160,9 +163,23 @@ serve(async (req) => {
       .in("user_id", userIds);
 
     const preferencesMap = new Map(
-      (preferences || []).map((p: { user_id: string; attendance_reminder_notifications: boolean }) => 
+      (preferences || []).map((p: { user_id: string; attendance_reminder_notifications: boolean }) =>
         [p.user_id, p.attendance_reminder_notifications]
       )
+    );
+
+    // Reminders re-qualify on every cron run within the 10-minute matching window
+    // (there's no other persisted "already reminded" state), so without this check
+    // a cron interval shorter than 10 minutes sends the same reminder multiple times.
+    const { data: alreadySentToday } = await supabase
+      .from("notifications")
+      .select("user_id, title")
+      .in("user_id", userIds)
+      .in("title", [CLOCK_IN_TITLE, CLOCK_OUT_TITLE])
+      .gte("created_at", `${today}T00:00:00.000Z`);
+
+    const alreadySentKeys = new Set(
+      (alreadySentToday || []).map((n: { user_id: string; title: string }) => `${n.user_id}::${n.title}`)
     );
 
     const notifications: { user_id: string; title: string; message: string; type: string; link: string }[] = [];
@@ -194,9 +211,9 @@ serve(async (req) => {
         Math.abs(currentMinute - endMinute) <= 10; // 10 minute window
 
       // Check for clock-in reminder
-      if (isClockInReminderTime && !attendance?.clock_in) {
+      if (isClockInReminderTime && !attendance?.clock_in && !alreadySentKeys.has(`${emp.user_id}::${CLOCK_IN_TITLE}`)) {
         const safeFirstName = escapeHtml(emp.first_name);
-        const title = "Time to Clock In!";
+        const title = CLOCK_IN_TITLE;
         const message = `Your work day starts at ${formatTime(workStart)}. Don't forget to clock in!`;
 
         console.log(`Sending clock-in reminder to ${emp.email}`);
@@ -238,9 +255,9 @@ serve(async (req) => {
       }
 
       // Check for clock-out reminder
-      if (isClockOutReminderTime && attendance?.clock_in && !attendance?.clock_out) {
+      if (isClockOutReminderTime && attendance?.clock_in && !attendance?.clock_out && !alreadySentKeys.has(`${emp.user_id}::${CLOCK_OUT_TITLE}`)) {
         const safeFirstName = escapeHtml(emp.first_name);
-        const title = "Time to Clock Out!";
+        const title = CLOCK_OUT_TITLE;
         const message = `Your work day ends at ${formatTime(workEnd)}. Don't forget to clock out!`;
 
         console.log(`Sending clock-out reminder to ${emp.email}`);
