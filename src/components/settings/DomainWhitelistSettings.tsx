@@ -34,8 +34,8 @@ const DomainWhitelistSettings = () => {
         .from('organization_settings')
         .select('*')
         .eq('setting_key', 'domain_whitelist')
-        .single();
-      
+        .maybeSingle();
+
       if (error) throw error;
       return data;
     }
@@ -47,9 +47,14 @@ const DomainWhitelistSettings = () => {
     mutationFn: async (newValue: DomainWhitelistValue) => {
       const { error } = await supabase
         .from('organization_settings')
-        .update({ setting_value: newValue as unknown as Record<string, never> })
-        .eq('setting_key', 'domain_whitelist');
-      
+        .upsert(
+          {
+            setting_key: 'domain_whitelist',
+            setting_value: newValue as unknown as Record<string, never>,
+          },
+          { onConflict: 'setting_key' }
+        );
+
       if (error) throw error;
     },
     onSuccess: () => {

@@ -58,8 +58,10 @@ export function useUpdateEmployeeCodePattern() {
     mutationFn: async (pattern: EmployeeCodePattern) => {
       const { error } = await supabase
         .from("system_settings" as "profiles") // Type cast to bypass type check
-        .update({ setting_value: pattern } as Record<string, unknown>)
-        .eq("setting_key" as "id", "employee_code_pattern");
+        .upsert(
+          { setting_key: "employee_code_pattern", setting_value: pattern } as Record<string, unknown>,
+          { onConflict: "setting_key" }
+        );
 
       if (error) throw error;
     },
