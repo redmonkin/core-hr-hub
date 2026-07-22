@@ -167,10 +167,16 @@ serve(async (req) => {
     }
 
     // Notify HR about overall onboarding status
-    const { data: hrUsers } = await supabase
+    const { data: hrUsersRaw } = await supabase
       .from("user_roles")
       .select("user_id")
       .in("role", ["admin", "hr"]);
+
+    // A user holding both admin and hr roles has two rows above with the same
+    // user_id - dedupe so they don't get notified twice for one event.
+    const hrUsers = Array.from(
+      new Map((hrUsersRaw || []).map((u: { user_id: string }) => [u.user_id, u])).values()
+    );
 
     if (hrUsers && hrUsers.length > 0) {
       const employeeList = onboardingEmployees
