@@ -13,6 +13,15 @@ export interface OnboardingRequest {
   reviewed_at: string | null;
   created_at: string;
   updated_at: string;
+  phone: string;
+  address: string;
+  date_of_birth: string;
+  gender: string;
+  designation: string;
+  joining_date: string;
+  resume_url: string;
+  offer_letter_url: string;
+  id_proof_url: string;
 }
 
 export function useOnboardingRequests() {
