@@ -176,11 +176,11 @@ serve(async (req) => {
             <p style="margin: 10px 0 0;"><strong>Review Period:</strong> ${safeReviewPeriod}</p>
           </div>
           
-177:           <p>
-178:             <a href="https://peoplo.redmonk.in/reviews-management" style="display: inline-block; padding: 12px 24px; background-color: #2563eb; color: white; text-decoration: none; border-radius: 6px; font-weight: bold;">View Review Details</a>
-179:           </p>
-180:           
-181:           <p style="margin-top: 30px;">Best regards,<br>HR Team</p>
+           <p>
+             <a href="https://peoplo.redmonk.in/reviews-management" style="display: inline-block; padding: 12px 24px; background-color: #2563eb; color: white; text-decoration: none; border-radius: 6px; font-weight: bold;">View Review Details</a>
+           </p>
+           
+           <p style="margin-top: 30px;">Best regards,<br>HR Team</p>
         </div>
       `
     );

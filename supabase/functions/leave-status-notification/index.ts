@@ -243,10 +243,10 @@ serve(async (req) => {
               ${safeReviewNotes ? `<p style="margin: 10px 0 0;"><strong>Notes:</strong> ${safeReviewNotes}</p>` : ""}
             </div>
             
-223:             <p>
-224:               <a href="https://peoplo.redmonk.in/leaves" style="display: inline-block; padding: 12px 24px; background-color: #2563eb; color: white; text-decoration: none; border-radius: 6px; font-weight: bold;">View Leave Details</a>
-225:             </p>
-226:             <p style="color: #999; font-size: 12px; margin-top: 30px;">You can manage your notification preferences in your profile settings.</p>
+             <p>
+               <a href="https://peoplo.redmonk.in/leaves" style="display: inline-block; padding: 12px 24px; background-color: #2563eb; color: white; text-decoration: none; border-radius: 6px; font-weight: bold;">View Leave Details</a>
+             </p>
+             <p style="color: #999; font-size: 12px; margin-top: 30px;">You can manage your notification preferences in your profile settings.</p>
             
             <p style="margin-top: 30px;">Best regards,<br>HR Team</p>
           </div>

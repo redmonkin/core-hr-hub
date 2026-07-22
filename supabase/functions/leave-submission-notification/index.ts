@@ -204,9 +204,9 @@ serve(async (req) => {
             ${safeReason ? `<p style="margin: 10px 0 0;"><strong>Reason:</strong> ${safeReason}</p>` : ""}
           </div>
           
-184:           <p>
-185:             <a href="https://peoplo.redmonk.in/leaves" style="display: inline-block; padding: 12px 24px; background-color: #2563eb; color: white; text-decoration: none; border-radius: 6px; font-weight: bold;">Review Request</a>
-186:           </p>
+<p>
+            <a href="https://peoplo.redmonk.in/leaves" style="display: inline-block; padding: 12px 24px; background-color: #2563eb; color: white; text-decoration: none; border-radius: 6px; font-weight: bold;">Review Request</a>
+          </p>
           
           <p style="margin-top: 30px;">Best regards,<br>HR System</p>
         </div>
