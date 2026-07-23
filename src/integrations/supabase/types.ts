@@ -698,6 +698,7 @@ export type Database = {
           id: string
           leave_status_notifications: boolean
           onboarding_notifications: boolean
+          reimbursement_notifications: boolean
           review_notifications: boolean
           updated_at: string
           user_id: string
@@ -711,6 +712,7 @@ export type Database = {
           id?: string
           leave_status_notifications?: boolean
           onboarding_notifications?: boolean
+          reimbursement_notifications?: boolean
           review_notifications?: boolean
           updated_at?: string
           user_id: string
@@ -724,6 +726,7 @@ export type Database = {
           id?: string
           leave_status_notifications?: boolean
           onboarding_notifications?: boolean
+          reimbursement_notifications?: boolean
           review_notifications?: boolean
           updated_at?: string
           user_id?: string
@@ -1035,6 +1038,82 @@ export type Database = {
         }
         Relationships: []
       }
+      reimbursement_requests: {
+        Row: {
+          amount: number
+          category: Database["public"]["Enums"]["expense_category"]
+          created_at: string
+          description: string
+          employee_id: string
+          expense_date: string
+          id: string
+          paid_at: string | null
+          paid_by: string | null
+          receipt_url: string
+          review_notes: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: Database["public"]["Enums"]["reimbursement_status"]
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          category: Database["public"]["Enums"]["expense_category"]
+          created_at?: string
+          description: string
+          employee_id: string
+          expense_date: string
+          id?: string
+          paid_at?: string | null
+          paid_by?: string | null
+          receipt_url: string
+          review_notes?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: Database["public"]["Enums"]["reimbursement_status"]
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          category?: Database["public"]["Enums"]["expense_category"]
+          created_at?: string
+          description?: string
+          employee_id?: string
+          expense_date?: string
+          id?: string
+          paid_at?: string | null
+          paid_by?: string | null
+          receipt_url?: string
+          review_notes?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: Database["public"]["Enums"]["reimbursement_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reimbursement_requests_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reimbursement_requests_paid_by_fkey"
+            columns: ["paid_by"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reimbursement_requests_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       review_kpi_ratings: {
         Row: {
           created_at: string
@@ -1261,8 +1340,15 @@ export type Database = {
       app_role: "admin" | "hr" | "manager" | "employee"
       asset_status: "available" | "assigned" | "maintenance" | "retired"
       employee_status: "active" | "inactive" | "onboarding" | "offboarded"
+      expense_category:
+        | "travel"
+        | "food"
+        | "accommodation"
+        | "office_supplies"
+        | "other"
       leave_status: "pending" | "approved" | "rejected" | "cancelled"
       payroll_status: "draft" | "processed" | "paid"
+      reimbursement_status: "pending" | "approved" | "rejected" | "paid"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1384,7 +1470,7 @@ export type CompositeTypes<
 }
   ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
   : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
-    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
+    ? DefaultSchema["CompositeTypes"][CompositeTypeName]
     : never
 
 export const Constants = {
@@ -1393,8 +1479,16 @@ export const Constants = {
       app_role: ["admin", "hr", "manager", "employee"],
       asset_status: ["available", "assigned", "maintenance", "retired"],
       employee_status: ["active", "inactive", "onboarding", "offboarded"],
+      expense_category: [
+        "travel",
+        "food",
+        "accommodation",
+        "office_supplies",
+        "other",
+      ],
       leave_status: ["pending", "approved", "rejected", "cancelled"],
       payroll_status: ["draft", "processed", "paid"],
+      reimbursement_status: ["pending", "approved", "rejected", "paid"],
     },
   },
 } as const

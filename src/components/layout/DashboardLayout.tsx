@@ -27,6 +27,7 @@ import {
   Bell,
   User,
   Sparkles,
+  Receipt,
 } from "lucide-react";
 import hrHubLogo from "@/assets/hr-hub-logo.svg";
 import { APP_VERSION, isAutoUpdatingEnvironment } from "@/lib/version";
@@ -62,6 +63,7 @@ const navItems: NavItem[] = [
   { label: "Attendance", href: "/attendance", icon: <Clock className="h-5 w-5" /> },
   { label: "Calendar", href: "/calendar", icon: <CalendarDays className="h-5 w-5" /> },
   { label: "Leaves", href: "/leaves", icon: <Calendar className="h-5 w-5" /> },
+  { label: "Reimbursements", href: "/reimbursements", icon: <Receipt className="h-5 w-5" /> },
   { label: "Performance", href: "/performance", icon: <Target className="h-5 w-5" /> },
   { label: "Assets", href: "/assets", icon: <Package className="h-5 w-5" />, adminOnly: true },
   { label: "Payroll", href: "/payroll", icon: <CreditCard className="h-5 w-5" />, adminOnly: true },
