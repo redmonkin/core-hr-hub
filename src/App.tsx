@@ -26,6 +26,7 @@ const Index = lazy(() => import("./pages/Index"));
 const Employees = lazy(() => import("./pages/Employees"));
 const Onboarding = lazy(() => import("./pages/Onboarding"));
 const Leaves = lazy(() => import("./pages/Leaves"));
+const Reimbursements = lazy(() => import("./pages/Reimbursements"));
 const Assets = lazy(() => import("./pages/Assets"));
 const Payroll = lazy(() => import("./pages/Payroll"));
 const Reports = lazy(() => import("./pages/Reports"));
@@ -86,6 +87,7 @@ const App = () => (
                 <Route path="/leaves" element={<ProtectedRoute><Leaves /></ProtectedRoute>} />
                 {/* Redirect old leave-approvals route to leaves */}
                 <Route path="/leave-approvals" element={<Navigate to="/leaves" replace />} />
+                <Route path="/reimbursements" element={<ProtectedRoute><Reimbursements /></ProtectedRoute>} />
                 <Route path="/assets" element={<ProtectedRoute><Assets /></ProtectedRoute>} />
                 <Route path="/payroll" element={<ProtectedRoute><Payroll /></ProtectedRoute>} />
                 <Route path="/reports" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
