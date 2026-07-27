@@ -11,7 +11,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import { Loader2, Mail } from "lucide-react";
 import { z } from "zod";
 import { useToast } from "@/hooks/use-toast";
@@ -29,14 +28,16 @@ export function ChangeEmailDialog({ currentEmail }: ChangeEmailDialogProps) {
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState<"email" | "code">("email");
   const [newEmail, setNewEmail] = useState("");
-  const [code, setCode] = useState("");
+  const [currentEmailCode, setCurrentEmailCode] = useState("");
+  const [newEmailCode, setNewEmailCode] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const resetAndClose = () => {
     setOpen(false);
     setStep("email");
     setNewEmail("");
-    setCode("");
+    setCurrentEmailCode("");
+    setNewEmailCode("");
   };
 
   const handleSendCode = async () => {
@@ -69,28 +70,49 @@ export function ChangeEmailDialog({ currentEmail }: ChangeEmailDialogProps) {
     }
 
     toast({
-      title: "Code Sent",
-      description: `Enter the 6-digit code sent to ${result.data} to confirm the change.`,
+      title: "Codes Sent",
+      description: `Check both ${currentEmail} and ${result.data} — each got a different code, and both are needed to confirm the change.`,
     });
     setStep("code");
   };
 
   const handleVerifyCode = async () => {
-    if (code.length !== 6) {
-      toast({ title: "Error", description: "Enter the 6-digit code from your email.", variant: "destructive" });
+    if (!currentEmailCode.trim() || !newEmailCode.trim()) {
+      toast({
+        title: "Error",
+        description: "Enter both codes — one from your current email, one from your new email.",
+        variant: "destructive",
+      });
       return;
     }
 
     setIsSubmitting(true);
-    const { error } = await supabase.auth.verifyOtp({
+
+    const { error: currentError } = await supabase.auth.verifyOtp({
+      email: currentEmail,
+      token: currentEmailCode,
+      type: "email_change",
+    });
+
+    if (currentError) {
+      setIsSubmitting(false);
+      toast({
+        title: "Error confirming current email",
+        description: currentError.message,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const { error: newError } = await supabase.auth.verifyOtp({
       email: newEmail,
-      token: code,
+      token: newEmailCode,
       type: "email_change",
     });
     setIsSubmitting(false);
 
-    if (error) {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
+    if (newError) {
+      toast({ title: "Error confirming new email", description: newError.message, variant: "destructive" });
       return;
     }
 
@@ -112,7 +134,8 @@ export function ChangeEmailDialog({ currentEmail }: ChangeEmailDialogProps) {
             <DialogHeader>
               <DialogTitle>Change Email Address</DialogTitle>
               <DialogDescription>
-                We'll send a 6-digit code to your new address. Your login email won't change until you confirm it.
+                We'll send confirmation codes to your current and new address. Your login email won't change until
+                you confirm both.
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-2">
@@ -144,28 +167,44 @@ export function ChangeEmailDialog({ currentEmail }: ChangeEmailDialogProps) {
         ) : (
           <>
             <DialogHeader>
-              <DialogTitle>Enter Confirmation Code</DialogTitle>
-              <DialogDescription>Enter the 6-digit code sent to {newEmail}.</DialogDescription>
+              <DialogTitle>Enter Confirmation Codes</DialogTitle>
+              <DialogDescription>
+                Two different codes were sent — one to your current email, one to your new email. Enter both to
+                confirm the change.
+              </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-2">
-              <div className="flex justify-center">
-                <InputOTP maxLength={6} value={code} onChange={setCode}>
-                  <InputOTPGroup>
-                    <InputOTPSlot index={0} />
-                    <InputOTPSlot index={1} />
-                    <InputOTPSlot index={2} />
-                    <InputOTPSlot index={3} />
-                    <InputOTPSlot index={4} />
-                    <InputOTPSlot index={5} />
-                  </InputOTPGroup>
-                </InputOTP>
+              <div className="space-y-2">
+                <Label htmlFor="current-email-code">Code from {currentEmail}</Label>
+                <Input
+                  id="current-email-code"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  value={currentEmailCode}
+                  onChange={(e) => setCurrentEmailCode(e.target.value)}
+                  placeholder="Enter code"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="new-email-code">Code from {newEmail}</Label>
+                <Input
+                  id="new-email-code"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  value={newEmailCode}
+                  onChange={(e) => setNewEmailCode(e.target.value)}
+                  placeholder="Enter code"
+                />
               </div>
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setStep("email")}>
                 Back
               </Button>
-              <Button onClick={handleVerifyCode} disabled={isSubmitting || code.length !== 6}>
+              <Button
+                onClick={handleVerifyCode}
+                disabled={isSubmitting || !currentEmailCode.trim() || !newEmailCode.trim()}
+              >
                 {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Confirm
               </Button>
