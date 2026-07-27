@@ -37,15 +37,15 @@ export function ReimbursementCard({ request, onApprove, onReject, onMarkPaid, on
     <Card className="overflow-hidden transition-all duration-300 hover:shadow-lg">
       <CardContent className="p-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div className="flex items-start gap-4">
-            <Avatar className="h-12 w-12">
+          <div className="flex min-w-0 flex-1 items-start gap-4">
+            <Avatar className="h-12 w-12 shrink-0">
               <AvatarImage src={request.employee.avatar} />
               <AvatarFallback>
                 {request.employee.name.split(" ").map((n) => n[0]).join("")}
               </AvatarFallback>
             </Avatar>
-            <div>
-              <div className="flex items-center gap-2">
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-2">
                 <h3 className="font-semibold text-foreground">{request.employee.name}</h3>
                 <Badge variant="secondary" className={categoryStyles[request.category] || ""}>
                   {categoryLabel(request.category)}
@@ -62,7 +62,9 @@ export function ReimbursementCard({ request, onApprove, onReject, onMarkPaid, on
                   <span>Submitted: {request.submittedAt}</span>
                 </div>
               )}
-              {request.description && <p className="mt-2 text-sm text-muted-foreground">{request.description}</p>}
+              {request.description && (
+                <p className="mt-2 break-words text-sm text-muted-foreground">{request.description}</p>
+              )}
               {onViewReceipt && (
                 <Button
                   variant="link"
@@ -98,7 +100,7 @@ export function ReimbursementCard({ request, onApprove, onReject, onMarkPaid, on
               )}
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex shrink-0 flex-wrap items-center gap-2">
             {request.status === "pending" && (onApprove || onReject) ? (
               <>
                 {onApprove && (
