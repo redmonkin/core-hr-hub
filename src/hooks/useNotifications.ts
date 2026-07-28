@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { playNotificationSound } from "@/lib/notificationSound";
+import { updateAppBadge } from "@/lib/appBadge";
 
 export interface Notification {
   id: string;
@@ -72,11 +73,11 @@ export const useNotifications = () => {
 export const useUnreadNotificationsCount = () => {
   const { user } = useAuth();
 
-  return useQuery({
+  const query = useQuery({
     queryKey: ["notifications-unread-count", user?.id],
     queryFn: async () => {
       if (!user?.id) return 0;
-      
+
       const { count, error } = await supabase
         .from("notifications")
         .select("*", { count: "exact", head: true })
@@ -88,6 +89,14 @@ export const useUnreadNotificationsCount = () => {
     },
     enabled: !!user?.id,
   });
+
+  // Keep the installed PWA's app icon badge in sync with the real unread
+  // count whenever the app is foregrounded.
+  useEffect(() => {
+    updateAppBadge(query.data ?? 0);
+  }, [query.data]);
+
+  return query;
 };
 
 export const useMarkNotificationRead = () => {
