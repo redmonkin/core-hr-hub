@@ -987,11 +987,6 @@ const Onboarding = () => {
                   {pendingRequests.length}
                 </Badge>
               )}
-              {pendingRequests.length > 0 && (
-                <Badge variant="secondary" className="ml-2">
-                  {pendingRequests.length}
-                </Badge>
-              )}
             </TabsTrigger>
           </TabsList>
 
