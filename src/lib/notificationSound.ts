@@ -2,9 +2,16 @@
 // binary audio asset just for a notification ping.
 let audioCtx: AudioContext | null = null;
 
+interface WindowWithWebkitAudio {
+  webkitAudioContext?: typeof AudioContext;
+}
+
 export function playNotificationSound() {
   try {
-    audioCtx ??= new (window.AudioContext || (window as any).webkitAudioContext)();
+    const AudioContextClass =
+      window.AudioContext || (window as unknown as WindowWithWebkitAudio).webkitAudioContext;
+    if (!AudioContextClass) return;
+    audioCtx ??= new AudioContextClass();
     if (audioCtx.state === "suspended") {
       audioCtx.resume();
     }
