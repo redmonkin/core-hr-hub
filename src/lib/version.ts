@@ -1,7 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 
 // Current application version - update this when releasing new versions
-export const APP_VERSION = "1.1.0";
+export const APP_VERSION = "1.1.1";
 
 // Production API URL for version checking (used by self-hosted instances)
 export const VERSION_API_URL = "https://peoplo.redmonk.in/functions/v1/version-check";

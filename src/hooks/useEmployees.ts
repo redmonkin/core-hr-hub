@@ -30,7 +30,7 @@ export interface EmployeeWithDetails {
   department: { name: string } | null;
 }
 
-export function useEmployees() {
+export function useEmployees(options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: ["employees"],
     queryFn: async () => {
@@ -67,6 +67,50 @@ export function useEmployees() {
         status: emp.status as Employee["status"],
       }));
     },
+    enabled: options?.enabled,
+  });
+}
+
+// Directory-safe listing: backed by the public.employee_directory view, which
+// exposes only non-sensitive columns and is visible to every authenticated
+// (non-blocked) user, unlike the row-restricted public.employees table.
+export function useEmployeeDirectory(options?: { enabled?: boolean }) {
+  return useQuery({
+    queryKey: ["employee-directory"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("employee_directory")
+        .select(`
+          id,
+          employee_code,
+          first_name,
+          last_name,
+          email,
+          phone,
+          designation,
+          hire_date,
+          status,
+          avatar_url,
+          department_name
+        `)
+        .order("first_name", { ascending: true });
+
+      if (error) throw error;
+
+      return (data || []).map((emp): Employee => ({
+        id: emp.id,
+        employeeCode: emp.employee_code,
+        name: `${emp.first_name} ${emp.last_name}`,
+        email: emp.email,
+        phone: emp.phone,
+        avatar: emp.avatar_url || undefined,
+        department: emp.department_name || "Unassigned",
+        designation: emp.designation,
+        joinDate: format(new Date(emp.hire_date), "MMM d, yyyy"),
+        status: emp.status as Employee["status"],
+      }));
+    },
+    enabled: options?.enabled,
   });
 }
 

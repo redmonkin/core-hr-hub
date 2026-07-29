@@ -24,7 +24,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { UserPlus, Search, Users } from "lucide-react";
 import { Link } from "react-router-dom";
-import { useEmployees, useDepartments, useBulkDeleteEmployees, useBulkUpdateEmployeeStatus } from "@/hooks/useEmployees";
+import { useEmployees, useEmployeeDirectory, useDepartments, useBulkDeleteEmployees, useBulkUpdateEmployeeStatus } from "@/hooks/useEmployees";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent } from "@/components/ui/card";
 import { EmployeeDocuments } from "@/components/documents/EmployeeDocuments";
@@ -63,9 +63,16 @@ const Employees = () => {
   const [bulkAssignManagerOpen, setBulkAssignManagerOpen] = useState(false);
   const [employeesToAssignManager, setEmployeesToAssignManager] = useState<Employee[]>([]);
 
-  const { data: employees = [], isLoading: isLoadingEmployees } = useEmployees();
-  const { data: departments = [] } = useDepartments();
   const { isAdminOrHR, isLoading: isLoadingRole } = useIsAdminOrHR();
+  const { data: fullEmployees = [], isLoading: isLoadingFullEmployees } = useEmployees({
+    enabled: !isLoadingRole && isAdminOrHR,
+  });
+  const { data: directoryEmployees = [], isLoading: isLoadingDirectoryEmployees } = useEmployeeDirectory({
+    enabled: !isLoadingRole && !isAdminOrHR,
+  });
+  const employees = isAdminOrHR ? fullEmployees : directoryEmployees;
+  const isLoadingEmployees = isAdminOrHR ? isLoadingFullEmployees : isLoadingDirectoryEmployees;
+  const { data: departments = [] } = useDepartments();
   const { data: branding } = useCompanyBranding();
   const bulkDeleteMutation = useBulkDeleteEmployees();
   const bulkStatusMutation = useBulkUpdateEmployeeStatus();

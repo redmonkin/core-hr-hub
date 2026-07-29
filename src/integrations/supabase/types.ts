@@ -1321,7 +1321,31 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      employee_directory: {
+        Row: {
+          avatar_url: string | null
+          department_id: string | null
+          department_name: string | null
+          designation: string | null
+          email: string | null
+          employee_code: string | null
+          first_name: string | null
+          hire_date: string | null
+          id: string | null
+          last_name: string | null
+          phone: string | null
+          status: Database["public"]["Enums"]["employee_status"] | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employees_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       get_my_employee_id: { Args: never; Returns: string }
