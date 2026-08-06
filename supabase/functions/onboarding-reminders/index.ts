@@ -2,7 +2,8 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.87.1";
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
-const RESEND_FROM_EMAIL = Deno.env.get("RESEND_FROM_EMAIL") || "HR Hub <onboarding@resend.dev>";
+const APP_URL = Deno.env.get("APP_URL") ?? "https://peoplo.redmonk.in";
+const RESEND_FROM_EMAIL = Deno.env.get("RESEND_FROM_EMAIL")!;
 const CRON_SECRET = Deno.env.get("CRON_SECRET");
 
 const corsHeaders = {
@@ -35,7 +36,11 @@ const sendEmail = async (to: string[], subject: string, html: string) => {
       html,
     }),
   });
-  return res.json();
+  const json = await res.json();
+  if (!res.ok) {
+    console.error("Resend API error:", res.status, json);
+  }
+  return json;
 };
 
 // This function is designed to be called by a cron job
@@ -123,7 +128,7 @@ serve(async (req) => {
                 <li>Complete any required training</li>
               </ul>
               <p>
-                <a href="https://peoplo.redmonk.in/profile" style="display: inline-block; padding: 12px 24px; background-color: #2563eb; color: white; text-decoration: none; border-radius: 6px; font-weight: bold;">Complete Your Profile</a>
+                <a href="${APP_URL}/profile" style="display: inline-block; padding: 12px 24px; background-color: #2563eb; color: white; text-decoration: none; border-radius: 6px; font-weight: bold;">Complete Your Profile</a>
               </p>
               <p>If you have any questions, please reach out to HR or your manager.</p>
               <p>Best regards,<br>HR Team</p>
@@ -227,7 +232,7 @@ serve(async (req) => {
                     </tbody>
                   </table>
                   <p style="margin-top: 16px;">
-                    <a href="https://peoplo.redmonk.in/onboarding" style="display: inline-block; padding: 12px 24px; background-color: #2563eb; color: white; text-decoration: none; border-radius: 6px; font-weight: bold;">View All Pending</a>
+                    <a href="${APP_URL}/onboarding" style="display: inline-block; padding: 12px 24px; background-color: #2563eb; color: white; text-decoration: none; border-radius: 6px; font-weight: bold;">View All Pending</a>
                   </p>
                   <p style="margin-top: 16px;">Please follow up with these employees to complete their onboarding.</p>
               `

@@ -7,6 +7,7 @@ const corsHeaders = {
 
 const GITHUB_REPO = "redmonkin/core-hr-hub";
 const GITHUB_API_URL = `https://api.github.com/repos/${GITHUB_REPO}/releases`;
+const APP_URL = Deno.env.get("APP_URL") ?? "https://peoplo.redmonk.in";
 
 interface GitHubRelease {
   tag_name: string;
@@ -206,7 +207,7 @@ serve(async (req: Request) => {
       changelog: versionData.changelog,
       hasUpdate: clientVersion ? clientVersion !== versionData.currentVersion : false,
       updateUrl: `https://github.com/${GITHUB_REPO}/releases`,
-      documentationUrl: "https://peoplo.redmonk.in",
+      documentationUrl: APP_URL,
     };
 
     return new Response(JSON.stringify(response), {

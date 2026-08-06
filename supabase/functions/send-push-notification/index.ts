@@ -5,6 +5,8 @@ const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const VAPID_PUBLIC_KEY = Deno.env.get("VAPID_PUBLIC_KEY")!;
 const VAPID_PRIVATE_KEY = Deno.env.get("VAPID_PRIVATE_KEY")!;
+const APP_URL = Deno.env.get("APP_URL") ?? "https://peoplo.redmonk.in";
+const VAPID_CONTACT_EMAIL = Deno.env.get("VAPID_CONTACT_EMAIL") ?? `hr@${new URL(APP_URL).hostname}`;
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -60,7 +62,7 @@ async function createVapidJwt(audience: string, privateKey: CryptoKey): Promise<
   const payload = {
     aud: audience,
     exp: Math.floor(Date.now() / 1000) + 12 * 60 * 60, // 12 hours
-    sub: "mailto:hr@peoplo.redmonk.in",
+    sub: `mailto:${VAPID_CONTACT_EMAIL}`,
   };
 
   const encoder = new TextEncoder();
@@ -123,12 +125,11 @@ serve(async (req) => {
   }
 
   try {
-    // Authentication: Verify the caller using a shared secret
-    const pushSecret = req.headers.get("x-push-secret");
-    const expectedSecret = Deno.env.get("CRON_SECRET");
-    if (!expectedSecret || !pushSecret || pushSecret !== expectedSecret) {
+    // Authentication: only trusted internal callers (holding the service role key) may trigger pushes
+    const authHeader = req.headers.get("Authorization");
+    if (authHeader !== `Bearer ${supabaseServiceKey}`) {
       return new Response(
-        JSON.stringify({ error: "Forbidden: invalid or missing x-push-secret" }),
+        JSON.stringify({ error: "Forbidden: service role authorization required" }),
         { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }

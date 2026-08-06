@@ -2,7 +2,8 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.87.1";
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
-const RESEND_FROM_EMAIL = Deno.env.get("RESEND_FROM_EMAIL") || "HR Hub <onboarding@resend.dev>";
+const APP_URL = Deno.env.get("APP_URL") ?? "https://peoplo.redmonk.in";
+const RESEND_FROM_EMAIL = Deno.env.get("RESEND_FROM_EMAIL")!;
 const CRON_SECRET = Deno.env.get("CRON_SECRET");
 
 const corsHeaders = {
@@ -223,7 +224,7 @@ const handler = async (req: Request): Promise<Response> => {
                   
                   <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; text-align: center;">
                     <p style="margin-bottom: 20px;">
-                      <a href="https://peoplo.redmonk.in/company-calendar" style="display: inline-block; padding: 12px 24px; background-color: #667eea; color: white; text-decoration: none; border-radius: 6px; font-weight: bold;">View Calendar</a>
+                      <a href="${APP_URL}/company-calendar" style="display: inline-block; padding: 12px 24px; background-color: #667eea; color: white; text-decoration: none; border-radius: 6px; font-weight: bold;">View Calendar</a>
                     </p>
                     <p style="color: #999; font-size: 12px; margin: 0;">
                       This is an automated notification from HR Hub.<br>
