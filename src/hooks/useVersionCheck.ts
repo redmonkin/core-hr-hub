@@ -7,8 +7,8 @@ export function useVersionCheck(enabled: boolean = true) {
     queryKey: ["version-check", APP_VERSION],
     queryFn: checkForUpdates,
     enabled,
-    staleTime: 1000 * 60 * 60, // 1 hour
-    refetchInterval: 1000 * 60 * 60 * 6, // Check every 6 hours
+    staleTime: 1000 * 60 * 60 * 24 * 7, // 1 week
+    refetchInterval: 1000 * 60 * 60 * 24 * 7, // Check once a week
     retry: 1,
   });
 }
