@@ -2,7 +2,8 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.87.1";
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
-const RESEND_FROM_EMAIL = Deno.env.get("RESEND_FROM_EMAIL") || "HR Hub <onboarding@resend.dev>";
+const APP_URL = Deno.env.get("APP_URL") ?? "https://peoplo.redmonk.in";
+const RESEND_FROM_EMAIL = Deno.env.get("RESEND_FROM_EMAIL")!;
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
@@ -32,7 +33,11 @@ const sendEmail = async (to: string[], subject: string, html: string) => {
       html,
     }),
   });
-  return res.json();
+  const json = await res.json();
+  if (!res.ok) {
+    console.error("Resend API error:", res.status, json);
+  }
+  return json;
 };
 
 const corsHeaders = {
@@ -228,7 +233,7 @@ serve(async (req) => {
               </div>
 
               <p>
-                <a href="https://peoplo.redmonk.in/reimbursements" style="display: inline-block; padding: 12px 24px; background-color: #2563eb; color: white; text-decoration: none; border-radius: 6px; font-weight: bold;">Review Request</a>
+                <a href="${APP_URL}/reimbursements" style="display: inline-block; padding: 12px 24px; background-color: #2563eb; color: white; text-decoration: none; border-radius: 6px; font-weight: bold;">Review Request</a>
               </p>
 
               <p style="color: #999; font-size: 12px; margin-top: 30px;">You can manage your notification preferences in your profile settings.</p>

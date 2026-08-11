@@ -2,7 +2,8 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.87.1";
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
-const RESEND_FROM_EMAIL = Deno.env.get("RESEND_FROM_EMAIL") || "HR Hub <onboarding@resend.dev>";
+const APP_URL = Deno.env.get("APP_URL") ?? "https://peoplo.redmonk.in";
+const RESEND_FROM_EMAIL = Deno.env.get("RESEND_FROM_EMAIL")!;
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -44,7 +45,11 @@ const sendEmail = async (to: string[], subject: string, html: string) => {
       html,
     }),
   });
-  return res.json();
+  const json = await res.json();
+  if (!res.ok) {
+    console.error("Resend API error:", res.status, json);
+  }
+  return json;
 };
 
 serve(async (req) => {
@@ -200,7 +205,7 @@ serve(async (req) => {
                 </ul>
                 <p>Please ensure all onboarding tasks are completed before the join date.</p>
                 <p>
-                  <a href="https://peoplo.redmonk.in/onboarding" style="display: inline-block; padding: 12px 24px; background-color: #2563eb; color: white; text-decoration: none; border-radius: 6px; font-weight: bold;">View Onboarding</a>
+                  <a href="${APP_URL}/onboarding" style="display: inline-block; padding: 12px 24px; background-color: #2563eb; color: white; text-decoration: none; border-radius: 6px; font-weight: bold;">View Onboarding</a>
                 </p>
                 <p style="color: #999; font-size: 12px; margin-top: 30px;">You can manage your notification preferences in your profile settings.</p>
               `
@@ -267,7 +272,7 @@ serve(async (req) => {
                 </ul>
                 <p>Please prepare for their arrival and help them get started.</p>
                 <p>
-                  <a href="https://peoplo.redmonk.in/onboarding" style="display: inline-block; padding: 12px 24px; background-color: #2563eb; color: white; text-decoration: none; border-radius: 6px; font-weight: bold;">View Onboarding</a>
+                  <a href="${APP_URL}/onboarding" style="display: inline-block; padding: 12px 24px; background-color: #2563eb; color: white; text-decoration: none; border-radius: 6px; font-weight: bold;">View Onboarding</a>
                 </p>
                 <p style="color: #999; font-size: 12px; margin-top: 30px;">You can manage your notification preferences in your profile settings.</p>
               `

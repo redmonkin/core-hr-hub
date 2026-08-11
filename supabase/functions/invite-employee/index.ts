@@ -3,7 +3,8 @@ import { createClient } from "npm:@supabase/supabase-js@2.87.1";
 import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
-const RESEND_FROM_EMAIL = Deno.env.get("RESEND_FROM_EMAIL") || "HR Hub <onboarding@resend.dev>";
+const APP_URL = Deno.env.get("APP_URL") ?? "https://peoplo.redmonk.in";
+const RESEND_FROM_EMAIL = Deno.env.get("RESEND_FROM_EMAIL")!;
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -22,14 +23,16 @@ const escapeHtml = (text: string | null | undefined): string => {
 };
 
 // Allowed domains for redirect URLs - prevents open redirect attacks
+const APP_HOSTNAME = new URL(APP_URL).hostname;
+const APP_PARENT_DOMAIN = APP_HOSTNAME.split('.').slice(-2).join('.');
 const ALLOWED_REDIRECT_HOSTS = [
   'lovable.app',           // Lovable preview/published URLs
   'lovable.dev',           // Lovable development URLs
   'localhost',             // Local development
   '127.0.0.1',             // Local development
   'corehrhub.lovable.app', // Lovable published domain
-  'peoplo.redmonk.in',     // Production domain
-  'redmonk.in',            // Production parent domain
+  APP_HOSTNAME,            // Production domain (from APP_URL secret)
+  APP_PARENT_DOMAIN,       // Production parent domain
 ];
 
 // Validate that a URL is safe for redirect

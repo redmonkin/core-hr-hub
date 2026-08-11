@@ -7,6 +7,7 @@ const corsHeaders = {
 
 const GITHUB_REPO = "redmonkin/core-hr-hub";
 const GITHUB_API_URL = `https://api.github.com/repos/${GITHUB_REPO}/releases`;
+const APP_URL = Deno.env.get("APP_URL") ?? "https://peoplo.redmonk.in";
 
 interface GitHubRelease {
   tag_name: string;
@@ -30,6 +31,18 @@ function parseReleaseType(version: string): "major" | "minor" | "patch" {
   if (parts[2] === '0' && parts[1] === '0') return 'major';
   if (parts[2] === '0') return 'minor';
   return 'patch';
+}
+
+// Compares two semver strings ("1.2.3"). Returns >0 if a > b, <0 if a < b, 0 if equal.
+// Non-numeric/malformed segments are treated as 0 so odd version strings don't throw.
+function compareSemver(a: string, b: string): number {
+  const pa = a.replace(/^v/, '').split('.').map((n) => parseInt(n, 10) || 0);
+  const pb = b.replace(/^v/, '').split('.').map((n) => parseInt(n, 10) || 0);
+  for (let i = 0; i < 3; i++) {
+    const diff = (pa[i] || 0) - (pb[i] || 0);
+    if (diff !== 0) return diff;
+  }
+  return 0;
 }
 
 function parseReleaseNotes(body: string): Array<{ type: string; text: string }> {
@@ -128,7 +141,12 @@ async function fetchGitHubReleases(): Promise<{ changelog: ChangelogEntry[]; cur
   }
   
   const changelog = releases.map(transformGitHubRelease);
-  const latestRelease = releases[0];
+
+  // Pick the release with the highest semver, not just releases[0] (which is
+  // ordered by publish date and can be a backport/older tag published later).
+  const latestRelease = releases.reduce((best, r) =>
+    compareSemver(r.tag_name, best.tag_name) > 0 ? r : best
+  , releases[0]);
   
   cachedData = {
     changelog,
@@ -204,9 +222,9 @@ serve(async (req: Request) => {
       currentVersion: versionData.currentVersion,
       releaseDate: versionData.releaseDate,
       changelog: versionData.changelog,
-      hasUpdate: clientVersion ? clientVersion !== versionData.currentVersion : false,
+      hasUpdate: clientVersion ? compareSemver(versionData.currentVersion, clientVersion) > 0 : false,
       updateUrl: `https://github.com/${GITHUB_REPO}/releases`,
-      documentationUrl: "https://peoplo.redmonk.in",
+      documentationUrl: APP_URL,
     };
 
     return new Response(JSON.stringify(response), {
