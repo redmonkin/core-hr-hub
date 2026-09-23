@@ -199,7 +199,7 @@ export function PayrollTable({
         .lte("date", format(periodEnd, "yyyy-MM-dd"));
 
       const monthName = MONTH_NAMES[record.monthNum - 1] || "";
-      const logoDataUrl = await fetchImageAsDataUrl(branding?.logoUrl);
+      const logoDataUrl = await fetchImageAsDataUrl(branding?.iconUrl);
       const daysInMonth = endOfMonth(new Date(record.year, record.monthNum - 1)).getDate();
 
       downloadPayslip({
