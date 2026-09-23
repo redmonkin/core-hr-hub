@@ -147,12 +147,23 @@ const Index = () => {
                 icon={<CalendarDays className="h-6 w-6" />}
                 variant="primary"
               />
-              <StatsCard
-                title={stats?.onLeaveToday ? "You're On Leave" : "Status Today"}
-                value={stats?.onLeaveToday ? "On Leave" : "Working"}
-                icon={<Calendar className="h-6 w-6" />}
-                variant={stats?.onLeaveToday ? "warning" : "success"}
-              />
+              {(() => {
+                const statusConfig = {
+                  leave: { title: "You're On Leave", value: "On Leave", variant: "warning" as const },
+                  holiday: { title: "Today's a Holiday", value: "Holiday", variant: "default" as const },
+                  day_off: { title: "Status Today", value: "Day Off", variant: "default" as const },
+                  working: { title: "Status Today", value: "Working", variant: "success" as const },
+                };
+                const { title, value, variant } = statusConfig[stats?.todayStatus || "working"];
+                return (
+                  <StatsCard
+                    title={title}
+                    value={value}
+                    icon={<Calendar className="h-6 w-6" />}
+                    variant={variant}
+                  />
+                );
+              })()}
               <StatsCard
                 title="My Assets"
                 value={String(stats?.assetsAssigned || 0)}

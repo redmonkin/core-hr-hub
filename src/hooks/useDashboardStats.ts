@@ -4,6 +4,37 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useEffect } from "react";
 import { useIsAdminOrHR } from "@/hooks/useUserRole";
 
+export type TodayWorkStatus = "leave" | "holiday" | "day_off" | "working";
+
+async function getTodayWorkStatus(employeeId: string, workingDays: number[] | null, today: string): Promise<TodayWorkStatus> {
+  const { data: myLeaves } = await supabase
+    .from("leave_requests")
+    .select("id")
+    .eq("employee_id", employeeId)
+    .eq("status", "approved")
+    .lte("start_date", today)
+    .gte("end_date", today);
+
+  if ((myLeaves?.length || 0) > 0) return "leave";
+
+  const { data: holidays } = await supabase
+    .from("company_events")
+    .select("event_date, end_date")
+    .eq("is_holiday", true)
+    .lte("event_date", today);
+
+  const isHoliday = (holidays || []).some((h) =>
+    h.end_date ? today <= h.end_date : today === h.event_date
+  );
+  if (isHoliday) return "holiday";
+
+  const todayWeekday = new Date(`${today}T00:00:00`).getDay();
+  const days = workingDays && workingDays.length > 0 ? workingDays : [1, 2, 3, 4, 5];
+  if (!days.includes(todayWeekday)) return "day_off";
+
+  return "working";
+}
+
 async function getEligibleLeaveTotals(employeeId: string, currentYear: number) {
   const yearStart = `${currentYear}-01-01`;
   const yearEnd = `${currentYear}-12-31`;
@@ -77,7 +108,7 @@ export function useDashboardStats() {
         // Get current employee's data
         const { data: myEmployee } = await supabase
           .from("employees")
-          .select("id")
+          .select("id, working_days")
           .eq("user_id", user?.id)
           .maybeSingle();
 
@@ -85,6 +116,7 @@ export function useDashboardStats() {
           return {
             totalEmployees: null, // Don't show this for regular employees
             onLeaveToday: 0,
+            todayStatus: "working" as TodayWorkStatus,
             assetsAssigned: 0,
             pendingPayroll: null, // Don't show this for regular employees
             pendingApprovals: 0,
@@ -92,17 +124,10 @@ export function useDashboardStats() {
           };
         }
 
-        // Get my leave status for today
+        // Get my work status for today (leave / holiday / day off / working)
         const today = new Date().toISOString().split("T")[0];
-        const { data: myLeaves } = await supabase
-          .from("leave_requests")
-          .select("id")
-          .eq("employee_id", myEmployee.id)
-          .eq("status", "approved")
-          .lte("start_date", today)
-          .gte("end_date", today);
-
-        const amOnLeave = (myLeaves?.length || 0) > 0;
+        const todayStatus = await getTodayWorkStatus(myEmployee.id, myEmployee.working_days, today);
+        const amOnLeave = todayStatus === "leave";
 
         // Calculate leave balances dynamically from leave_types and approved requests
         const currentYear = new Date().getFullYear();
@@ -138,6 +163,7 @@ export function useDashboardStats() {
         return {
           totalEmployees: null,
           onLeaveToday: amOnLeave ? 1 : 0,
+          todayStatus,
           assetsAssigned: myAssetsCount,
           pendingPayroll: null,
           pendingApprovals,
@@ -151,7 +177,7 @@ export function useDashboardStats() {
       // Admin/HR view - fetch personal stats same as employees
       const { data: myEmployee } = await supabase
         .from("employees")
-        .select("id")
+        .select("id, working_days")
         .eq("user_id", user?.id)
         .maybeSingle();
 
@@ -159,6 +185,7 @@ export function useDashboardStats() {
         return {
           totalEmployees: null,
           onLeaveToday: 0,
+          todayStatus: "working" as TodayWorkStatus,
           assetsAssigned: 0,
           pendingPayroll: null,
           pendingApprovals: 0,
@@ -166,17 +193,10 @@ export function useDashboardStats() {
         };
       }
 
-      // Get my leave status for today
+      // Get my work status for today (leave / holiday / day off / working)
       const today = new Date().toISOString().split("T")[0];
-      const { data: myLeaves } = await supabase
-        .from("leave_requests")
-        .select("id")
-        .eq("employee_id", myEmployee.id)
-        .eq("status", "approved")
-        .lte("start_date", today)
-        .gte("end_date", today);
-
-      const amOnLeave = (myLeaves?.length || 0) > 0;
+      const todayStatus = await getTodayWorkStatus(myEmployee.id, myEmployee.working_days, today);
+      const amOnLeave = todayStatus === "leave";
 
       // Calculate leave balances dynamically
       const currentYear = new Date().getFullYear();
@@ -212,6 +232,7 @@ export function useDashboardStats() {
       return {
         totalEmployees: null,
         onLeaveToday: amOnLeave ? 1 : 0,
+        todayStatus,
         assetsAssigned: myAssetsCount,
         pendingPayroll: null,
         pendingApprovals,
