@@ -165,7 +165,7 @@ export function PayslipViewer({ employeeId, employeeName, employeeCode }: Paysli
 
   const handleDownloadPayslip = async (record: typeof payrollRecords extends (infer T)[] ? T : never) => {
     const monthName = MONTHS.find((m) => m.value === String(record.month))?.label || "";
-    const logoDataUrl = await fetchImageAsDataUrl(branding?.logoUrl);
+    const logoDataUrl = await fetchImageAsDataUrl(branding?.iconUrl);
 
     const periodStart = startOfMonth(new Date(record.year, record.month - 1));
     const periodEnd = endOfMonth(periodStart);
