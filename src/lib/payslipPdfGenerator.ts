@@ -95,34 +95,35 @@ export function generatePayslipPDF(data: PayslipData): jsPDF {
   const center = pageWidth / 2;
 
   let currentY = 22;
+  const headerStartY = currentY;
 
-  // === HEADER: title, then company identity, all centered ===
+  // === HEADER: "Salary Slip" + company identity at top-left, logo at top-right ===
   doc.setTextColor(...COLORS.dark);
-  doc.setFontSize(20);
+  doc.setFontSize(18);
   doc.setFont("helvetica", "bold");
-  doc.text("Payslip", center, currentY, { align: "center" });
-  currentY += 12;
-
-  if (data.logoDataUrl) {
-    try {
-      doc.addImage(data.logoDataUrl, center - 7, currentY - 8, 14, 14, undefined, "FAST");
-      currentY += 8;
-    } catch {
-      // Malformed/unsupported image data shouldn't block payslip generation.
-    }
-  }
+  doc.text("Salary Slip", margin, currentY);
+  currentY += 9;
 
   doc.setFontSize(12);
   doc.setFont("helvetica", "normal");
-  doc.text(data.companyName || "PEOPLO HR", center, currentY, { align: "center" });
-  currentY += 8;
+  doc.text(data.companyName || "PEOPLO HR", margin, currentY);
+  currentY += 7;
 
   if (data.companyAddress) {
     doc.setTextColor(...COLORS.gray);
-    doc.setFontSize(10);
-    const addressLines = doc.splitTextToSize(data.companyAddress, contentWidth * 0.7);
-    doc.text(addressLines, center, currentY, { align: "center" });
-    currentY += addressLines.length * 6;
+    doc.setFontSize(9);
+    const addressLines = doc.splitTextToSize(data.companyAddress, contentWidth * 0.55);
+    doc.text(addressLines, margin, currentY);
+    currentY += addressLines.length * 5;
+  }
+
+  if (data.logoDataUrl) {
+    try {
+      const logoSize = 16;
+      doc.addImage(data.logoDataUrl, pageWidth - margin - logoSize, headerStartY - 10, logoSize, logoSize, undefined, "FAST");
+    } catch {
+      // Malformed/unsupported image data shouldn't block payslip generation.
+    }
   }
 
   currentY += 10;
