@@ -5,6 +5,14 @@ import { PayslipViewDialog } from "@/components/payroll/PayslipViewDialog";
 import { PayrollDetailsEditDialog } from "@/components/payroll/PayrollDetailsEditDialog";
 import { SalaryStructureManager } from "@/components/payroll/SalaryStructureManager";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -62,10 +70,15 @@ const Payroll = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [monthFilter, setMonthFilter] = useState("current");
   
-  // History tab filters
+  const currentDate = new Date();
+  const currentMonth = currentDate.getMonth() + 1;
+  const currentYear = currentDate.getFullYear();
+
+  // History tab filters — default to the current month/year so payroll
+  // generated for a past cycle (still unpaid until next month) is easy to find
   const [historySearchQuery, setHistorySearchQuery] = useState("");
-  const [historyMonth, setHistoryMonth] = useState<string>("all");
-  const [historyYear, setHistoryYear] = useState<string>("all");
+  const [historyMonth, setHistoryMonth] = useState<string>(String(currentMonth));
+  const [historyYear, setHistoryYear] = useState<string>(String(currentYear));
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
   const [selectedRecord, setSelectedRecord] = useState<PayrollRecord | null>(null);
   const [editDetailsOpen, setEditDetailsOpen] = useState(false);
@@ -73,10 +86,6 @@ const Payroll = () => {
   const { toast } = useToast();
   const { isAdminOrHR, isLoading: roleLoading } = useIsAdminOrHR();
   const { data: branding } = useCompanyBranding();
-
-  const currentDate = new Date();
-  const currentMonth = currentDate.getMonth() + 1;
-  const currentYear = currentDate.getFullYear();
 
   const { data: records = [], isLoading } = usePayrollRecords(
     monthFilter === "current" ? currentMonth : undefined,
@@ -129,15 +138,24 @@ const Payroll = () => {
   const updateStatus = useUpdatePayrollStatus();
   const bulkUpdateStatus = useBulkUpdatePayrollStatus();
 
+  const [generateDialogOpen, setGenerateDialogOpen] = useState(false);
+  const [generateMonth, setGenerateMonth] = useState(String(currentMonth));
+  const [generateYear, setGenerateYear] = useState(String(currentYear));
+  const generateYearOptions = useMemo(
+    () => Array.from({ length: 4 }, (_, i) => currentYear - i),
+    [currentYear]
+  );
+
   const handleGeneratePayroll = () => {
     generatePayroll.mutate(
-      { month: currentMonth, year: currentYear },
+      { month: parseInt(generateMonth), year: parseInt(generateYear) },
       {
         onSuccess: (data) => {
           toast({
             title: "Payroll Generated",
             description: `Successfully generated payroll for ${data.count} employees.`,
           });
+          setGenerateDialogOpen(false);
         },
         onError: (error) => {
           toast({
@@ -485,18 +503,70 @@ const Payroll = () => {
               onExportPDF={exportToPDF}
               disabled={allRecords.length === 0}
             />
-            <Button onClick={handleGeneratePayroll} disabled={generatePayroll.isPending}>
-              {generatePayroll.isPending ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Generating...
-                </>
-              ) : (
-                "Generate Payroll"
-              )}
+            <Button onClick={() => setGenerateDialogOpen(true)}>
+              Generate Payroll
             </Button>
           </div>
         </div>
+
+        <Dialog open={generateDialogOpen} onOpenChange={setGenerateDialogOpen}>
+          <DialogContent className="max-w-sm">
+            <DialogHeader>
+              <DialogTitle>Generate Payroll</DialogTitle>
+              <DialogDescription>
+                Pick the month to generate payroll for — including past months. Employees who joined
+                after the selected month are skipped, and mid-month joiners are pro-rated by working days.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid grid-cols-2 gap-4 py-2">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Month</label>
+                <Select value={generateMonth} onValueChange={setGenerateMonth}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Month" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {months.map((month) => (
+                      <SelectItem key={month.value} value={month.value}>
+                        {month.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Year</label>
+                <Select value={generateYear} onValueChange={setGenerateYear}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Year" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {generateYearOptions.map((year) => (
+                      <SelectItem key={year} value={String(year)}>
+                        {year}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setGenerateDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleGeneratePayroll} disabled={generatePayroll.isPending}>
+                {generatePayroll.isPending ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Generating...
+                  </>
+                ) : (
+                  "Generate"
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         {/* Stats */}
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
