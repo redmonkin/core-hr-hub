@@ -148,6 +148,37 @@ export function usePayrollStats() {
   });
 }
 
+/** Expands holiday rows (possibly multi-day) into a set of "yyyy-MM-dd" strings, clipped to [monthStart, monthEnd]. */
+function buildHolidaySet(
+  holidays: { event_date: string; end_date: string | null }[],
+  monthStart: Date,
+  monthEnd: Date
+): Set<string> {
+  const set = new Set<string>();
+  holidays.forEach((h) => {
+    const hStart = new Date(`${h.event_date}T00:00:00`);
+    const hEnd = h.end_date ? new Date(`${h.end_date}T00:00:00`) : hStart;
+    const rangeStart = hStart < monthStart ? monthStart : hStart;
+    const rangeEnd = hEnd > monthEnd ? monthEnd : hEnd;
+    if (rangeStart > rangeEnd) return;
+    for (const cur = new Date(rangeStart); cur <= rangeEnd; cur.setDate(cur.getDate() + 1)) {
+      set.add(format(cur, "yyyy-MM-dd"));
+    }
+  });
+  return set;
+}
+
+/** Counts days in [start, end] (inclusive) that fall on one of workingDays and aren't a holiday. */
+function countWorkingDays(start: Date, end: Date, workingDays: number[], holidaySet: Set<string>): number {
+  let count = 0;
+  for (const cur = new Date(start); cur <= end; cur.setDate(cur.getDate() + 1)) {
+    if (workingDays.includes(cur.getDay()) && !holidaySet.has(format(cur, "yyyy-MM-dd"))) {
+      count++;
+    }
+  }
+  return count;
+}
+
 export function useGeneratePayroll() {
   const queryClient = useQueryClient();
 
@@ -164,7 +195,12 @@ export function useGeneratePayroll() {
         throw new Error("Payroll already exists for this month");
       }
 
-      // Get all active employees with their salary structures
+      const monthStart = new Date(year, month - 1, 1);
+      const monthEnd = new Date(year, month, 0);
+      const monthEndStr = format(monthEnd, "yyyy-MM-dd");
+
+      // Get all salary structures with the employee's hire date and working days,
+      // so we can skip employees who joined after this month and pro-rate mid-month joiners.
       const { data: salaryStructures, error: salaryError } = await supabase
         .from("salary_structures")
         .select(`
@@ -175,7 +211,8 @@ export function useGeneratePayroll() {
           medical_allowance,
           other_allowances,
           tax_deduction,
-          pf_deduction
+          pf_deduction,
+          employee:employees(hire_date, working_days)
         `);
 
       if (salaryError) throw salaryError;
@@ -184,8 +221,28 @@ export function useGeneratePayroll() {
         throw new Error("No salary structures found. Please set up salary structures for employees first.");
       }
 
-      // Generate payroll records
-      const payrollRecords = salaryStructures.map((salary) => {
+      // Exclude employees who joined after the selected month
+      const eligible = salaryStructures.filter((s) => {
+        const hireDate = s.employee?.hire_date;
+        return !hireDate || hireDate <= monthEndStr;
+      });
+
+      if (eligible.length === 0) {
+        throw new Error("No employees were active during the selected month.");
+      }
+
+      // Holidays overlapping the selected month, for working-day proration
+      const { data: holidays } = await supabase
+        .from("company_events")
+        .select("event_date, end_date")
+        .eq("is_holiday", true)
+        .lte("event_date", monthEndStr);
+
+      const holidaySet = buildHolidaySet(holidays || [], monthStart, monthEnd);
+
+      // Generate payroll records, pro-rating basic/allowances/deductions for
+      // employees whose hire date falls inside the selected month
+      const payrollRecords = eligible.map((salary) => {
         const totalAllowances =
           Number(salary.hra || 0) +
           Number(salary.transport_allowance || 0) +
@@ -196,16 +253,32 @@ export function useGeneratePayroll() {
           Number(salary.tax_deduction || 0) +
           Number(salary.pf_deduction || 0);
 
-        const netSalary =
-          Number(salary.basic_salary) + totalAllowances - totalDeductions;
+        const workingDays =
+          salary.employee?.working_days && salary.employee.working_days.length > 0
+            ? salary.employee.working_days
+            : [1, 2, 3, 4, 5];
+
+        const hireDate = salary.employee?.hire_date ? new Date(`${salary.employee.hire_date}T00:00:00`) : null;
+
+        let ratio = 1;
+        if (hireDate && hireDate > monthStart) {
+          const totalWorkingDaysInMonth = countWorkingDays(monthStart, monthEnd, workingDays, holidaySet);
+          const workedDays = countWorkingDays(hireDate, monthEnd, workingDays, holidaySet);
+          ratio = totalWorkingDaysInMonth > 0 ? workedDays / totalWorkingDaysInMonth : 1;
+        }
+
+        const basicSalary = Number(salary.basic_salary) * ratio;
+        const proratedAllowances = totalAllowances * ratio;
+        const proratedDeductions = totalDeductions * ratio;
+        const netSalary = basicSalary + proratedAllowances - proratedDeductions;
 
         return {
           employee_id: salary.employee_id,
           month,
           year,
-          basic_salary: salary.basic_salary,
-          total_allowances: totalAllowances,
-          total_deductions: totalDeductions,
+          basic_salary: basicSalary,
+          total_allowances: proratedAllowances,
+          total_deductions: proratedDeductions,
           net_salary: netSalary,
           status: "draft" as const,
         };
