@@ -21,6 +21,14 @@ export interface PayrollRecord {
   netSalary: number;
   status: "pending" | "processing" | "paid";
   paidAt?: string;
+  ltaAllowance: number;
+  variablePay: number;
+  pfEmployerContribution: number;
+  healthInsurance: number;
+  professionalTax: number;
+  tds: number;
+  advanceAmountAdjusted: number;
+  lossOfPayDays: number;
 }
 
 const MONTH_NAMES = [
@@ -45,6 +53,14 @@ export function usePayrollRecords(month?: number, year?: number) {
           net_salary,
           status,
           paid_at,
+          lta_allowance,
+          variable_pay,
+          pf_employer_contribution,
+          health_insurance,
+          professional_tax,
+          tds,
+          advance_amount_adjusted,
+          loss_of_pay_days,
           employee:employees(
             first_name,
             last_name,
@@ -84,6 +100,14 @@ export function usePayrollRecords(month?: number, year?: number) {
         netSalary: Number(record.net_salary),
         status: record.status === "draft" ? "pending" : record.status === "processed" ? "processing" : "paid",
         paidAt: record.paid_at ? format(new Date(record.paid_at), "MMM d, yyyy") : undefined,
+        ltaAllowance: Number(record.lta_allowance || 0),
+        variablePay: Number(record.variable_pay || 0),
+        pfEmployerContribution: Number(record.pf_employer_contribution || 0),
+        healthInsurance: Number(record.health_insurance || 0),
+        professionalTax: Number(record.professional_tax || 0),
+        tds: Number(record.tds || 0),
+        advanceAmountAdjusted: Number(record.advance_amount_adjusted || 0),
+        lossOfPayDays: Number(record.loss_of_pay_days || 0),
       }));
     },
   });
@@ -232,6 +256,75 @@ export function useUpdatePayrollStatus() {
     },
     onError: (error) => {
       toast.error("Failed to update payroll status: " + error.message);
+    },
+  });
+}
+
+export interface PayrollDetailsInput {
+  id: string;
+  employeeId: string;
+  basicSalary: number;
+  ltaAllowance: number;
+  variablePay: number;
+  pfEmployerContribution: number;
+  healthInsurance: number;
+  professionalTax: number;
+  tds: number;
+  advanceAmountAdjusted: number;
+  lossOfPayDays: number;
+}
+
+export function useUpdatePayrollDetails() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: PayrollDetailsInput) => {
+      const { data: salaryStructure, error: salaryError } = await supabase
+        .from("salary_structures")
+        .select("hra, transport_allowance, medical_allowance, other_allowances, pf_deduction")
+        .eq("employee_id", data.employeeId)
+        .maybeSingle();
+
+      if (salaryError) throw salaryError;
+
+      const hra = Number(salaryStructure?.hra || 0);
+      const otherAllowanceBucket =
+        Number(salaryStructure?.transport_allowance || 0) +
+        Number(salaryStructure?.medical_allowance || 0) +
+        Number(salaryStructure?.other_allowances || 0);
+      const pfEmployeeDeduction = Number(salaryStructure?.pf_deduction || 0);
+
+      const totalGrossSalary =
+        data.basicSalary + hra + otherAllowanceBucket + data.ltaAllowance + data.variablePay;
+      const totalDeductions =
+        pfEmployeeDeduction + data.professionalTax + data.tds + data.advanceAmountAdjusted;
+      const netSalary = totalGrossSalary - totalDeductions;
+
+      const { error } = await supabase
+        .from("payroll_records")
+        .update({
+          lta_allowance: data.ltaAllowance,
+          variable_pay: data.variablePay,
+          pf_employer_contribution: data.pfEmployerContribution,
+          health_insurance: data.healthInsurance,
+          professional_tax: data.professionalTax,
+          tds: data.tds,
+          advance_amount_adjusted: data.advanceAmountAdjusted,
+          loss_of_pay_days: data.lossOfPayDays,
+          total_allowances: hra + otherAllowanceBucket + data.ltaAllowance + data.variablePay,
+          total_deductions: totalDeductions,
+          net_salary: netSalary,
+        })
+        .eq("id", data.id);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["payroll-records"] });
+      queryClient.invalidateQueries({ queryKey: ["payroll-stats"] });
+    },
+    onError: (error) => {
+      toast.error("Failed to update payroll details: " + error.message);
     },
   });
 }

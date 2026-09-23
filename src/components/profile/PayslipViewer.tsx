@@ -135,7 +135,7 @@ export function PayslipViewer({ employeeId, employeeName, employeeCode }: Paysli
     queryFn: async () => {
       const { data, error } = await supabase
         .from("employees")
-        .select("hire_date, designation, department:departments!employees_department_id_fkey(name)")
+        .select("hire_date, designation, department:departments!employees_department_id_fkey(name), bank_name, bank_account_number")
         .eq("id", employeeId)
         .maybeSingle();
 
@@ -169,6 +169,7 @@ export function PayslipViewer({ employeeId, employeeName, employeeCode }: Paysli
 
     const periodStart = startOfMonth(new Date(record.year, record.month - 1));
     const periodEnd = endOfMonth(periodStart);
+    const daysInMonth = periodEnd.getDate();
     const { count: workedDays } = await supabase
       .from("attendance_records")
       .select("id", { count: "exact", head: true })
@@ -186,9 +187,6 @@ export function PayslipViewer({ employeeId, employeeName, employeeCode }: Paysli
       status: record.status,
       paidAt: record.paid_at ? new Date(record.paid_at).toLocaleDateString() : undefined,
       basicSalary: record.basic_salary,
-      allowances: Number(record.total_allowances) || 0,
-      deductions: Number(record.total_deductions) || 0,
-      netSalary: record.net_salary,
       companyName: branding?.companyName || undefined,
       companyAddress: branding?.companyAddress || undefined,
       logoDataUrl,
@@ -196,13 +194,23 @@ export function PayslipViewer({ employeeId, employeeName, employeeCode }: Paysli
       designation: employeeInfo?.designation ?? undefined,
       department: employeeInfo?.department?.name ?? undefined,
       workedDays: workedDays ?? undefined,
+      bankName: employeeInfo?.bank_name ?? undefined,
+      bankAccountNumber: employeeInfo?.bank_account_number ?? undefined,
+      daysInMonth,
+      lossOfPayDays: Number(record.loss_of_pay_days || 0),
       salaryBreakdown: salaryStructure ? {
         hra: salaryStructure.hra ?? undefined,
         transport_allowance: salaryStructure.transport_allowance ?? undefined,
         medical_allowance: salaryStructure.medical_allowance ?? undefined,
         other_allowances: salaryStructure.other_allowances ?? undefined,
-        tax_deduction: salaryStructure.tax_deduction ?? undefined,
         pf_deduction: salaryStructure.pf_deduction ?? undefined,
+        lta_allowance: Number(record.lta_allowance || 0),
+        variable_pay: Number(record.variable_pay || 0),
+        pf_employer_contribution: Number(record.pf_employer_contribution || 0),
+        health_insurance: Number(record.health_insurance || 0),
+        professional_tax: Number(record.professional_tax || 0),
+        tds: Number(record.tds || 0),
+        advance_amount_adjusted: Number(record.advance_amount_adjusted || 0),
       } : undefined,
     }, `Payslip_${employeeCode}_${monthName}_${record.year}.pdf`);
   };

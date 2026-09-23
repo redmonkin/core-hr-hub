@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { PayrollTable } from "@/components/payroll/PayrollTable";
 import { PayslipViewDialog } from "@/components/payroll/PayslipViewDialog";
+import { PayrollDetailsEditDialog } from "@/components/payroll/PayrollDetailsEditDialog";
 import { SalaryStructureManager } from "@/components/payroll/SalaryStructureManager";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -67,6 +68,8 @@ const Payroll = () => {
   const [historyYear, setHistoryYear] = useState<string>("all");
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
   const [selectedRecord, setSelectedRecord] = useState<PayrollRecord | null>(null);
+  const [editDetailsOpen, setEditDetailsOpen] = useState(false);
+  const [editRecord, setEditRecord] = useState<PayrollRecord | null>(null);
   const { toast } = useToast();
   const { isAdminOrHR, isLoading: roleLoading } = useIsAdminOrHR();
   const { data: branding } = useCompanyBranding();
@@ -175,6 +178,11 @@ const Payroll = () => {
   const handleView = (record: PayrollRecord) => {
     setSelectedRecord(record);
     setViewDialogOpen(true);
+  };
+
+  const handleEditDetails = (record: PayrollRecord) => {
+    setEditRecord(record);
+    setEditDetailsOpen(true);
   };
 
   const handleMarkProcessed = (record: PayrollRecord) => {
@@ -560,6 +568,7 @@ const Payroll = () => {
               <PayrollTable
                 records={filteredRecords}
                 onView={handleView}
+                onEditDetails={handleEditDetails}
                 onMarkProcessed={handleMarkProcessed}
                 onMarkPaid={handleMarkPaid}
                 onRevertToPending={handleRevertToPending}
@@ -635,6 +644,7 @@ const Payroll = () => {
                 <PayrollTable
                   records={paginatedHistoryRecords}
                   onView={handleView}
+                  onEditDetails={handleEditDetails}
                   onMarkProcessed={handleMarkProcessed}
                   onMarkPaid={handleMarkPaid}
                   onRevertToPending={handleRevertToPending}
@@ -754,6 +764,12 @@ const Payroll = () => {
         open={viewDialogOpen}
         onOpenChange={setViewDialogOpen}
         record={selectedRecord}
+      />
+
+      <PayrollDetailsEditDialog
+        open={editDetailsOpen}
+        onOpenChange={setEditDetailsOpen}
+        record={editRecord}
       />
     </DashboardLayout>
   );

@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "13.0.5"
+    PostgrestVersion: "14.5"
   }
   public: {
     Tables: {
@@ -78,6 +78,13 @@ export type Database = {
             columns: ["asset_id"]
             isOneToOne: false
             referencedRelation: "assets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "asset_assignments_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employee_directory"
             referencedColumns: ["id"]
           },
           {
@@ -250,6 +257,13 @@ export type Database = {
             foreignKeyName: "attendance_records_employee_id_fkey"
             columns: ["employee_id"]
             isOneToOne: false
+            referencedRelation: "employee_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "attendance_records_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
             referencedRelation: "employees"
             referencedColumns: ["id"]
           },
@@ -327,6 +341,13 @@ export type Database = {
             foreignKeyName: "departments_manager_id_fkey"
             columns: ["manager_id"]
             isOneToOne: false
+            referencedRelation: "employee_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "departments_manager_id_fkey"
+            columns: ["manager_id"]
+            isOneToOne: false
             referencedRelation: "employees"
             referencedColumns: ["id"]
           },
@@ -358,6 +379,13 @@ export type Database = {
           uploaded_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "employee_documents_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employee_directory"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "employee_documents_employee_id_fkey"
             columns: ["employee_id"]
@@ -395,6 +423,8 @@ export type Database = {
         Row: {
           address: string | null
           avatar_url: string | null
+          bank_account_number: string | null
+          bank_name: string | null
           city: string | null
           country: string | null
           created_at: string
@@ -421,6 +451,8 @@ export type Database = {
         Insert: {
           address?: string | null
           avatar_url?: string | null
+          bank_account_number?: string | null
+          bank_name?: string | null
           city?: string | null
           country?: string | null
           created_at?: string
@@ -447,6 +479,8 @@ export type Database = {
         Update: {
           address?: string | null
           avatar_url?: string | null
+          bank_account_number?: string | null
+          bank_name?: string | null
           city?: string | null
           country?: string | null
           created_at?: string
@@ -476,6 +510,13 @@ export type Database = {
             columns: ["department_id"]
             isOneToOne: false
             referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employees_manager_id_fkey"
+            columns: ["manager_id"]
+            isOneToOne: false
+            referencedRelation: "employee_directory"
             referencedColumns: ["id"]
           },
           {
@@ -544,6 +585,13 @@ export type Database = {
             foreignKeyName: "goals_employee_id_fkey"
             columns: ["employee_id"]
             isOneToOne: false
+            referencedRelation: "employee_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "goals_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
             referencedRelation: "employees"
             referencedColumns: ["id"]
           },
@@ -575,6 +623,13 @@ export type Database = {
           year?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "leave_balances_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employee_directory"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "leave_balances_employee_id_fkey"
             columns: ["employee_id"]
@@ -642,6 +697,13 @@ export type Database = {
             foreignKeyName: "leave_requests_employee_id_fkey"
             columns: ["employee_id"]
             isOneToOne: false
+            referencedRelation: "employee_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "leave_requests_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
             referencedRelation: "employees"
             referencedColumns: ["id"]
           },
@@ -650,6 +712,13 @@ export type Database = {
             columns: ["leave_type_id"]
             isOneToOne: false
             referencedRelation: "leave_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "leave_requests_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "employee_directory"
             referencedColumns: ["id"]
           },
           {
@@ -858,45 +927,76 @@ export type Database = {
       }
       payroll_records: {
         Row: {
+          advance_amount_adjusted: number
           basic_salary: number
           created_at: string
           employee_id: string
+          health_insurance: number
           id: string
+          loss_of_pay_days: number
+          lta_allowance: number
           month: number
           net_salary: number
           paid_at: string | null
+          pf_employer_contribution: number
+          professional_tax: number
           status: Database["public"]["Enums"]["payroll_status"]
+          tds: number
           total_allowances: number | null
           total_deductions: number | null
+          variable_pay: number
           year: number
         }
         Insert: {
+          advance_amount_adjusted?: number
           basic_salary: number
           created_at?: string
           employee_id: string
+          health_insurance?: number
           id?: string
+          loss_of_pay_days?: number
+          lta_allowance?: number
           month: number
           net_salary: number
           paid_at?: string | null
+          pf_employer_contribution?: number
+          professional_tax?: number
           status?: Database["public"]["Enums"]["payroll_status"]
+          tds?: number
           total_allowances?: number | null
           total_deductions?: number | null
+          variable_pay?: number
           year: number
         }
         Update: {
+          advance_amount_adjusted?: number
           basic_salary?: number
           created_at?: string
           employee_id?: string
+          health_insurance?: number
           id?: string
+          loss_of_pay_days?: number
+          lta_allowance?: number
           month?: number
           net_salary?: number
           paid_at?: string | null
+          pf_employer_contribution?: number
+          professional_tax?: number
           status?: Database["public"]["Enums"]["payroll_status"]
+          tds?: number
           total_allowances?: number | null
           total_deductions?: number | null
+          variable_pay?: number
           year?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "payroll_records_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employee_directory"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "payroll_records_employee_id_fkey"
             columns: ["employee_id"]
@@ -960,7 +1060,21 @@ export type Database = {
             foreignKeyName: "performance_reviews_employee_id_fkey"
             columns: ["employee_id"]
             isOneToOne: false
+            referencedRelation: "employee_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "performance_reviews_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
             referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "performance_reviews_reviewer_id_fkey"
+            columns: ["reviewer_id"]
+            isOneToOne: false
+            referencedRelation: "employee_directory"
             referencedColumns: ["id"]
           },
           {
@@ -1095,6 +1209,13 @@ export type Database = {
             foreignKeyName: "reimbursement_requests_employee_id_fkey"
             columns: ["employee_id"]
             isOneToOne: false
+            referencedRelation: "employee_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reimbursement_requests_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
             referencedRelation: "employees"
             referencedColumns: ["id"]
           },
@@ -1102,7 +1223,21 @@ export type Database = {
             foreignKeyName: "reimbursement_requests_paid_by_fkey"
             columns: ["paid_by"]
             isOneToOne: false
+            referencedRelation: "employee_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reimbursement_requests_paid_by_fkey"
+            columns: ["paid_by"]
+            isOneToOne: false
             referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reimbursement_requests_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "employee_directory"
             referencedColumns: ["id"]
           },
           {
@@ -1213,6 +1348,13 @@ export type Database = {
             foreignKeyName: "salary_history_employee_id_fkey"
             columns: ["employee_id"]
             isOneToOne: false
+            referencedRelation: "employee_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "salary_history_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
             referencedRelation: "employees"
             referencedColumns: ["id"]
           },
@@ -1262,6 +1404,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "salary_structures_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: true
+            referencedRelation: "employee_directory"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "salary_structures_employee_id_fkey"
             columns: ["employee_id"]
@@ -1388,12 +1537,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -1417,11 +1566,11 @@ export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -1442,11 +1591,11 @@ export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -1467,11 +1616,11 @@ export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -1484,17 +1633,17 @@ export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
+    : never) = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
   ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
   : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
-    ? DefaultSchema["CompositeTypes"][CompositeTypeName]
+    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
     : never
 
 export const Constants = {
