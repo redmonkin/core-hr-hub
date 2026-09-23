@@ -11,16 +11,19 @@ interface PayslipData {
   status: string;
   paidAt?: string;
   basicSalary: number;
-  allowances: number;
-  deductions: number;
-  netSalary: number;
   salaryBreakdown?: {
     hra?: number;
+    lta_allowance?: number;
     transport_allowance?: number;
     medical_allowance?: number;
     other_allowances?: number;
-    tax_deduction?: number;
+    variable_pay?: number;
+    pf_employer_contribution?: number;
+    health_insurance?: number;
     pf_deduction?: number;
+    professional_tax?: number;
+    tds?: number;
+    advance_amount_adjusted?: number;
   };
   companyName?: string;
   companyAddress?: string;
@@ -30,6 +33,10 @@ interface PayslipData {
   designation?: string;
   department?: string;
   workedDays?: number;
+  bankName?: string;
+  bankAccountNumber?: string;
+  daysInMonth?: number;
+  lossOfPayDays?: number;
 }
 
 const formatCurrency = formatCurrencyForPdf;
@@ -78,6 +85,8 @@ function amountToWords(amount: number): string {
   return parts.join(" ");
 }
 
+const BOLD_LABELS = new Set(["Total Gross Salary", "Total CTC", "Total Deductions", "Net Take Home"]);
+
 export function generatePayslipPDF(data: PayslipData): jsPDF {
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
@@ -118,7 +127,29 @@ export function generatePayslipPDF(data: PayslipData): jsPDF {
 
   currentY += 10;
 
-  // === INFO GRID: joining/period/worked-days on the left, employee details on the right ===
+  // === EARNINGS / DEDUCTIONS FIGURES ===
+  const sb = data.salaryBreakdown || {};
+  const hra = Number(sb.hra || 0);
+  const ltaAllowance = Number(sb.lta_allowance || 0);
+  const otherAllowance =
+    Number(sb.transport_allowance || 0) + Number(sb.medical_allowance || 0) + Number(sb.other_allowances || 0);
+  const variablePay = Number(sb.variable_pay || 0);
+  const pfEmployerContribution = Number(sb.pf_employer_contribution || 0);
+  const healthInsurance = Number(sb.health_insurance || 0);
+  const pfEmployeeContribution = Number(sb.pf_deduction || 0);
+  const professionalTax = Number(sb.professional_tax || 0);
+  const tds = Number(sb.tds || 0);
+  const advanceAmountAdjusted = Number(sb.advance_amount_adjusted || 0);
+
+  const totalGrossSalary = data.basicSalary + hra + ltaAllowance + otherAllowance + variablePay;
+  const totalCTC = totalGrossSalary + pfEmployerContribution + healthInsurance;
+  const totalDeductions = pfEmployeeContribution + professionalTax + tds + advanceAmountAdjusted;
+  const netTakeHome = totalGrossSalary - totalDeductions;
+
+  const daysPayable =
+    data.daysInMonth !== undefined ? data.daysInMonth - (data.lossOfPayDays || 0) : undefined;
+
+  // === INFO GRID: joining/bank/days on the left, employee/period details on the right ===
   const col1LabelX = margin;
   const col1ValueX = margin + 40;
   const col2LabelX = margin + contentWidth / 2 + 5;
@@ -131,13 +162,17 @@ export function generatePayslipPDF(data: PayslipData): jsPDF {
 
   const leftRows: [string, string][] = [
     ["Date of Joining", data.dateOfJoining || "—"],
-    ["Pay Period", `${data.monthName} ${data.year}`],
-    ["Worked Days", data.workedDays !== undefined ? String(data.workedDays) : "—"],
+    ["Bank Name", data.bankName || "—"],
+    ["Bank Account No", data.bankAccountNumber || "—"],
+    ["Days in Month", data.daysInMonth !== undefined ? String(data.daysInMonth) : "—"],
+    ["Days Payable", daysPayable !== undefined ? String(daysPayable) : "—"],
   ];
   const rightRows: [string, string][] = [
     ["Employee name", data.employeeName],
     ["Designation", data.designation || "—"],
     ["Department", data.department || "—"],
+    ["Pay Period", `${data.monthName} ${data.year}`],
+    ["Loss of Pay (Days)", data.lossOfPayDays !== undefined ? String(data.lossOfPayDays) : "—"],
   ];
 
   leftRows.forEach(([label, value], i) => {
@@ -151,24 +186,28 @@ export function generatePayslipPDF(data: PayslipData): jsPDF {
     doc.text(`: ${value}`, col2ValueX, y);
   });
 
-  currentY += leftRows.length * rowStep + 12;
+  currentY += Math.max(leftRows.length, rightRows.length) * rowStep + 12;
 
   // === EARNINGS / DEDUCTIONS TABLE ===
-  const earningsRows: [string, string][] = [["Basic", formatCurrency(data.basicSalary)]];
-  const sb = data.salaryBreakdown;
-  if (sb?.hra) earningsRows.push(["House Rent Allowance", formatCurrency(sb.hra)]);
-  if (sb?.transport_allowance) earningsRows.push(["Transport Allowance", formatCurrency(sb.transport_allowance)]);
-  if (sb?.medical_allowance) earningsRows.push(["Meal Allowance", formatCurrency(sb.medical_allowance)]);
-  if (sb?.other_allowances) earningsRows.push(["Other Allowances", formatCurrency(sb.other_allowances)]);
-  if (!sb && data.allowances > 0) earningsRows.push(["Allowances", formatCurrency(data.allowances)]);
+  const earningsRows: [string, string][] = [["Basic Salary", formatCurrency(data.basicSalary)]];
+  if (hra) earningsRows.push(["House Rent Allowance", formatCurrency(hra)]);
+  if (ltaAllowance) earningsRows.push(["LTA Allowance", formatCurrency(ltaAllowance)]);
+  if (otherAllowance) earningsRows.push(["Other Allowance", formatCurrency(otherAllowance)]);
+  if (variablePay) earningsRows.push(["Variable Pay", formatCurrency(variablePay)]);
+  earningsRows.push(["Total Gross Salary", formatCurrency(totalGrossSalary)]);
+  if (pfEmployerContribution) earningsRows.push(["PF Employer Contribution", formatCurrency(pfEmployerContribution)]);
+  if (healthInsurance) earningsRows.push(["Health Insurance", formatCurrency(healthInsurance)]);
+  earningsRows.push(["Total CTC", formatCurrency(totalCTC)]);
 
   const deductionRows: [string, string][] = [];
-  if (sb?.pf_deduction) deductionRows.push(["Provident Fund", formatCurrency(sb.pf_deduction)]);
-  if (sb?.tax_deduction) deductionRows.push(["Professional Tax", formatCurrency(sb.tax_deduction)]);
-  if (deductionRows.length === 0 && data.deductions > 0) deductionRows.push(["Deductions", formatCurrency(data.deductions)]);
+  if (pfEmployeeContribution) deductionRows.push(["PF Employee Contribution", formatCurrency(pfEmployeeContribution)]);
+  if (professionalTax) deductionRows.push(["Professional Tax", formatCurrency(professionalTax)]);
+  if (tds) deductionRows.push(["TDS", formatCurrency(tds)]);
+  if (advanceAmountAdjusted) deductionRows.push(["Advance Amount Adjusted", formatCurrency(advanceAmountAdjusted)]);
+  deductionRows.push(["Total Deductions", formatCurrency(totalDeductions)]);
+  deductionRows.push(["Net Take Home", formatCurrency(netTakeHome)]);
 
   const rowCount = Math.max(earningsRows.length, deductionRows.length);
-  const grossSalary = data.basicSalary + data.allowances;
 
   const body: string[][] = [];
   for (let i = 0; i < rowCount; i++) {
@@ -176,15 +215,11 @@ export function generatePayslipPDF(data: PayslipData): jsPDF {
     const [dLabel, dAmount] = deductionRows[i] || ["", ""];
     body.push([eLabel, eAmount, dLabel, dAmount]);
   }
-  body.push(["Total Earnings", formatCurrency(grossSalary), "Total Deductions", formatCurrency(data.deductions)]);
-  body.push(["", "", "Net Pay", formatCurrency(data.netSalary)]);
 
-  const col1Width = 45;
+  const col1Width = 50;
   const col2Width = 40;
-  const col3Width = 45;
+  const col3Width = 50;
   const col4Width = contentWidth - col1Width - col2Width - col3Width;
-  const totalsRowIndex = body.length - 2;
-  const netPayRowIndex = body.length - 1;
 
   autoTable(doc, {
     startY: currentY,
@@ -212,26 +247,27 @@ export function generatePayslipPDF(data: PayslipData): jsPDF {
       3: { cellWidth: col4Width, halign: "right" },
     },
     didParseCell: (cellData) => {
-      if (cellData.section === "body" && (cellData.row.index === totalsRowIndex || cellData.row.index === netPayRowIndex)) {
+      if (cellData.section !== "body") return;
+      const rowLabel = cellData.column.index <= 1
+        ? earningsRows[cellData.row.index]?.[0]
+        : deductionRows[cellData.row.index]?.[0];
+      if (rowLabel && BOLD_LABELS.has(rowLabel)) {
         cellData.cell.styles.fontStyle = "bold";
-        if (cellData.row.index === netPayRowIndex && (cellData.column.index === 0 || cellData.column.index === 1)) {
-          cellData.cell.styles.lineWidth = 0;
-        }
       }
     },
   });
 
   currentY = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 18;
 
-  // === NET PAY IN WORDS ===
+  // === NET TAKE HOME IN WORDS ===
   doc.setTextColor(...COLORS.dark);
   doc.setFontSize(12);
   doc.setFont("helvetica", "bold");
-  doc.text(formatCurrency(data.netSalary), center, currentY, { align: "center" });
+  doc.text(formatCurrency(netTakeHome), center, currentY, { align: "center" });
   currentY += 7;
   doc.setFontSize(10);
   doc.setFont("helvetica", "normal");
-  doc.text(amountToWords(data.netSalary), center, currentY, { align: "center" });
+  doc.text(amountToWords(netTakeHome), center, currentY, { align: "center" });
 
   const pageHeight = doc.internal.pageSize.getHeight();
 

@@ -61,6 +61,8 @@ interface EditFormData {
   country: string;
   date_of_birth: string;
   gender: string;
+  bank_name: string;
+  bank_account_number: string;
   designation: string;
   department_id: string;
   manager_id: string;
@@ -104,6 +106,8 @@ export function EmployeeEditDialog({ employee, open, onOpenChange }: EmployeeEdi
     country: "",
     date_of_birth: "",
     gender: "",
+    bank_name: "",
+    bank_account_number: "",
     designation: "",
     department_id: "",
     manager_id: "",
@@ -210,6 +214,8 @@ export function EmployeeEditDialog({ employee, open, onOpenChange }: EmployeeEdi
           country,
           date_of_birth,
           gender,
+          bank_name,
+          bank_account_number,
           designation,
           department_id,
           manager_id,
@@ -282,6 +288,8 @@ export function EmployeeEditDialog({ employee, open, onOpenChange }: EmployeeEdi
         country: employeeDetails.country || "",
         date_of_birth: employeeDetails.date_of_birth || "",
         gender: employeeDetails.gender || "",
+        bank_name: employeeDetails.bank_name || "",
+        bank_account_number: employeeDetails.bank_account_number || "",
         designation: employeeDetails.designation || "",
         department_id: employeeDetails.department_id || "",
         manager_id: employeeDetails.manager_id || "",
@@ -310,6 +318,8 @@ export function EmployeeEditDialog({ employee, open, onOpenChange }: EmployeeEdi
           country: data.country || null,
           date_of_birth: data.date_of_birth || null,
           gender: data.gender || null,
+          bank_name: data.bank_name || null,
+          bank_account_number: data.bank_account_number || null,
           designation: data.designation,
           department_id: data.department_id || null,
           manager_id: data.manager_id || null,
@@ -574,6 +584,26 @@ export function EmployeeEditDialog({ employee, open, onOpenChange }: EmployeeEdi
                       id="country"
                       value={formData.country}
                       onChange={(e) => setFormData({ ...formData, country: e.target.value })}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="bank_name">Bank Name</Label>
+                    <Input
+                      id="bank_name"
+                      value={formData.bank_name}
+                      onChange={(e) => setFormData({ ...formData, bank_name: e.target.value })}
+                      placeholder="e.g. HDFC"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="bank_account_number">Bank Account Number</Label>
+                    <Input
+                      id="bank_account_number"
+                      value={formData.bank_account_number}
+                      onChange={(e) => setFormData({ ...formData, bank_account_number: e.target.value })}
                     />
                   </div>
                 </div>

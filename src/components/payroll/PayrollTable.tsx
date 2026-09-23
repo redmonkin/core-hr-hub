@@ -22,7 +22,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Download, Eye, MoreVertical, CheckCircle, Clock, CreditCard, CalendarCheck, Loader2, X } from "lucide-react";
+import { Download, Eye, MoreVertical, CheckCircle, Clock, CreditCard, CalendarCheck, Loader2, X, Pencil } from "lucide-react";
 import { useState } from "react";
 import { downloadPayslip } from "@/lib/payslipPdfGenerator";
 import { fetchImageAsDataUrl } from "@/lib/pdfTheme";
@@ -49,12 +49,21 @@ export interface PayrollRecord {
   netSalary: number;
   status: "paid" | "pending" | "processing";
   paidAt?: string;
+  ltaAllowance: number;
+  variablePay: number;
+  pfEmployerContribution: number;
+  healthInsurance: number;
+  professionalTax: number;
+  tds: number;
+  advanceAmountAdjusted: number;
+  lossOfPayDays: number;
 }
 
 interface PayrollTableProps {
   records: PayrollRecord[];
   onView?: (record: PayrollRecord) => void;
   onDownload?: (record: PayrollRecord) => void;
+  onEditDetails?: (record: PayrollRecord) => void;
   onMarkProcessed?: (record: PayrollRecord) => void;
   onMarkPaid?: (record: PayrollRecord) => void;
   onRevertToPending?: (record: PayrollRecord) => void;
@@ -76,10 +85,11 @@ const statusIcons = {
   processing: <CreditCard className="mr-1 h-3 w-3" />,
 };
 
-export function PayrollTable({ 
-  records, 
-  onView, 
+export function PayrollTable({
+  records,
+  onView,
   onDownload,
+  onEditDetails,
   onMarkProcessed,
   onMarkPaid,
   onRevertToPending,
@@ -174,7 +184,7 @@ export function PayrollTable({
 
       const { data: employeeInfo } = await supabase
         .from("employees")
-        .select("hire_date, designation, department:departments!employees_department_id_fkey(name)")
+        .select("hire_date, designation, department:departments!employees_department_id_fkey(name), bank_name, bank_account_number")
         .eq("id", record.employeeId)
         .maybeSingle();
 
@@ -190,6 +200,7 @@ export function PayrollTable({
 
       const monthName = MONTH_NAMES[record.monthNum - 1] || "";
       const logoDataUrl = await fetchImageAsDataUrl(branding?.logoUrl);
+      const daysInMonth = endOfMonth(new Date(record.year, record.monthNum - 1)).getDate();
 
       downloadPayslip({
         employeeName: record.employee.name,
@@ -200,9 +211,6 @@ export function PayrollTable({
         status: record.status,
         paidAt: record.paidAt,
         basicSalary: record.basic,
-        allowances: record.allowances,
-        deductions: record.deductions,
-        netSalary: record.netSalary,
         companyName: branding?.companyName || undefined,
         companyAddress: branding?.companyAddress || undefined,
         logoDataUrl,
@@ -210,13 +218,23 @@ export function PayrollTable({
         designation: employeeInfo?.designation ?? undefined,
         department: employeeInfo?.department?.name ?? undefined,
         workedDays: workedDays ?? undefined,
+        bankName: employeeInfo?.bank_name ?? undefined,
+        bankAccountNumber: employeeInfo?.bank_account_number ?? undefined,
+        daysInMonth,
+        lossOfPayDays: record.lossOfPayDays,
         salaryBreakdown: salaryStructure ? {
           hra: salaryStructure.hra ?? undefined,
           transport_allowance: salaryStructure.transport_allowance ?? undefined,
           medical_allowance: salaryStructure.medical_allowance ?? undefined,
           other_allowances: salaryStructure.other_allowances ?? undefined,
-          tax_deduction: salaryStructure.tax_deduction ?? undefined,
           pf_deduction: salaryStructure.pf_deduction ?? undefined,
+          lta_allowance: record.ltaAllowance,
+          variable_pay: record.variablePay,
+          pf_employer_contribution: record.pfEmployerContribution,
+          health_insurance: record.healthInsurance,
+          professional_tax: record.professionalTax,
+          tds: record.tds,
+          advance_amount_adjusted: record.advanceAmountAdjusted,
         } : undefined,
       }, `Payslip_${record.employeeCode}_${monthName}_${record.year}.pdf`);
       
@@ -393,6 +411,11 @@ export function PayrollTable({
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => onEditDetails?.(record)}>
+                          <Pencil className="mr-2 h-4 w-4" />
+                          Edit Payroll Details
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
                         {record.status === "pending" && (
                           <DropdownMenuItem onClick={() => onMarkProcessed?.(record)}>
                             <CreditCard className="mr-2 h-4 w-4" />
