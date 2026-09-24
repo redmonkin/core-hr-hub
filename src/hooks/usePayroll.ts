@@ -2,6 +2,12 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { toast } from "sonner";
+import {
+  buildHolidaySet,
+  calculatePayrollAmounts,
+  getProrationRatio,
+  resolveWorkingDays,
+} from "@/lib/payrollProration";
 
 export interface PayrollRecord {
   id: string;
@@ -148,37 +154,6 @@ export function usePayrollStats() {
   });
 }
 
-/** Expands holiday rows (possibly multi-day) into a set of "yyyy-MM-dd" strings, clipped to [monthStart, monthEnd]. */
-function buildHolidaySet(
-  holidays: { event_date: string; end_date: string | null }[],
-  monthStart: Date,
-  monthEnd: Date
-): Set<string> {
-  const set = new Set<string>();
-  holidays.forEach((h) => {
-    const hStart = new Date(`${h.event_date}T00:00:00`);
-    const hEnd = h.end_date ? new Date(`${h.end_date}T00:00:00`) : hStart;
-    const rangeStart = hStart < monthStart ? monthStart : hStart;
-    const rangeEnd = hEnd > monthEnd ? monthEnd : hEnd;
-    if (rangeStart > rangeEnd) return;
-    for (const cur = new Date(rangeStart); cur <= rangeEnd; cur.setDate(cur.getDate() + 1)) {
-      set.add(format(cur, "yyyy-MM-dd"));
-    }
-  });
-  return set;
-}
-
-/** Counts days in [start, end] (inclusive) that fall on one of workingDays and aren't a holiday. */
-function countWorkingDays(start: Date, end: Date, workingDays: number[], holidaySet: Set<string>): number {
-  let count = 0;
-  for (const cur = new Date(start); cur <= end; cur.setDate(cur.getDate() + 1)) {
-    if (workingDays.includes(cur.getDay()) && !holidaySet.has(format(cur, "yyyy-MM-dd"))) {
-      count++;
-    }
-  }
-  return count;
-}
-
 export function useGeneratePayroll() {
   const queryClient = useQueryClient();
 
@@ -243,43 +218,15 @@ export function useGeneratePayroll() {
       // Generate payroll records, pro-rating basic/allowances/deductions for
       // employees whose hire date falls inside the selected month
       const payrollRecords = eligible.map((salary) => {
-        const totalAllowances =
-          Number(salary.hra || 0) +
-          Number(salary.transport_allowance || 0) +
-          Number(salary.medical_allowance || 0) +
-          Number(salary.other_allowances || 0);
-
-        const totalDeductions =
-          Number(salary.tax_deduction || 0) +
-          Number(salary.pf_deduction || 0);
-
-        const workingDays =
-          salary.employee?.working_days && salary.employee.working_days.length > 0
-            ? salary.employee.working_days
-            : [1, 2, 3, 4, 5];
-
-        const hireDate = salary.employee?.hire_date ? new Date(`${salary.employee.hire_date}T00:00:00`) : null;
-
-        let ratio = 1;
-        if (hireDate && hireDate > monthStart) {
-          const totalWorkingDaysInMonth = countWorkingDays(monthStart, monthEnd, workingDays, holidaySet);
-          const workedDays = countWorkingDays(hireDate, monthEnd, workingDays, holidaySet);
-          ratio = totalWorkingDaysInMonth > 0 ? workedDays / totalWorkingDaysInMonth : 1;
-        }
-
-        const basicSalary = Number(salary.basic_salary) * ratio;
-        const proratedAllowances = totalAllowances * ratio;
-        const proratedDeductions = totalDeductions * ratio;
-        const netSalary = basicSalary + proratedAllowances - proratedDeductions;
+        const workingDays = resolveWorkingDays(salary.employee?.working_days);
+        const ratio = getProrationRatio(salary.employee?.hire_date, monthStart, monthEnd, workingDays, holidaySet);
+        const amounts = calculatePayrollAmounts(salary, ratio);
 
         return {
           employee_id: salary.employee_id,
           month,
           year,
-          basic_salary: basicSalary,
-          total_allowances: proratedAllowances,
-          total_deductions: proratedDeductions,
-          net_salary: netSalary,
+          ...amounts,
           status: "draft" as const,
         };
       });
