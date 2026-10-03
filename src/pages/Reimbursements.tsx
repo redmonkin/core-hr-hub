@@ -20,20 +20,24 @@ import {
   useUpdateReimbursementStatus,
   ReimbursementRequest,
 } from "@/hooks/useReimbursements";
-import { useIsAdminOrHR } from "@/hooks/useUserRole";
+import { usePermissions } from "@/hooks/usePermissions";
 import { formatCurrency } from "@/lib/currency";
 
 const Reimbursements = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const [isNewRequestOpen, setIsNewRequestOpen] = useState(false);
-  const { isAdminOrHR, roles } = useIsAdminOrHR();
+  const { can, roles } = usePermissions();
 
   const [selectedRequest, setSelectedRequest] = useState<ReimbursementRequest | null>(null);
   const [reviewNotes, setReviewNotes] = useState("");
   const [actionType, setActionType] = useState<"approve" | "reject" | "paid" | null>(null);
 
-  const canApprove = isAdminOrHR || roles.includes("manager");
+  // Managers approve their reports (RLS limits them to their team);
+  // reimbursements:manage approves anyone's and marks claims paid
+  const canApprove = can("reimbursements", "manage") || roles.includes("manager");
+  const canSeeOthersRequests = canApprove || can("reimbursements", "view");
+  const canMarkPaid = can("reimbursements", "manage");
 
   const { data: myEmployeeId, isLoading: isLoadingMyEmployee } = useQuery({
     queryKey: ["my-employee-id", user?.id],
@@ -193,7 +197,7 @@ const Reimbursements = () => {
                 {pendingRequests.length}
               </Badge>
             </TabsTrigger>
-            {canApprove && (
+            {canSeeOthersRequests && (
               <TabsTrigger value="approved">
                 Approved
                 <Badge variant="secondary" className="ml-2">
@@ -236,7 +240,7 @@ const Reimbursements = () => {
             )}
           </TabsContent>
 
-          {canApprove && (
+          {canSeeOthersRequests && (
             <TabsContent value="approved" className="mt-6 space-y-4">
               {isLoading ? (
                 <div className="space-y-4">
@@ -257,7 +261,7 @@ const Reimbursements = () => {
                   <ReimbursementCard
                     key={request.id}
                     request={request}
-                    onMarkPaid={isAdminOrHR ? handleMarkPaid : undefined}
+                    onMarkPaid={canMarkPaid ? handleMarkPaid : undefined}
                     onViewReceipt={handleViewReceipt}
                   />
                 ))

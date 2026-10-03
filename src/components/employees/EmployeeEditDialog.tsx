@@ -214,8 +214,7 @@ export function EmployeeEditDialog({ employee, open, onOpenChange }: EmployeeEdi
           country,
           date_of_birth,
           gender,
-          bank_name,
-          bank_account_number,
+          bank:employee_bank_details(bank_name, bank_account_number),
           designation,
           department_id,
           manager_id,
@@ -288,8 +287,8 @@ export function EmployeeEditDialog({ employee, open, onOpenChange }: EmployeeEdi
         country: employeeDetails.country || "",
         date_of_birth: employeeDetails.date_of_birth || "",
         gender: employeeDetails.gender || "",
-        bank_name: employeeDetails.bank_name || "",
-        bank_account_number: employeeDetails.bank_account_number || "",
+        bank_name: employeeDetails.bank?.bank_name || "",
+        bank_account_number: employeeDetails.bank?.bank_account_number || "",
         designation: employeeDetails.designation || "",
         department_id: employeeDetails.department_id || "",
         manager_id: employeeDetails.manager_id || "",
@@ -318,8 +317,6 @@ export function EmployeeEditDialog({ employee, open, onOpenChange }: EmployeeEdi
           country: data.country || null,
           date_of_birth: data.date_of_birth || null,
           gender: data.gender || null,
-          bank_name: data.bank_name || null,
-          bank_account_number: data.bank_account_number || null,
           designation: data.designation,
           department_id: data.department_id || null,
           manager_id: data.manager_id || null,
@@ -333,6 +330,22 @@ export function EmployeeEditDialog({ employee, open, onOpenChange }: EmployeeEdi
         .eq("id", employee?.id);
 
       if (error) throw error;
+
+      // Bank details live in their own table (restricted to the employee,
+      // payroll and HR); only write when something changed.
+      const bankName = data.bank_name.trim() || null;
+      const bankAccountNumber = data.bank_account_number.trim() || null;
+      const previousBank = employeeDetails?.bank;
+      if (
+        employee?.id &&
+        (bankName !== (previousBank?.bank_name ?? null) ||
+          bankAccountNumber !== (previousBank?.bank_account_number ?? null))
+      ) {
+        const { error: bankError } = await supabase
+          .from("employee_bank_details")
+          .upsert({ employee_id: employee.id, bank_name: bankName, bank_account_number: bankAccountNumber });
+        if (bankError) throw bankError;
+      }
 
       // Update department manager status if employee has a department
       if (data.department_id) {

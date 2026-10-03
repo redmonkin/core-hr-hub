@@ -1,50 +1,43 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { createClient } from "npm:@supabase/supabase-js@2.87.1";
 import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
+import { corsHeaders, jsonResponse } from "../_shared/cors.ts";
+import { escapeHtml } from "../_shared/html.ts";
+import { authenticateCaller, userCan } from "../_shared/auth.ts";
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
 const APP_URL = Deno.env.get("APP_URL") ?? "https://peoplo.redmonk.in";
 const RESEND_FROM_EMAIL = Deno.env.get("RESEND_FROM_EMAIL")!;
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+const DOMAIN_WHITELIST_MESSAGE = "Only email addresses from approved domains can be invited.";
 
-// HTML escape utility to prevent XSS in email templates
-const escapeHtml = (text: string | null | undefined): string => {
-  if (!text) return '';
-  return text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
-};
+// Allowed hosts for redirect URLs - prevents open redirect attacks.
+//   - APP_URL's exact host and its subdomains
+//   - localhost / 127.0.0.1 (local development)
+//   - EXTRA_REDIRECT_HOSTS: optional comma-separated list of exact hosts;
+//     an entry of the form "*.example.com" allows subdomains of example.com
+const APP_HOSTNAME = new URL(APP_URL).hostname.toLowerCase();
+const LOCAL_HOSTS = ["localhost", "127.0.0.1"];
+const EXTRA_REDIRECT_HOSTS = (Deno.env.get("EXTRA_REDIRECT_HOSTS") ?? "")
+  .split(",")
+  .map((h) => h.trim().toLowerCase())
+  .filter(Boolean);
 
-// Allowed domains for redirect URLs - prevents open redirect attacks
-const APP_HOSTNAME = new URL(APP_URL).hostname;
-const APP_PARENT_DOMAIN = APP_HOSTNAME.split('.').slice(-2).join('.');
-const ALLOWED_REDIRECT_HOSTS = [
-  'lovable.app',           // Lovable preview/published URLs
-  'lovable.dev',           // Lovable development URLs
-  'localhost',             // Local development
-  '127.0.0.1',             // Local development
-  'corehrhub.lovable.app', // Lovable published domain
-  APP_HOSTNAME,            // Production domain (from APP_URL secret)
-  APP_PARENT_DOMAIN,       // Production parent domain
-];
-
-// Validate that a URL is safe for redirect
 const isAllowedRedirectUrl = (urlString: string): boolean => {
   try {
     const url = new URL(urlString);
-    
-    // Check exact match or subdomain match for allowed hosts
-    return ALLOWED_REDIRECT_HOSTS.some(allowedHost => 
-      url.hostname === allowedHost || 
-      url.hostname.endsWith(`.${allowedHost}`)
-    );
+    if (url.protocol !== "https:" && url.protocol !== "http:") return false;
+    const host = url.hostname.toLowerCase();
+
+    if (host === APP_HOSTNAME || host.endsWith(`.${APP_HOSTNAME}`)) return true;
+    if (LOCAL_HOSTS.includes(host)) return true;
+
+    return EXTRA_REDIRECT_HOSTS.some((allowed) => {
+      if (allowed.startsWith("*.")) {
+        const base = allowed.slice(2);
+        return base.length > 0 && host.endsWith(`.${base}`);
+      }
+      return host === allowed;
+    });
   } catch {
     return false;
   }
@@ -64,10 +57,11 @@ const inviteEmployeeSchema = z.object({
     .trim()
     .min(1, { message: "Last name is required" })
     .max(100, { message: "Last name must be less than 100 characters" }),
+  // Shown in the welcome email when given ("Resend invite" may not have one)
   designation: z.string()
     .trim()
-    .min(1, { message: "Designation is required" })
-    .max(100, { message: "Designation must be less than 100 characters" }),
+    .max(100, { message: "Designation must be less than 100 characters" })
+    .optional(),
   department_name: z.string()
     .trim()
     .max(100, { message: "Department name must be less than 100 characters" })
@@ -75,23 +69,35 @@ const inviteEmployeeSchema = z.object({
   redirect_url: z.string()
     .url({ message: "Invalid redirect URL" })
     .max(500, { message: "Redirect URL must be less than 500 characters" })
-    .refine(isAllowedRedirectUrl, { 
-      message: "Redirect URL must be an allowed domain (lovable.app, lovable.dev, or localhost)" 
+    .refine(isAllowedRedirectUrl, {
+      message: "Redirect URL must be on an allowed domain",
     }),
+  mode: z.enum(["employee", "self_onboarding"]).optional().default("employee"),
 });
 
 type InviteEmployeeRequest = z.infer<typeof inviteEmployeeSchema>;
 
+// Escape LIKE/ILIKE wildcards so an email is matched literally
+const escapeLike = (value: string): string => value.replace(/[\\%_]/g, (c) => `\\${c}`);
+
 const sendWelcomeEmail = async (
   to: string,
   firstName: string,
-  designation: string,
+  mode: "employee" | "self_onboarding",
+  designation: string | undefined,
   departmentName: string | undefined,
   inviteLink: string
 ) => {
   const safeFirstName = escapeHtml(firstName);
   const safeDesignation = escapeHtml(designation);
   const safeDepartmentName = escapeHtml(departmentName);
+  const safeInviteLink = escapeHtml(inviteLink);
+
+  const introHtml = mode === "self_onboarding" || !safeDesignation
+    ? mode === "self_onboarding"
+      ? `<p>We're excited to have you join us. After you set up your account, you'll be asked to complete your onboarding details.</p>`
+      : `<p>We're excited to have you join us.</p>`
+    : `<p>We're excited to have you join us as <strong>${safeDesignation}</strong>${safeDepartmentName ? ` in the <strong>${safeDepartmentName}</strong> department` : ''}.</p>`;
 
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
@@ -106,10 +112,10 @@ const sendWelcomeEmail = async (
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <h1 style="color: #2563eb;">Welcome Aboard, ${safeFirstName}! 🎉</h1>
-          <p>We're excited to have you join us as <strong>${safeDesignation}</strong>${safeDepartmentName ? ` in the <strong>${safeDepartmentName}</strong> department` : ''}.</p>
+          ${introHtml}
           <p>To get started, please set up your account by clicking the button below:</p>
           <div style="text-align: center; margin: 30px 0;">
-            <a href="${inviteLink}" 
+            <a href="${safeInviteLink}" 
                style="background-color: #2563eb; color: white; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">
               Set Up Your Account
             </a>
@@ -130,102 +136,148 @@ serve(async (req) => {
   }
 
   try {
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
-
-    // Verify authentication
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader?.startsWith('Bearer ')) {
-      console.error("No authorization header provided");
-      return new Response(
-        JSON.stringify({ error: 'Unauthorized' }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    // Create client with user's auth token
-    const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey, {
-      global: { headers: { Authorization: authHeader } }
-    });
-
-    // Verify the token and get claims
-    const token = authHeader.replace('Bearer ', '');
-    const { data: claimsData, error: claimsError } = await supabaseAuth.auth.getClaims(token);
-    if (claimsError || !claimsData?.claims) {
-      console.error("Invalid token:", claimsError);
-      return new Response(
-        JSON.stringify({ error: 'Unauthorized' }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    const userId = claimsData.claims.sub;
+    const caller = await authenticateCaller(req);
+    if (!caller.ok) return caller.response;
+    const { userId, supabase: supabaseAdmin } = caller;
     console.log("Authenticated user:", userId);
 
-    // Use service role for admin operations
-    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
-
-    // Verify the caller is HR or admin
-    const { data: userRoles } = await supabaseAdmin
-      .from('user_roles')
-      .select('role')
-      .eq('user_id', userId)
-      .in('role', ['admin', 'hr']);
-
-    if (!userRoles || userRoles.length === 0) {
-      console.error("User not authorized - must be HR or admin");
-      return new Response(
-        JSON.stringify({ error: 'Forbidden - Only HR or admin can invite employees' }),
-        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+    // Verify the caller can manage onboarding
+    if (!(await userCan(supabaseAdmin, userId, "onboarding", "manage"))) {
+      console.error("User not authorized - onboarding:manage required");
+      return jsonResponse({ error: 'Forbidden - You do not have permission to invite employees' }, 403);
     }
 
     // Parse and validate input using Zod schema
-    const rawPayload = await req.json();
+    let rawPayload: unknown;
+    try {
+      rawPayload = await req.json();
+    } catch {
+      return jsonResponse({ error: 'Invalid input', details: [{ field: '', message: 'Request body must be JSON' }] }, 400);
+    }
     const parseResult = inviteEmployeeSchema.safeParse(rawPayload);
-    
+
     if (!parseResult.success) {
       console.error("Input validation failed:", parseResult.error.errors);
-      return new Response(
-        JSON.stringify({ 
-          error: 'Invalid input', 
-          details: parseResult.error.errors.map(e => ({
-            field: e.path.join('.'),
-            message: e.message
-          }))
-        }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return jsonResponse({
+        error: 'Invalid input',
+        details: parseResult.error.errors.map(e => ({
+          field: e.path.join('.'),
+          message: e.message
+        }))
+      }, 400);
     }
 
     const payload: InviteEmployeeRequest = parseResult.data;
-    console.log("Invite employee payload (validated):", { email: payload.email, first_name: payload.first_name });
+    console.log("Invite employee payload (validated):", { email: payload.email, first_name: payload.first_name, mode: payload.mode });
 
-    const { email, first_name, last_name, designation, department_name, redirect_url } = payload;
+    const { first_name, last_name, designation, department_name, redirect_url, mode } = payload;
+    const email = payload.email.toLowerCase();
+    const fullName = `${first_name} ${last_name}`;
 
-    // Check if user already exists
-    const { data: existingUsers } = await supabaseAdmin.auth.admin.listUsers();
-    const existingUser = existingUsers?.users?.find(u => u.email?.toLowerCase() === email.toLowerCase());
+    // Check if the user already has an account. Every auth user has a profile
+    // row, so look it up there (auth.admin.listUsers() is paginated and would
+    // miss accounts beyond the first page).
+    const { data: existingProfiles, error: existingError } = await supabaseAdmin
+      .from('profiles')
+      .select('id')
+      .ilike('email', escapeLike(email))
+      .limit(1);
 
-    if (existingUser) {
-      console.log("User already exists:", existingUser.id);
-      return new Response(
-        JSON.stringify({ 
-          success: true, 
-          user_id: existingUser.id,
-          already_exists: true,
-          message: "User already has an account"
-        }),
-        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+    if (existingError) {
+      console.error("Error looking up existing user:", existingError);
+      return jsonResponse({ error: "An unexpected error occurred" }, 500);
+    }
+
+    if (existingProfiles && existingProfiles.length > 0) {
+      const existingUserId = existingProfiles[0].id;
+      console.log("User already exists:", existingUserId);
+      return jsonResponse({
+        success: true,
+        user_id: existingUserId,
+        already_exists: true,
+        invitation_id: null,
+        message: "User already has an account"
+      });
+    }
+
+    // Accounts are invite-only: an open invitation row must exist before the
+    // auth user can be created. Reuse an existing open one if there is one.
+    const findOpenInvitation = async () => {
+      const { data, error } = await supabaseAdmin
+        .from('user_invitations')
+        .select('id, expires_at')
+        .eq('email', email)
+        .is('accepted_at', null)
+        .is('revoked_at', null)
+        .order('created_at', { ascending: false })
+        .limit(1);
+      if (error) throw error;
+      return data && data.length > 0 ? data[0] as { id: string; expires_at: string | null } : null;
+    };
+
+    let invitationId: string | null = null;
+    let createdInvitation = false;
+
+    const existingInvitation = await findOpenInvitation();
+    if (existingInvitation) {
+      const expired = existingInvitation.expires_at !== null &&
+        new Date(existingInvitation.expires_at).getTime() <= Date.now();
+      if (!expired) {
+        invitationId = existingInvitation.id;
+        console.log("Reusing open invitation:", invitationId);
+      } else {
+        // An expired invitation still occupies the "one open invitation per
+        // email" slot; revoke it so a fresh one can be created.
+        const { error: revokeExpiredError } = await supabaseAdmin
+          .from('user_invitations')
+          .update({ revoked_at: new Date().toISOString() })
+          .eq('id', existingInvitation.id);
+        if (revokeExpiredError) {
+          console.error("Error revoking expired invitation:", revokeExpiredError);
+          return jsonResponse({ error: "An unexpected error occurred" }, 500);
+        }
+      }
+    }
+
+    if (!invitationId) {
+      const { data: inserted, error: insertError } = await supabaseAdmin
+        .from('user_invitations')
+        .insert({
+          email,
+          full_name: fullName,
+          invited_by: userId,
+          roles: ['employee'],
+        })
+        .select('id')
+        .single();
+
+      if (insertError) {
+        if (insertError.message?.includes(DOMAIN_WHITELIST_MESSAGE)) {
+          return jsonResponse({ error: DOMAIN_WHITELIST_MESSAGE }, 400);
+        }
+        if (insertError.code === '23505') {
+          // Another request created an open invitation concurrently - reuse it
+          const raced = await findOpenInvitation();
+          if (raced) {
+            invitationId = raced.id;
+          }
+        }
+        if (!invitationId) {
+          console.error("Error creating invitation:", insertError);
+          return jsonResponse({ error: "Failed to create invitation" }, 500);
+        }
+      } else {
+        invitationId = inserted.id;
+        createdInvitation = true;
+        console.log("Created invitation:", invitationId);
+      }
     }
 
     // Invite user via Supabase Auth with validated redirect_url
     const { data: inviteData, error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
       redirectTo: redirect_url,
       data: {
-        full_name: `${first_name} ${last_name}`,
+        full_name: fullName,
         first_name,
         last_name,
       },
@@ -233,10 +285,18 @@ serve(async (req) => {
 
     if (inviteError) {
       console.error("Error inviting user:", inviteError);
-      return new Response(
-        JSON.stringify({ error: inviteError.message }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      if (createdInvitation && invitationId) {
+        // Don't leave an unusable invitation lingering
+        const { error: revokeError } = await supabaseAdmin
+          .from('user_invitations')
+          .update({ revoked_at: new Date().toISOString() })
+          .eq('id', invitationId)
+          .is('accepted_at', null);
+        if (revokeError) {
+          console.error("Error revoking invitation after failed invite:", revokeError);
+        }
+      }
+      return jsonResponse({ error: inviteError.message }, 400);
     }
 
     console.log("User invited successfully:", inviteData.user?.id);
@@ -251,7 +311,7 @@ serve(async (req) => {
           options: {
             redirectTo: redirect_url,
             data: {
-              full_name: `${first_name} ${last_name}`,
+              full_name: fullName,
               first_name,
               last_name,
             },
@@ -262,11 +322,14 @@ serve(async (req) => {
           await sendWelcomeEmail(
             email,
             first_name,
+            mode,
             designation,
             department_name,
             linkData.properties.action_link
           );
           console.log("Custom welcome email sent");
+        } else if (linkError) {
+          console.error("Error generating invite link:", linkError);
         }
       } catch (emailErr) {
         console.error("Error sending custom email:", emailErr);
@@ -274,20 +337,15 @@ serve(async (req) => {
       }
     }
 
-    return new Response(
-      JSON.stringify({ 
-        success: true, 
-        user_id: inviteData.user?.id,
-        already_exists: false,
-        message: "Invitation sent successfully"
-      }),
-      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return jsonResponse({
+      success: true,
+      user_id: inviteData.user?.id,
+      already_exists: false,
+      invitation_id: invitationId,
+      message: "Invitation sent successfully"
+    });
   } catch (error) {
     console.error("Error in invite-employee:", error);
-    return new Response(
-      JSON.stringify({ error: "An unexpected error occurred" }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return jsonResponse({ error: "An unexpected error occurred" }, 500);
   }
 });

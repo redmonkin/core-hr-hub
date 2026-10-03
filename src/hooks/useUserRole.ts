@@ -50,17 +50,3 @@ export const useUserRole = () => {
     refetchOnMount: true,
   });
 };
-
-export const useIsAdminOrHR = () => {
-  const { data, isLoading, error } = useUserRole();
-
-  const roles = data?.roles ?? [];
-
-  return {
-    isAdminOrHR: roles.includes("admin") || roles.includes("hr"),
-    isLoading,
-    error,
-    role: data?.primaryRole ?? null,
-    roles,
-  };
-};

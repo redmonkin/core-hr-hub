@@ -1,23 +1,17 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { createClient } from "npm:@supabase/supabase-js@2.87.1";
+import { corsHeaders, jsonResponse } from "../_shared/cors.ts";
+import { escapeHtml } from "../_shared/html.ts";
+import { authenticateCaller, getEmployeeIdForUser } from "../_shared/auth.ts";
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
 const APP_URL = Deno.env.get("APP_URL") ?? "https://peoplo.redmonk.in";
 const RESEND_FROM_EMAIL = Deno.env.get("RESEND_FROM_EMAIL")!;
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
 
-// HTML escape utility to prevent XSS in email templates
-const escapeHtml = (text: string | null | undefined): string => {
-  if (!text) return '';
-  return text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
-};
+// Submission notifications are only sent shortly after the request is created,
+// so the endpoint can't be used to re-send old requests over and over.
+const SUBMISSION_WINDOW_MS = 15 * 60 * 1000;
 
 const sendEmail = async (to: string[], subject: string, html: string) => {
   const res = await fetch("https://api.resend.com/emails", {
@@ -40,19 +34,10 @@ const sendEmail = async (to: string[], subject: string, html: string) => {
   return json;
 };
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
-
+// Only request_id is used; everything else is loaded from the database.
+// (Older clients also send employee_id, leave_type, dates etc. - ignored.)
 interface LeaveSubmissionNotificationRequest {
   request_id: string;
-  employee_id: string;
-  leave_type: string;
-  start_date: string;
-  end_date: string;
-  days_count: number;
-  reason?: string;
 }
 
 serve(async (req) => {
@@ -61,61 +46,44 @@ serve(async (req) => {
   }
 
   try {
-    // Verify authentication
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader?.startsWith('Bearer ')) {
-      console.error("No authorization header provided");
-      return new Response(
-        JSON.stringify({ error: 'Unauthorized' }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    // Create client with user's auth token
-    const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey, {
-      global: { headers: { Authorization: authHeader } }
-    });
-
-    // Verify the token and get claims
-    const token = authHeader.replace('Bearer ', '');
-    const { data: claimsData, error: claimsError } = await supabaseAuth.auth.getClaims(token);
-    if (claimsError || !claimsData?.claims) {
-      console.error("Invalid token:", claimsError);
-      return new Response(
-        JSON.stringify({ error: 'Unauthorized' }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    const userId = claimsData.claims.sub;
+    const caller = await authenticateCaller(req);
+    if (!caller.ok) return caller.response;
+    const { userId, supabase } = caller;
     console.log("Authenticated user:", userId);
 
-    // Use service role for data operations
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
     const payload: LeaveSubmissionNotificationRequest = await req.json();
+    const requestId = payload?.request_id;
+    console.log("Processing leave submission notification:", { request_id: requestId });
 
-    console.log("Processing leave submission notification:", payload);
+    if (!requestId || typeof requestId !== "string") {
+      return jsonResponse({ error: "Invalid input" }, 400);
+    }
 
-    // Verify the caller is the employee submitting their own leave request
-    const { data: callerEmployee } = await supabase
-      .from('employees')
-      .select('id')
-      .eq('user_id', userId)
-      .single();
+    const callerEmployeeId = await getEmployeeIdForUser(supabase, userId);
 
-    if (!callerEmployee || callerEmployee.id !== payload.employee_id) {
+    const { data: leaveRequest } = await supabase
+      .from("leave_requests")
+      .select("id, employee_id, leave_type_id, start_date, end_date, days_count, reason, status, created_at")
+      .eq("id", requestId)
+      .maybeSingle();
+
+    // Verify the leave request exists and belongs to the caller
+    if (!callerEmployeeId || !leaveRequest || leaveRequest.employee_id !== callerEmployeeId) {
       console.error("User not authorized - can only notify for own leave requests");
-      return new Response(
-        JSON.stringify({ error: 'Forbidden - You can only submit notifications for your own leave requests' }),
-        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return jsonResponse({ error: 'Forbidden - You can only submit notifications for your own leave requests' }, 403);
+    }
+
+    if (leaveRequest.status !== "pending" ||
+        Date.now() - new Date(leaveRequest.created_at).getTime() > SUBMISSION_WINDOW_MS) {
+      console.log("Leave request is not a fresh pending request, skipping notification");
+      return jsonResponse({ success: true, message: "Nothing to notify" });
     }
 
     // Get employee with manager details
     const { data: employee, error: employeeError } = await supabase
       .from("employees")
       .select("id, first_name, last_name, email, manager_id")
-      .eq("id", payload.employee_id)
+      .eq("id", leaveRequest.employee_id)
       .single();
 
     if (employeeError || !employee) {
@@ -125,10 +93,7 @@ serve(async (req) => {
 
     if (!employee.manager_id) {
       console.log("No manager assigned, skipping notification");
-      return new Response(
-        JSON.stringify({ success: true, message: "No manager to notify" }),
-        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return jsonResponse({ success: true, message: "No manager to notify" });
     }
 
     // Get manager details
@@ -143,15 +108,28 @@ serve(async (req) => {
       throw new Error("Manager not found");
     }
 
+    const { data: leaveType } = await supabase
+      .from("leave_types")
+      .select("name")
+      .eq("id", leaveRequest.leave_type_id)
+      .maybeSingle();
+
     console.log("Notifying manager:", manager.email);
 
     const employeeName = `${employee.first_name} ${employee.last_name}`;
+    const leaveTypeName = leaveType?.name || "Leave";
+    const daysCount = String(leaveRequest.days_count);
 
-    // Escape user-provided data for HTML
+    // Escape everything interpolated into HTML
     const safeEmployeeName = escapeHtml(employeeName);
     const safeManagerFirstName = escapeHtml(manager.first_name);
-    const safeLeaveType = escapeHtml(payload.leave_type);
-    const safeReason = escapeHtml(payload.reason);
+    const safeLeaveType = escapeHtml(leaveTypeName);
+    const safeReason = escapeHtml(leaveRequest.reason);
+    const safeDaysCount = escapeHtml(daysCount);
+    const safeStartDate = escapeHtml(leaveRequest.start_date);
+    const safeEndDate = escapeHtml(leaveRequest.end_date);
+
+    const plainMessage = `${employeeName} has submitted a ${leaveTypeName} request for ${daysCount} day(s).`;
 
     // Create in-app notification for manager
     if (manager.user_id) {
@@ -160,7 +138,7 @@ serve(async (req) => {
         .insert({
           user_id: manager.user_id,
           title: "New Leave Request",
-          message: `${employeeName} has submitted a ${payload.leave_type} request for ${payload.days_count} day(s).`,
+          message: plainMessage,
           type: "info",
           link: "/leave-approvals"
         });
@@ -182,7 +160,7 @@ serve(async (req) => {
           body: JSON.stringify({
             user_ids: [manager.user_id],
             title: "New Leave Request",
-            body: `${employeeName} has submitted a ${payload.leave_type} request for ${payload.days_count} day(s).`,
+            body: plainMessage,
             url: "/leaves",
           }),
         });
@@ -204,12 +182,12 @@ serve(async (req) => {
           
           <div style="background-color: #f5f5f5; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #2196f3;">
             <p style="margin: 0;"><strong>Leave Type:</strong> ${safeLeaveType}</p>
-            <p style="margin: 10px 0 0;"><strong>Duration:</strong> ${payload.days_count} day(s)</p>
-            <p style="margin: 10px 0 0;"><strong>Dates:</strong> ${payload.start_date} to ${payload.end_date}</p>
+            <p style="margin: 10px 0 0;"><strong>Duration:</strong> ${safeDaysCount} day(s)</p>
+            <p style="margin: 10px 0 0;"><strong>Dates:</strong> ${safeStartDate} to ${safeEndDate}</p>
             ${safeReason ? `<p style="margin: 10px 0 0;"><strong>Reason:</strong> ${safeReason}</p>` : ""}
           </div>
           
-<p>
+          <p>
             <a href="${APP_URL}/leaves" style="display: inline-block; padding: 12px 24px; background-color: #2563eb; color: white; text-decoration: none; border-radius: 6px; font-weight: bold;">Review Request</a>
           </p>
           
@@ -220,21 +198,9 @@ serve(async (req) => {
 
     console.log("Email sent to manager:", emailResult);
 
-    return new Response(
-      JSON.stringify({ success: true, emailResult }),
-      {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
-    );
+    return jsonResponse({ success: true, emailResult });
   } catch (error) {
     console.error("Error in leave-submission-notification function:", error);
-    return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : String(error) }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
-    );
+    return jsonResponse({ error: error instanceof Error ? error.message : String(error) }, 500);
   }
 });

@@ -353,6 +353,45 @@ export type Database = {
           },
         ]
       }
+      employee_bank_details: {
+        Row: {
+          bank_account_number: string | null
+          bank_name: string | null
+          employee_id: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          bank_account_number?: string | null
+          bank_name?: string | null
+          employee_id: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          bank_account_number?: string | null
+          bank_name?: string | null
+          employee_id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employee_bank_details_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: true
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employee_bank_details_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: true
+            referencedRelation: "employee_directory"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       employee_documents: {
         Row: {
           document_name: string
@@ -423,8 +462,6 @@ export type Database = {
         Row: {
           address: string | null
           avatar_url: string | null
-          bank_account_number: string | null
-          bank_name: string | null
           city: string | null
           country: string | null
           created_at: string
@@ -451,8 +488,6 @@ export type Database = {
         Insert: {
           address?: string | null
           avatar_url?: string | null
-          bank_account_number?: string | null
-          bank_name?: string | null
           city?: string | null
           country?: string | null
           created_at?: string
@@ -479,8 +514,6 @@ export type Database = {
         Update: {
           address?: string | null
           avatar_url?: string | null
-          bank_account_number?: string | null
-          bank_name?: string | null
           city?: string | null
           country?: string | null
           created_at?: string
@@ -854,6 +887,7 @@ export type Database = {
           reviewed_at: string | null
           reviewed_by: string | null
           status: string
+          submission_notified_at: string | null
           updated_at: string
           user_id: string
         }
@@ -875,6 +909,7 @@ export type Database = {
           reviewed_at?: string | null
           reviewed_by?: string | null
           status?: string
+          submission_notified_at?: string | null
           updated_at?: string
           user_id: string
         }
@@ -896,6 +931,7 @@ export type Database = {
           reviewed_at?: string | null
           reviewed_by?: string | null
           status?: string
+          submission_notified_at?: string | null
           updated_at?: string
           user_id?: string
         }
@@ -1294,6 +1330,30 @@ export type Database = {
           },
         ]
       }
+      role_permissions: {
+        Row: {
+          level: Database["public"]["Enums"]["permission_level"]
+          module: Database["public"]["Enums"]["app_module"]
+          role: Database["public"]["Enums"]["app_role"]
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          level: Database["public"]["Enums"]["permission_level"]
+          module: Database["public"]["Enums"]["app_module"]
+          role: Database["public"]["Enums"]["app_role"]
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          level?: Database["public"]["Enums"]["permission_level"]
+          module?: Database["public"]["Enums"]["app_module"]
+          role?: Database["public"]["Enums"]["app_role"]
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       salary_history: {
         Row: {
           basic_salary: number
@@ -1447,6 +1507,72 @@ export type Database = {
         }
         Relationships: []
       }
+      user_invitations: {
+        Row: {
+          accepted_at: string | null
+          accepted_user_id: string | null
+          created_at: string
+          email: string
+          expires_at: string | null
+          full_name: string | null
+          id: string
+          invited_by: string | null
+          revoked_at: string | null
+          roles: Database["public"]["Enums"]["app_role"][]
+        }
+        Insert: {
+          accepted_at?: string | null
+          accepted_user_id?: string | null
+          created_at?: string
+          email: string
+          expires_at?: string | null
+          full_name?: string | null
+          id?: string
+          invited_by?: string | null
+          revoked_at?: string | null
+          roles?: Database["public"]["Enums"]["app_role"][]
+        }
+        Update: {
+          accepted_at?: string | null
+          accepted_user_id?: string | null
+          created_at?: string
+          email?: string
+          expires_at?: string | null
+          full_name?: string | null
+          id?: string
+          invited_by?: string | null
+          revoked_at?: string | null
+          roles?: Database["public"]["Enums"]["app_role"][]
+        }
+        Relationships: []
+      }
+      user_permissions: {
+        Row: {
+          created_at: string
+          granted_by: string | null
+          level: Database["public"]["Enums"]["permission_level"]
+          module: Database["public"]["Enums"]["app_module"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          granted_by?: string | null
+          level: Database["public"]["Enums"]["permission_level"]
+          module: Database["public"]["Enums"]["app_module"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          granted_by?: string | null
+          level?: Database["public"]["Enums"]["permission_level"]
+          module?: Database["public"]["Enums"]["app_module"]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -1497,19 +1623,34 @@ export type Database = {
       }
     }
     Functions: {
-      get_my_employee_id: { Args: never; Returns: string }
-      has_role: {
+      can: {
         Args: {
-          _role: Database["public"]["Enums"]["app_role"]
-          _user_id: string
+          _level?: Database["public"]["Enums"]["permission_level"]
+          _module: Database["public"]["Enums"]["app_module"]
         }
         Returns: boolean
       }
-      is_admin_or_hr: { Args: { _user_id: string }; Returns: boolean }
+      get_my_employee_id: { Args: never; Returns: string }
+      get_my_permissions: { Args: never; Returns: Json }
+      has_any_module_access: { Args: never; Returns: boolean }
+      is_active_member: { Args: never; Returns: boolean }
+      is_admin: { Args: never; Returns: boolean }
+      is_email_domain_allowed: { Args: { _email: string }; Returns: boolean }
       is_manager_of: { Args: { _employee_id: string }; Returns: boolean }
       is_not_blocked: { Args: never; Returns: boolean }
     }
     Enums: {
+      app_module:
+        | "employees"
+        | "onboarding"
+        | "attendance"
+        | "leaves"
+        | "reimbursements"
+        | "performance"
+        | "assets"
+        | "payroll"
+        | "calendar"
+        | "settings"
       app_role: "admin" | "hr" | "manager" | "employee"
       asset_status: "available" | "assigned" | "maintenance" | "retired"
       employee_status: "active" | "inactive" | "onboarding" | "offboarded"
@@ -1521,6 +1662,7 @@ export type Database = {
         | "other"
       leave_status: "pending" | "approved" | "rejected" | "cancelled"
       payroll_status: "draft" | "processed" | "paid"
+      permission_level: "view" | "manage"
       reimbursement_status: "pending" | "approved" | "rejected" | "paid"
     }
     CompositeTypes: {
@@ -1649,6 +1791,18 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      app_module: [
+        "employees",
+        "onboarding",
+        "attendance",
+        "leaves",
+        "reimbursements",
+        "performance",
+        "assets",
+        "payroll",
+        "calendar",
+        "settings",
+      ],
       app_role: ["admin", "hr", "manager", "employee"],
       asset_status: ["available", "assigned", "maintenance", "retired"],
       employee_status: ["active", "inactive", "onboarding", "offboarded"],
@@ -1661,6 +1815,7 @@ export const Constants = {
       ],
       leave_status: ["pending", "approved", "rejected", "cancelled"],
       payroll_status: ["draft", "processed", "paid"],
+      permission_level: ["view", "manage"],
       reimbursement_status: ["pending", "approved", "rejected", "paid"],
     },
   },

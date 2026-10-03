@@ -91,7 +91,11 @@ CREATE POLICY "Manage departments" ON public.departments FOR ALL TO authenticate
   USING (public.can('employees', 'manage')) WITH CHECK (public.can('employees', 'manage'));
 
 CREATE POLICY "View employee documents" ON public.employee_documents FOR SELECT TO authenticated
-  USING (employee_id = public.get_my_employee_id() OR public.can('employees', 'view'));
+  USING (
+    employee_id = public.get_my_employee_id()
+    OR public.can('employees', 'view')
+    OR public.can('onboarding', 'view')
+  );
 CREATE POLICY "Add employee documents" ON public.employee_documents FOR INSERT TO authenticated
   WITH CHECK (public.can('employees', 'manage') OR public.can('onboarding', 'manage'));
 CREATE POLICY "Update employee documents" ON public.employee_documents FOR UPDATE TO authenticated
@@ -99,8 +103,14 @@ CREATE POLICY "Update employee documents" ON public.employee_documents FOR UPDAT
 CREATE POLICY "Delete employee documents" ON public.employee_documents FOR DELETE TO authenticated
   USING (public.can('employees', 'manage'));
 
+-- Onboarding managers link new employee records to user accounts
 CREATE POLICY "View profiles" ON public.profiles FOR SELECT TO authenticated
-  USING (id = auth.uid() OR public.can('employees', 'view') OR public.is_admin());
+  USING (
+    id = auth.uid()
+    OR public.can('employees', 'view')
+    OR public.can('onboarding', 'manage')
+    OR public.is_admin()
+  );
 CREATE POLICY "Insert own profile" ON public.profiles FOR INSERT TO authenticated
   WITH CHECK (id = auth.uid());
 CREATE POLICY "Update own profile" ON public.profiles FOR UPDATE TO authenticated
@@ -220,6 +230,9 @@ CREATE POLICY "View leave balances" ON public.leave_balances FOR SELECT TO authe
   USING (employee_id = public.get_my_employee_id() OR public.can('leaves', 'view'));
 CREATE POLICY "Manage leave balances" ON public.leave_balances FOR ALL TO authenticated
   USING (public.can('leaves', 'manage')) WITH CHECK (public.can('leaves', 'manage'));
+-- Activating a new joiner sets up their first leave balances
+CREATE POLICY "Onboarding creates leave balances" ON public.leave_balances FOR INSERT TO authenticated
+  WITH CHECK (public.can('onboarding', 'manage'));
 
 CREATE POLICY "View leave eligibility" ON public.employee_leave_eligibility FOR SELECT TO authenticated
   USING (
@@ -422,6 +435,7 @@ CREATE POLICY "View employee files" ON storage.objects FOR SELECT TO authenticat
     AND (
       (storage.foldername(name))[1] = public.get_my_employee_id()::text
       OR public.can('employees', 'view')
+      OR public.can('onboarding', 'view')
     )
   );
 CREATE POLICY "Upload employee files" ON storage.objects FOR INSERT TO authenticated

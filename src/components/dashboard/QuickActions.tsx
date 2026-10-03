@@ -2,26 +2,36 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { UserPlus, Calendar, FileText, Package, Target, ClipboardList } from "lucide-react";
 import { Link } from "react-router-dom";
-import { useIsAdminOrHR } from "@/hooks/useUserRole";
+import { usePermissions } from "@/hooks/usePermissions";
+import type { AppModule, PermissionLevel } from "@/lib/permissions";
 
-const adminActions = [
+const adminActions: {
+  label: string;
+  icon: JSX.Element;
+  href: string;
+  variant: "default" | "secondary";
+  requires: [AppModule, PermissionLevel];
+}[] = [
   {
     label: "Add Employee",
     icon: <UserPlus className="h-5 w-5" />,
     href: "/onboarding",
     variant: "default" as const,
+    requires: ["onboarding", "manage"],
   },
   {
     label: "Manage Assets",
     icon: <Package className="h-5 w-5" />,
     href: "/assets",
     variant: "secondary" as const,
+    requires: ["assets", "view"],
   },
   {
     label: "View Payroll",
     icon: <FileText className="h-5 w-5" />,
     href: "/payroll",
     variant: "secondary" as const,
+    requires: ["payroll", "view"],
   },
 ];
 
@@ -47,9 +57,10 @@ const employeeActions = [
 ];
 
 export function QuickActions() {
-  const { isAdminOrHR, isLoading } = useIsAdminOrHR();
-  
-  const actions = isAdminOrHR ? adminActions : employeeActions;
+  const { can, isLoading } = usePermissions();
+
+  const allowedAdminActions = adminActions.filter((a) => can(...a.requires));
+  const actions = allowedAdminActions.length > 0 ? allowedAdminActions : employeeActions;
 
   if (isLoading) {
     return (

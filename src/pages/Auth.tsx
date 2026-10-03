@@ -5,28 +5,16 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Shield, Users, Calendar, Eye, EyeOff } from "lucide-react";
 import { z } from "zod";
 import hrHubLogo from "@/assets/hr-hub-logo.svg";
 import hrHubLogoLight from "@/assets/hr-hub-logo-light.svg";
 import { supabase } from "@/integrations/supabase/client";
-import { checkEmailDomainAllowed } from "@/lib/domainWhitelist";
 
 const loginSchema = z.object({
   email: z.string().trim().email("Please enter a valid email address"),
   password: z.string().min(6, "Password must be at least 6 characters"),
-});
-
-const signupSchema = z.object({
-  fullName: z.string().trim().min(2, "Name must be at least 2 characters").max(100, "Name is too long"),
-  email: z.string().trim().email("Please enter a valid email address"),
-  password: z.string().min(6, "Password must be at least 6 characters"),
-  confirmPassword: z.string(),
-}).refine((data) => data.password === data.confirmPassword, {
-  message: "Passwords don't match",
-  path: ["confirmPassword"],
 });
 
 const Auth = () => {
@@ -35,16 +23,10 @@ const Auth = () => {
   const [loginPassword, setLoginPassword] = useState("");
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [resetEmail, setResetEmail] = useState("");
-  const [signupName, setSignupName] = useState("");
-  const [signupEmail, setSignupEmail] = useState("");
-  const [signupPassword, setSignupPassword] = useState("");
-  const [signupConfirmPassword, setSignupConfirmPassword] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [showLoginPassword, setShowLoginPassword] = useState(false);
-  const [showSignupPassword, setShowSignupPassword] = useState(false);
-  const [showSignupConfirmPassword, setShowSignupConfirmPassword] = useState(false);
 
-  const { signIn, signUp, user } = useAuth();
+  const { signIn, user } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -116,67 +98,6 @@ const Auth = () => {
     }
   };
 
-  const handleSignup = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setErrors({});
-
-    const result = signupSchema.safeParse({
-      fullName: signupName,
-      email: signupEmail,
-      password: signupPassword,
-      confirmPassword: signupConfirmPassword,
-    });
-
-    if (!result.success) {
-      const fieldErrors: Record<string, string> = {};
-      result.error.errors.forEach((err) => {
-        if (err.path[0]) {
-          fieldErrors[`signup_${err.path[0]}`] = err.message;
-        }
-      });
-      setErrors(fieldErrors);
-      return;
-    }
-
-    setIsLoading(true);
-
-    // Check domain whitelist before signup
-    const domainCheck = await checkEmailDomainAllowed(signupEmail);
-    if (!domainCheck.allowed) {
-      setIsLoading(false);
-      toast({
-        title: "Registration Restricted",
-        description: domainCheck.message,
-        variant: "destructive",
-      });
-      return;
-    }
-
-    const { error } = await signUp(signupEmail, signupPassword, signupName);
-    setIsLoading(false);
-
-    if (error) {
-      if (error.message.includes("User already registered")) {
-        toast({
-          title: "Account Exists",
-          description: "An account with this email already exists. Please log in instead.",
-          variant: "destructive",
-        });
-      } else {
-        toast({
-          title: "Signup Failed",
-          description: error.message,
-          variant: "destructive",
-        });
-      }
-    } else {
-      toast({
-        title: "Account Created",
-        description: "Please check your email to verify your account.",
-      });
-    }
-  };
-
   const features = [
     { icon: <Users className="h-5 w-5" />, text: "Employee Management" },
     { icon: <Calendar className="h-5 w-5" />, text: "Leave Tracking" },
@@ -226,188 +147,85 @@ const Auth = () => {
               <img src={hrHubLogo} alt="Peoplo" className="h-12 w-auto" />
             </div>
             <CardTitle className="text-2xl">Welcome to Peoplo</CardTitle>
-            <CardDescription>Sign in to your account or create a new one</CardDescription>
+            <CardDescription>Sign in to your account</CardDescription>
           </CardHeader>
           <CardContent>
-            <Tabs defaultValue="login" className="w-full">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="login">Login</TabsTrigger>
-                <TabsTrigger value="signup">Sign Up</TabsTrigger>
-              </TabsList>
-
-              <TabsContent value="login" className="mt-6">
-                <form onSubmit={handleLogin} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="login-email">Email</Label>
-                    <Input
-                      id="login-email"
-                      type="email"
-                      placeholder="name@company.com"
-                      value={loginEmail}
-                      onChange={(e) => setLoginEmail(e.target.value)}
-                      disabled={isLoading}
-                    />
-                    {errors.login_email && (
-                      <p className="text-sm text-destructive">{errors.login_email}</p>
-                    )}
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="login-password">Password</Label>
-                    <div className="relative">
-                      <Input
-                        id="login-password"
-                        type={showLoginPassword ? "text" : "password"}
-                        placeholder="••••••••"
-                        value={loginPassword}
-                        onChange={(e) => setLoginPassword(e.target.value)}
-                        disabled={isLoading}
-                        className="pr-10"
-                      />
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                        onClick={() => setShowLoginPassword(!showLoginPassword)}
-                        tabIndex={-1}
-                      >
-                        {showLoginPassword ? <EyeOff className="h-4 w-4 text-muted-foreground" /> : <Eye className="h-4 w-4 text-muted-foreground" />}
-                      </Button>
-                    </div>
-                    {errors.login_password && (
-                      <p className="text-sm text-destructive">{errors.login_password}</p>
-                    )}
-                  </div>
-                  <div className="flex justify-end">
-                    <Button type="button" variant="link" className="h-auto p-0 text-sm" onClick={() => { setShowForgotPassword(true); setResetEmail(loginEmail); }}>
-                      Forgot password?
-                    </Button>
-                  </div>
-                  <Button type="submit" className="w-full" disabled={isLoading}>
-                    {isLoading ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Signing in...
-                      </>
-                    ) : (
-                      "Sign In"
-                    )}
-                  </Button>
-                </form>
-
-                {showForgotPassword && (
-                  <div className="mt-6 border-t pt-6">
-                    <h3 className="mb-2 text-sm font-medium">Reset Password</h3>
-                    <form onSubmit={handleForgotPassword} className="space-y-3">
-                      <Input type="email" placeholder="Enter your email" value={resetEmail} onChange={(e) => setResetEmail(e.target.value)} disabled={isLoading} />
-                      <div className="flex gap-2">
-                        <Button type="submit" className="flex-1" disabled={isLoading}>
-                          {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Send Reset Link"}
-                        </Button>
-                        <Button type="button" variant="outline" onClick={() => setShowForgotPassword(false)}>Cancel</Button>
-                      </div>
-                    </form>
-                  </div>
+            <form onSubmit={handleLogin} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="login-email">Email</Label>
+                <Input
+                  id="login-email"
+                  type="email"
+                  placeholder="name@company.com"
+                  value={loginEmail}
+                  onChange={(e) => setLoginEmail(e.target.value)}
+                  disabled={isLoading}
+                />
+                {errors.login_email && (
+                  <p className="text-sm text-destructive">{errors.login_email}</p>
                 )}
-              </TabsContent>
-
-              <TabsContent value="signup" className="mt-6">
-                <form onSubmit={handleSignup} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="signup-name">Full Name</Label>
-                    <Input
-                      id="signup-name"
-                      type="text"
-                      placeholder="John Doe"
-                      value={signupName}
-                      onChange={(e) => setSignupName(e.target.value)}
-                      disabled={isLoading}
-                    />
-                    {errors.signup_fullName && (
-                      <p className="text-sm text-destructive">{errors.signup_fullName}</p>
-                    )}
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="signup-email">Email</Label>
-                    <Input
-                      id="signup-email"
-                      type="email"
-                      placeholder="name@company.com"
-                      value={signupEmail}
-                      onChange={(e) => setSignupEmail(e.target.value)}
-                      disabled={isLoading}
-                    />
-                    {errors.signup_email && (
-                      <p className="text-sm text-destructive">{errors.signup_email}</p>
-                    )}
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="signup-password">Password</Label>
-                    <div className="relative">
-                      <Input
-                        id="signup-password"
-                        type={showSignupPassword ? "text" : "password"}
-                        placeholder="••••••••"
-                        value={signupPassword}
-                        onChange={(e) => setSignupPassword(e.target.value)}
-                        disabled={isLoading}
-                        className="pr-10"
-                      />
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                        onClick={() => setShowSignupPassword(!showSignupPassword)}
-                        tabIndex={-1}
-                      >
-                        {showSignupPassword ? <EyeOff className="h-4 w-4 text-muted-foreground" /> : <Eye className="h-4 w-4 text-muted-foreground" />}
-                      </Button>
-                    </div>
-                    {errors.signup_password && (
-                      <p className="text-sm text-destructive">{errors.signup_password}</p>
-                    )}
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="signup-confirm">Confirm Password</Label>
-                    <div className="relative">
-                      <Input
-                        id="signup-confirm"
-                        type={showSignupConfirmPassword ? "text" : "password"}
-                        placeholder="••••••••"
-                        value={signupConfirmPassword}
-                        onChange={(e) => setSignupConfirmPassword(e.target.value)}
-                        disabled={isLoading}
-                        className="pr-10"
-                      />
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                        onClick={() => setShowSignupConfirmPassword(!showSignupConfirmPassword)}
-                        tabIndex={-1}
-                      >
-                        {showSignupConfirmPassword ? <EyeOff className="h-4 w-4 text-muted-foreground" /> : <Eye className="h-4 w-4 text-muted-foreground" />}
-                      </Button>
-                    </div>
-                    {errors.signup_confirmPassword && (
-                      <p className="text-sm text-destructive">{errors.signup_confirmPassword}</p>
-                    )}
-                  </div>
-                  <Button type="submit" className="w-full" disabled={isLoading}>
-                    {isLoading ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Creating account...
-                      </>
-                    ) : (
-                      "Create Account"
-                    )}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="login-password">Password</Label>
+                <div className="relative">
+                  <Input
+                    id="login-password"
+                    type={showLoginPassword ? "text" : "password"}
+                    placeholder="••••••••"
+                    value={loginPassword}
+                    onChange={(e) => setLoginPassword(e.target.value)}
+                    disabled={isLoading}
+                    className="pr-10"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                    onClick={() => setShowLoginPassword(!showLoginPassword)}
+                    tabIndex={-1}
+                  >
+                    {showLoginPassword ? <EyeOff className="h-4 w-4 text-muted-foreground" /> : <Eye className="h-4 w-4 text-muted-foreground" />}
                   </Button>
+                </div>
+                {errors.login_password && (
+                  <p className="text-sm text-destructive">{errors.login_password}</p>
+                )}
+              </div>
+              <div className="flex justify-end">
+                <Button type="button" variant="link" className="h-auto p-0 text-sm" onClick={() => { setShowForgotPassword(true); setResetEmail(loginEmail); }}>
+                  Forgot password?
+                </Button>
+              </div>
+              <Button type="submit" className="w-full" disabled={isLoading}>
+                {isLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Signing in...
+                  </>
+                ) : (
+                  "Sign In"
+                )}
+              </Button>
+            </form>
+
+            {showForgotPassword && (
+              <div className="mt-6 border-t pt-6">
+                <h3 className="mb-2 text-sm font-medium">Reset Password</h3>
+                <form onSubmit={handleForgotPassword} className="space-y-3">
+                  <Input type="email" placeholder="Enter your email" value={resetEmail} onChange={(e) => setResetEmail(e.target.value)} disabled={isLoading} />
+                  <div className="flex gap-2">
+                    <Button type="submit" className="flex-1" disabled={isLoading}>
+                      {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Send Reset Link"}
+                    </Button>
+                    <Button type="button" variant="outline" onClick={() => setShowForgotPassword(false)}>Cancel</Button>
+                  </div>
                 </form>
-              </TabsContent>
-            </Tabs>
+              </div>
+            )}
+            <p className="mt-6 text-center text-sm text-muted-foreground">
+              Accounts are by invitation only. If you're joining the team, ask HR to send you an invite.
+            </p>
           </CardContent>
         </Card>
       </div>

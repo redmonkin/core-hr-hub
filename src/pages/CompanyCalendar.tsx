@@ -14,7 +14,7 @@ import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CalendarDays, Plus, Pencil, Trash2, PartyPopper, Briefcase, Users, ChevronLeft, ChevronRight, Mail } from "lucide-react";
 import { useCompanyEvents, useCreateCompanyEvent, useUpdateCompanyEvent, useDeleteCompanyEvent, CompanyEvent } from "@/hooks/useCompanyEvents";
-import { useIsAdminOrHR } from "@/hooks/useUserRole";
+import { usePermissions } from "@/hooks/usePermissions";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { format, addMonths, subMonths, isSameDay, parseISO } from "date-fns";
@@ -59,9 +59,8 @@ const CompanyCalendar = () => {
   const createEvent = useCreateCompanyEvent();
   const updateEvent = useUpdateCompanyEvent();
   const deleteEvent = useDeleteCompanyEvent();
-  const {
-    isAdminOrHR
-  } = useIsAdminOrHR();
+  const { can } = usePermissions();
+  const canManageEvents = can("calendar", "manage");
   const resetForm = () => {
     setFormData({
       title: "",
@@ -167,7 +166,7 @@ const CompanyCalendar = () => {
             <h2 className="text-2xl font-bold text-foreground">Calendar</h2>
             <p className="text-muted-foreground">View holidays and company events</p>
           </div>
-          {isAdminOrHR && <div className="flex gap-2">
+          {canManageEvents && <div className="flex gap-2">
               <Button variant="outline" onClick={sendNotifications} disabled={isSendingNotifications}>
                 <Mail className="mr-2 h-4 w-4" />
                 {isSendingNotifications ? "Sending..." : "Send Notifications"}
@@ -337,7 +336,7 @@ const CompanyCalendar = () => {
                   {(selectedDate ? eventsOnSelectedDate : events)?.length === 0 ? <div className="flex h-32 flex-col items-center justify-center text-center text-muted-foreground">
                       <CalendarDays className="mb-2 h-8 w-8" />
                       <p>No events {selectedDate ? "on this date" : "this month"}</p>
-                      {isAdminOrHR && selectedDate && <Button variant="link" size="sm" className="mt-2" onClick={() => openCreateWithDate(selectedDate)}>
+                      {canManageEvents && selectedDate && <Button variant="link" size="sm" className="mt-2" onClick={() => openCreateWithDate(selectedDate)}>
                           Add an event
                         </Button>}
                     </div> : (selectedDate ? eventsOnSelectedDate : events)?.map(event => {
@@ -359,7 +358,7 @@ const CompanyCalendar = () => {
                                   </Badge>}
                               </div>
                             </div>
-                            {isAdminOrHR && <div className="flex gap-1">
+                            {canManageEvents && <div className="flex gap-1">
                                 <Dialog open={editingEvent?.id === event.id} onOpenChange={open => !open && setEditingEvent(null)}>
                                   <DialogTrigger asChild>
                                     <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(event)}>

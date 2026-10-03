@@ -1,7 +1,9 @@
 # CoreHR Hub - Local Development with Self-Hosted Supabase
 # 
 # This docker-compose file sets up a complete local Supabase environment
-# for development purposes.
+# for development purposes only. The fallback passwords, JWT secret and keys
+# are public demo values and every port is bound to 127.0.0.1; never expose
+# this stack to a network without setting your own secrets in .env.
 #
 # Usage:
 #   1. Copy .env.example to .env and configure
@@ -24,7 +26,7 @@ services:
     image: supabase/postgres:15.1.1.78
     container_name: corehr-db
     ports:
-      - "54322:5432"
+      - "127.0.0.1:54322:5432"
     environment:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-your-super-secret-password}
       POSTGRES_DB: postgres
@@ -45,7 +47,7 @@ services:
     image: supabase/studio:20240422-5cf8f30
     container_name: corehr-studio
     ports:
-      - "54323:3000"
+      - "127.0.0.1:54323:3000"
     environment:
       STUDIO_PG_META_URL: http://meta:8080
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-your-super-secret-password}
@@ -64,8 +66,8 @@ services:
     image: kong:2.8.1
     container_name: corehr-kong
     ports:
-      - "54321:8000"
-      - "54320:8443"
+      - "127.0.0.1:54321:8000"
+      - "127.0.0.1:54320:8443"
     environment:
       KONG_DATABASE: "off"
       KONG_DECLARATIVE_CONFIG: /var/lib/kong/kong.yml
@@ -96,8 +98,8 @@ services:
       GOTRUE_DB_DRIVER: postgres
       GOTRUE_DB_DATABASE_URL: postgres://supabase_auth_admin:${POSTGRES_PASSWORD:-your-super-secret-password}@db:5432/postgres
       GOTRUE_SITE_URL: http://localhost:5173
-      GOTRUE_URI_ALLOW_LIST: "*"
-      GOTRUE_DISABLE_SIGNUP: "false"
+      GOTRUE_URI_ALLOW_LIST: "http://localhost:5173/**,http://localhost:9002/**"
+      GOTRUE_DISABLE_SIGNUP: "true"  # invite-only; also enforced by a database trigger
       GOTRUE_JWT_ADMIN_ROLES: service_role
       GOTRUE_JWT_AUD: authenticated
       GOTRUE_JWT_DEFAULT_GROUP_NAME: authenticated
@@ -237,8 +239,8 @@ services:
     image: inbucket/inbucket:3.0.3
     container_name: corehr-inbucket
     ports:
-      - "54324:9000"  # Web UI
-      - "54325:2500"  # SMTP
+      - "127.0.0.1:54324:9000"  # Web UI
+      - "127.0.0.1:54325:2500"  # SMTP
     restart: unless-stopped
 
 volumes:

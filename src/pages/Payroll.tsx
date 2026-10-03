@@ -48,7 +48,7 @@ import { useToast } from "@/hooks/use-toast";
 import { usePayrollRecords, usePayrollStats, useGeneratePayroll, useUpdatePayrollStatus, useBulkUpdatePayrollStatus, type PayrollRecord } from "@/hooks/usePayroll";
 import { useCompanyBranding } from "@/hooks/useCompanyBranding";
 import { drawPdfHeader, drawPdfFooter, fetchImageAsDataUrl, formatCurrencyForPdf, PDF_TABLE_HEAD_STYLE, PDF_COLORS } from "@/lib/pdfTheme";
-import { useIsAdminOrHR } from "@/hooks/useUserRole";
+import { usePermissions } from "@/hooks/usePermissions";
 import { usePagination } from "@/hooks/usePagination";
 
 const months = [
@@ -84,7 +84,9 @@ const Payroll = () => {
   const [editDetailsOpen, setEditDetailsOpen] = useState(false);
   const [editRecord, setEditRecord] = useState<PayrollRecord | null>(null);
   const { toast } = useToast();
-  const { isAdminOrHR, isLoading: roleLoading } = useIsAdminOrHR();
+  const { can, isLoading: roleLoading } = usePermissions();
+  const canView = can("payroll", "view");
+  const canManage = can("payroll", "manage");
   const { data: branding } = useCompanyBranding();
 
   const { data: records = [], isLoading } = usePayrollRecords(
@@ -180,7 +182,7 @@ const Payroll = () => {
   }
 
   // Redirect non-admin/HR users
-  if (!isAdminOrHR) {
+  if (!canView) {
     return (
       <DashboardLayout>
         <div className="flex min-h-[400px] flex-col items-center justify-center space-y-4">
@@ -503,9 +505,11 @@ const Payroll = () => {
               onExportPDF={exportToPDF}
               disabled={allRecords.length === 0}
             />
-            <Button onClick={() => setGenerateDialogOpen(true)}>
-              Generate Payroll
-            </Button>
+            {canManage && (
+              <Button onClick={() => setGenerateDialogOpen(true)}>
+                Generate Payroll
+              </Button>
+            )}
           </div>
         </div>
 
@@ -646,6 +650,7 @@ const Payroll = () => {
                 onBulkMarkPaid={handleBulkMarkPaid}
                 onBulkRevertToPending={handleBulkRevertToPending}
                 isBulkUpdating={bulkUpdateStatus.isPending}
+                canManage={canManage}
               />
             )}
           </TabsContent>
@@ -722,6 +727,7 @@ const Payroll = () => {
                   onBulkMarkPaid={handleBulkMarkPaid}
                   onBulkRevertToPending={handleBulkRevertToPending}
                   isBulkUpdating={bulkUpdateStatus.isPending}
+                  canManage={canManage}
                 />
                 
                 {/* Pagination Controls */}
@@ -825,7 +831,7 @@ const Payroll = () => {
           </TabsContent>
 
           <TabsContent value="salary" className="mt-6">
-            <SalaryStructureManager />
+            <SalaryStructureManager canManage={canManage} />
           </TabsContent>
         </Tabs>
       </div>

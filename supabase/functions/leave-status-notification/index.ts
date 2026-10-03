@@ -1,23 +1,13 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { createClient } from "npm:@supabase/supabase-js@2.87.1";
+import { corsHeaders, jsonResponse } from "../_shared/cors.ts";
+import { escapeHtml } from "../_shared/html.ts";
+import { authenticateCaller, getEmployeeIdForUser, userCan } from "../_shared/auth.ts";
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
 const APP_URL = Deno.env.get("APP_URL") ?? "https://peoplo.redmonk.in";
 const RESEND_FROM_EMAIL = Deno.env.get("RESEND_FROM_EMAIL")!;
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
-
-// HTML escape utility to prevent XSS in email templates
-const escapeHtml = (text: string | null | undefined): string => {
-  if (!text) return '';
-  return text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
-};
 
 const sendEmail = async (to: string[], subject: string, html: string) => {
   const res = await fetch("https://api.resend.com/emails", {
@@ -40,16 +30,11 @@ const sendEmail = async (to: string[], subject: string, html: string) => {
   return json;
 };
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
-
+// Only request_id is used. Status, notes and reviewer are loaded from the
+// leave request row (older clients also send status, reviewer_name and
+// review_notes - those are ignored).
 interface LeaveStatusNotificationRequest {
   request_id: string;
-  status: "approved" | "rejected";
-  reviewer_name: string;
-  review_notes?: string;
 }
 
 serve(async (req) => {
@@ -58,91 +43,53 @@ serve(async (req) => {
   }
 
   try {
-    // Verify authentication
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader?.startsWith('Bearer ')) {
-      console.error("No authorization header provided");
-      return new Response(
-        JSON.stringify({ error: 'Unauthorized' }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    // Create client with user's auth token
-    const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey, {
-      global: { headers: { Authorization: authHeader } }
-    });
-
-    // Verify the token and get claims
-    const token = authHeader.replace('Bearer ', '');
-    const { data: claimsData, error: claimsError } = await supabaseAuth.auth.getClaims(token);
-    if (claimsError || !claimsData?.claims) {
-      console.error("Invalid token:", claimsError);
-      return new Response(
-        JSON.stringify({ error: 'Unauthorized' }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    const userId = claimsData.claims.sub;
+    const caller = await authenticateCaller(req);
+    if (!caller.ok) return caller.response;
+    const { userId, supabase } = caller;
     console.log("Authenticated user:", userId);
 
-    // Use service role for data operations
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
     const payload: LeaveStatusNotificationRequest = await req.json();
+    const requestId = payload?.request_id;
+    console.log("Processing leave status notification:", { request_id: requestId });
 
-    console.log("Processing leave status notification:", payload);
+    if (!requestId || typeof requestId !== "string") {
+      return jsonResponse({ error: "Invalid input" }, 400);
+    }
 
-    // Verify the caller is authorized (must be HR/admin or the manager of the employee)
-    const { data: callerEmployee } = await supabase
-      .from('employees')
-      .select('id')
-      .eq('user_id', userId)
-      .single();
-
-    // Check if user is admin/HR
-    const { data: userRoles } = await supabase
-      .from('user_roles')
-      .select('role')
-      .eq('user_id', userId)
-      .in('role', ['admin', 'hr']);
-
-    const isAdminOrHr = userRoles && userRoles.length > 0;
-
-    // Get leave request with employee and leave type details
+    // Get leave request
     const { data: leaveRequest, error: requestError } = await supabase
       .from("leave_requests")
-      .select(`
-        id,
-        start_date,
-        end_date,
-        days_count,
-        employee_id,
-        leave_type_id
-      `)
-      .eq("id", payload.request_id)
-      .single();
+      .select("id, start_date, end_date, days_count, employee_id, leave_type_id, status, review_notes, reviewed_by")
+      .eq("id", requestId)
+      .maybeSingle();
 
     if (requestError || !leaveRequest) {
       console.error("Error fetching leave request:", requestError);
       throw new Error("Leave request not found");
     }
 
-    // Get the employee who made the leave request to check if caller is their manager
-    const { data: requestEmployee } = await supabase
-      .from('employees')
-      .select('manager_id')
-      .eq('id', leaveRequest.employee_id)
-      .single();
+    // Verify the caller is authorized (leaves:manage or the employee's manager)
+    const canManageLeaves = await userCan(supabase, userId, "leaves", "manage");
+    let isManagerOfEmployee = false;
+    if (!canManageLeaves) {
+      const callerEmployeeId = await getEmployeeIdForUser(supabase, userId);
+      const { data: requestEmployee } = await supabase
+        .from('employees')
+        .select('manager_id')
+        .eq('id', leaveRequest.employee_id)
+        .maybeSingle();
+      isManagerOfEmployee = !!callerEmployeeId && requestEmployee?.manager_id === callerEmployeeId;
+    }
 
-    const isManagerOfEmployee = callerEmployee && requestEmployee?.manager_id === callerEmployee.id;
-
-    if (!isAdminOrHr && !isManagerOfEmployee) {
+    if (!canManageLeaves && !isManagerOfEmployee) {
       console.error("User not authorized to send this notification");
-      return new Response(
-        JSON.stringify({ error: 'Forbidden - You are not authorized to send this notification' }),
-        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return jsonResponse({ error: 'Forbidden - You are not authorized to send this notification' }, 403);
+    }
+
+    const status = leaveRequest.status as string;
+    if (status !== "approved" && status !== "rejected") {
+      console.error(`Leave request ${leaveRequest.id} has status ${status}; nothing to notify`);
+      return jsonResponse({ error: "Leave request has not been approved or rejected" }, 409);
     }
 
     // Get leave type name
@@ -150,7 +97,18 @@ serve(async (req) => {
       .from("leave_types")
       .select("name")
       .eq("id", leaveRequest.leave_type_id)
-      .single();
+      .maybeSingle();
+
+    // Reviewer name from the reviewer's employee record
+    let reviewerName = "HR Team";
+    if (leaveRequest.reviewed_by) {
+      const { data: reviewer } = await supabase
+        .from("employees")
+        .select("first_name, last_name")
+        .eq("id", leaveRequest.reviewed_by)
+        .maybeSingle();
+      if (reviewer) reviewerName = `${reviewer.first_name} ${reviewer.last_name}`;
+    }
 
     // Get employee details
     const { data: employee, error: employeeError } = await supabase
@@ -180,15 +138,22 @@ serve(async (req) => {
 
     console.log(`Leave status notifications preference for ${employee.email}: ${wantsLeaveStatusNotifications}`);
 
-    const statusText = payload.status === "approved" ? "Approved" : "Rejected";
-    const statusColor = payload.status === "approved" ? "#4caf50" : "#f44336";
+    const statusText = status === "approved" ? "Approved" : "Rejected";
+    const statusColor = status === "approved" ? "#4caf50" : "#f44336";
     const leaveTypeName = leaveType?.name || "Leave";
+    const daysCount = String(leaveRequest.days_count);
 
-    // Escape user-provided data for HTML
+    // Escape everything interpolated into HTML
     const safeFirstName = escapeHtml(employee.first_name);
-    const safeReviewerName = escapeHtml(payload.reviewer_name);
+    const safeReviewerName = escapeHtml(reviewerName);
     const safeLeaveTypeName = escapeHtml(leaveTypeName);
-    const safeReviewNotes = escapeHtml(payload.review_notes);
+    const safeReviewNotes = escapeHtml(leaveRequest.review_notes);
+    const safeStatus = escapeHtml(status);
+    const safeDaysCount = escapeHtml(daysCount);
+    const safeStartDate = escapeHtml(leaveRequest.start_date);
+    const safeEndDate = escapeHtml(leaveRequest.end_date);
+
+    const plainMessage = `Your ${leaveTypeName} request for ${daysCount} day(s) has been ${status} by ${reviewerName}.`;
 
     // Create in-app notification (always send in-app notifications)
     if (employee.user_id) {
@@ -197,8 +162,8 @@ serve(async (req) => {
         .insert({
           user_id: employee.user_id,
           title: `Leave Request ${statusText}`,
-          message: `Your ${leaveTypeName} request for ${leaveRequest.days_count} day(s) has been ${payload.status} by ${payload.reviewer_name}.`,
-          type: payload.status === "approved" ? "success" : "warning",
+          message: plainMessage,
+          type: status === "approved" ? "success" : "warning",
           link: "/leaves"
         });
 
@@ -219,7 +184,7 @@ serve(async (req) => {
           body: JSON.stringify({
             user_ids: [employee.user_id],
             title: `Leave Request ${statusText}`,
-            body: `Your ${leaveTypeName} request for ${leaveRequest.days_count} day(s) has been ${payload.status} by ${payload.reviewer_name}.`,
+            body: plainMessage,
             url: "/leaves",
           }),
         });
@@ -238,12 +203,12 @@ serve(async (req) => {
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
             <h2 style="color: #333;">Leave Request ${statusText}</h2>
             <p>Hi ${safeFirstName},</p>
-            <p>Your leave request has been <strong style="color: ${statusColor};">${payload.status}</strong> by ${safeReviewerName}.</p>
+            <p>Your leave request has been <strong style="color: ${statusColor};">${safeStatus}</strong> by ${safeReviewerName}.</p>
             
             <div style="background-color: #f5f5f5; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid ${statusColor};">
               <p style="margin: 0;"><strong>Leave Type:</strong> ${safeLeaveTypeName}</p>
-              <p style="margin: 10px 0 0;"><strong>Duration:</strong> ${leaveRequest.days_count} day(s)</p>
-              <p style="margin: 10px 0 0;"><strong>Dates:</strong> ${leaveRequest.start_date} to ${leaveRequest.end_date}</p>
+              <p style="margin: 10px 0 0;"><strong>Duration:</strong> ${safeDaysCount} day(s)</p>
+              <p style="margin: 10px 0 0;"><strong>Dates:</strong> ${safeStartDate} to ${safeEndDate}</p>
               <p style="margin: 10px 0 0;"><strong>Status:</strong> ${statusText}</p>
               ${safeReviewNotes ? `<p style="margin: 10px 0 0;"><strong>Notes:</strong> ${safeReviewNotes}</p>` : ""}
             </div>
@@ -263,21 +228,9 @@ serve(async (req) => {
       console.log(`Skipping email for ${employee.email} - leave status notifications disabled`);
     }
 
-    return new Response(
-      JSON.stringify({ success: true, emailSent: wantsLeaveStatusNotifications }),
-      {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
-    );
+    return jsonResponse({ success: true, emailSent: wantsLeaveStatusNotifications });
   } catch (error) {
     console.error("Error in leave-status-notification function:", error);
-    return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : String(error) }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
-    );
+    return jsonResponse({ error: error instanceof Error ? error.message : String(error) }, 500);
   }
 });

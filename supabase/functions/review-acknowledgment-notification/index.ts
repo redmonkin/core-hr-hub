@@ -1,23 +1,11 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { createClient } from "npm:@supabase/supabase-js@2.87.1";
+import { corsHeaders, jsonResponse } from "../_shared/cors.ts";
+import { escapeHtml } from "../_shared/html.ts";
+import { authenticateCaller, getEmployeeIdForUser } from "../_shared/auth.ts";
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
 const APP_URL = Deno.env.get("APP_URL") ?? "https://peoplo.redmonk.in";
 const RESEND_FROM_EMAIL = Deno.env.get("RESEND_FROM_EMAIL")!;
-const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
-
-// HTML escape utility to prevent XSS in email templates
-const escapeHtml = (text: string | null | undefined): string => {
-  if (!text) return '';
-  return text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
-};
 
 const sendEmail = async (to: string[], subject: string, html: string) => {
   const res = await fetch("https://api.resend.com/emails", {
@@ -40,15 +28,10 @@ const sendEmail = async (to: string[], subject: string, html: string) => {
   return json;
 };
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
-
+// Only review_id is used; the employee name and review period come from the
+// database (employee_name/review_period sent by older clients are ignored).
 interface AcknowledgmentNotificationRequest {
   review_id: string;
-  employee_name: string;
-  review_period: string;
 }
 
 serve(async (req) => {
@@ -57,47 +40,25 @@ serve(async (req) => {
   }
 
   try {
-    // Verify authentication
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader?.startsWith('Bearer ')) {
-      console.error("No authorization header provided");
-      return new Response(
-        JSON.stringify({ error: 'Unauthorized' }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    // Create client with user's auth token
-    const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey, {
-      global: { headers: { Authorization: authHeader } }
-    });
-
-    // Verify the token and get claims
-    const token = authHeader.replace('Bearer ', '');
-    const { data: claimsData, error: claimsError } = await supabaseAuth.auth.getClaims(token);
-    if (claimsError || !claimsData?.claims) {
-      console.error("Invalid token:", claimsError);
-      return new Response(
-        JSON.stringify({ error: 'Unauthorized' }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    const userId = claimsData.claims.sub;
+    const caller = await authenticateCaller(req);
+    if (!caller.ok) return caller.response;
+    const { userId, supabase } = caller;
     console.log("Authenticated user:", userId);
 
-    // Use service role for data operations
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
     const payload: AcknowledgmentNotificationRequest = await req.json();
+    const reviewId = payload?.review_id;
+    console.log("Processing acknowledgment notification:", { review_id: reviewId });
 
-    console.log("Processing acknowledgment notification:", payload);
+    if (!reviewId || typeof reviewId !== "string") {
+      return jsonResponse({ error: "Invalid input" }, 400);
+    }
 
     // Get review with reviewer and employee details
     const { data: review, error: reviewError } = await supabase
       .from("performance_reviews")
-      .select("reviewer_id, employee_id")
-      .eq("id", payload.review_id)
-      .single();
+      .select("reviewer_id, employee_id, review_period, status")
+      .eq("id", reviewId)
+      .maybeSingle();
 
     if (reviewError || !review) {
       console.error("Error fetching review:", reviewError);
@@ -105,26 +66,21 @@ serve(async (req) => {
     }
 
     // Verify the caller is the employee being reviewed (acknowledging their own review)
-    const { data: callerEmployee } = await supabase
-      .from('employees')
-      .select('id')
-      .eq('user_id', userId)
-      .single();
+    const callerEmployeeId = await getEmployeeIdForUser(supabase, userId);
 
-    if (!callerEmployee || callerEmployee.id !== review.employee_id) {
+    if (!callerEmployeeId || callerEmployeeId !== review.employee_id) {
       console.error("User not authorized - can only acknowledge own reviews");
-      return new Response(
-        JSON.stringify({ error: 'Forbidden - You can only acknowledge your own reviews' }),
-        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return jsonResponse({ error: 'Forbidden - You can only acknowledge your own reviews' }, 403);
+    }
+
+    if (review.status !== "acknowledged") {
+      console.error("Review has not been acknowledged");
+      return jsonResponse({ error: "Review has not been acknowledged" }, 409);
     }
 
     if (!review.reviewer_id) {
       console.log("No reviewer assigned, skipping notification");
-      return new Response(
-        JSON.stringify({ success: true, message: "No reviewer to notify" }),
-        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return jsonResponse({ success: true, message: "No reviewer to notify" });
     }
 
     // Get reviewer details
@@ -141,10 +97,20 @@ serve(async (req) => {
 
     console.log("Notifying reviewer:", reviewer.email);
 
+    const { data: reviewedEmployee } = await supabase
+      .from("employees")
+      .select("first_name, last_name")
+      .eq("id", review.employee_id)
+      .maybeSingle();
+    const employeeName = reviewedEmployee
+      ? `${reviewedEmployee.first_name} ${reviewedEmployee.last_name}`
+      : "An employee";
+    const reviewPeriod = String(review.review_period ?? "");
+
     // Escape user-provided data for HTML
     const safeReviewerFirstName = escapeHtml(reviewer.first_name);
-    const safeEmployeeName = escapeHtml(payload.employee_name);
-    const safeReviewPeriod = escapeHtml(payload.review_period);
+    const safeEmployeeName = escapeHtml(employeeName);
+    const safeReviewPeriod = escapeHtml(reviewPeriod);
 
     // Create in-app notification for reviewer
     if (reviewer.user_id) {
@@ -153,7 +119,7 @@ serve(async (req) => {
         .insert({
           user_id: reviewer.user_id,
           title: "Review Acknowledged",
-          message: `${payload.employee_name} has acknowledged their ${payload.review_period} performance review.`,
+          message: `${employeeName} has acknowledged their ${reviewPeriod} performance review.`,
           type: "success",
           link: "/reviews-management"
         });

@@ -52,7 +52,8 @@ interface EmployeeTableProps {
   onEdit?: (employee: Employee) => void;
   
   onManageDocuments?: (employee: Employee) => void;
-  isAdminOrHR?: boolean;
+  /** Show edit/documents actions and bulk selection (employees:manage). */
+  canManage?: boolean;
   sortKey?: keyof Employee | null;
   sortDirection?: SortDirection;
   onSort?: (key: keyof Employee) => void;
@@ -75,7 +76,7 @@ export function EmployeeTable({
   onEdit, 
    
   onManageDocuments, 
-  isAdminOrHR = false,
+  canManage = false,
   sortKey,
   sortDirection,
   onSort,
@@ -106,7 +107,7 @@ export function EmployeeTable({
     }
   };
 
-  const showBulkActions = isAdminOrHR && onSelectionChange && onBulkAction;
+  const showBulkActions = canManage && onSelectionChange && onBulkAction;
 
   return (
     <div className="space-y-4">
@@ -301,7 +302,7 @@ export function EmployeeTable({
                         <Eye className="mr-2 h-4 w-4" />
                         View Profile
                       </DropdownMenuItem>
-                      {isAdminOrHR && (
+                      {canManage && (
                         <>
                           <DropdownMenuItem onClick={() => onEdit?.(employee)}>
                             <Edit className="mr-2 h-4 w-4" />

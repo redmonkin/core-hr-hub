@@ -1,7 +1,7 @@
 import { Navigate, useLocation, Link } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useEmployeeStatus } from "@/hooks/useEmployeeStatus";
-import { useIsAdminOrHR } from "@/hooks/useUserRole";
+import { usePermissions } from "@/hooks/usePermissions";
 import { Loader2, ShieldX } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,7 +14,7 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
   const { user, isLoading } = useAuth();
   const location = useLocation();
   const { data: employeeStatus, isLoading: isEmployeeLoading } = useEmployeeStatus();
-  const { isAdminOrHR, isLoading: isRoleLoading } = useIsAdminOrHR();
+  const { hasAnyModuleAccess, isLoading: isRoleLoading } = usePermissions();
   const isEmployee = employeeStatus?.isEmployee ?? false;
 
   if (isLoading || isEmployeeLoading || isRoleLoading) {
@@ -29,11 +29,13 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
     return <Navigate to="/auth" replace />;
   }
 
-  // Allow access to dashboard for everyone (non-employees see onboarding request form there)
+  // Allow access to dashboard for everyone (invited users who haven't been
+  // onboarded yet see the onboarding request form there)
   const isDashboard = location.pathname === "/dashboard";
-  
-  // Non-employees who are not admin/HR can only access dashboard
-  if (!isEmployee && !isAdminOrHR && !isDashboard) {
+
+  // Users without an employee record can only use the app if they've been
+  // given access to a module (e.g. an external accountant with payroll access)
+  if (!isEmployee && !hasAnyModuleAccess && !isDashboard) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background p-4">
         <Card className="max-w-md w-full">

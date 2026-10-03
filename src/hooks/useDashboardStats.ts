@@ -2,7 +2,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useEffect } from "react";
-import { useIsAdminOrHR } from "@/hooks/useUserRole";
+import { usePermissions } from "@/hooks/usePermissions";
 
 export type TodayWorkStatus = "leave" | "holiday" | "day_off" | "working";
 
@@ -75,7 +75,9 @@ async function getEligibleLeaveTotals(employeeId: string, currentYear: number) {
 export function useDashboardStats() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const { isAdminOrHR, isLoading: roleLoading } = useIsAdminOrHR();
+  const { can, isLoading: roleLoading } = usePermissions();
+  // Organisation-wide numbers are for people with access to employee records
+  const showOrgStats = can("employees", "view");
 
   // Subscribe to real-time changes on leave_requests
   useEffect(() => {
@@ -101,10 +103,10 @@ export function useDashboardStats() {
   }, [queryClient]);
 
   return useQuery({
-    queryKey: ["dashboard-stats", user?.id, isAdminOrHR],
+    queryKey: ["dashboard-stats", user?.id, showOrgStats],
     queryFn: async () => {
       // For regular employees, show personal stats only
-      if (!isAdminOrHR) {
+      if (!showOrgStats) {
         // Get current employee's data
         const { data: myEmployee } = await supabase
           .from("employees")

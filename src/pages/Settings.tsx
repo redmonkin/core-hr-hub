@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { Navigate } from "react-router-dom";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -31,8 +30,10 @@ import { useToast } from "@/hooks/use-toast";
 import { useDepartments } from "@/hooks/useEmployees";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useIsAdminOrHR, useUserRole } from "@/hooks/useUserRole";
+import { usePermissions } from "@/hooks/usePermissions";
+import { canAccessSettings } from "@/lib/permissions";
 import { UserRolesManager } from "@/components/settings/UserRolesManager";
+import { RolePermissionsMatrix } from "@/components/settings/RolePermissionsMatrix";
 import { EmployeeCodeSettings } from "@/components/settings/EmployeeCodeSettings";
 import DomainWhitelistSettings from "@/components/settings/DomainWhitelistSettings";
 import OfficeLocationSettings from "@/components/settings/OfficeLocationSettings";
@@ -66,12 +67,38 @@ interface LeaveTypeForm {
   is_paid: boolean;
 }
 
+type SettingsTab =
+  | "user-roles"
+  | "departments"
+  | "leave-types"
+  | "employee-id"
+  | "domain-whitelist"
+  | "office-location"
+  | "branding";
+
 const Settings = () => {
-  const [activeTab, setActiveTab] = useState("user-roles");
+  const [requestedTab, setRequestedTab] = useState<SettingsTab | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const { isAdminOrHR, isLoading: roleLoading, role } = useIsAdminOrHR();
-  const isAdmin = role === 'admin';
+  const perms = usePermissions();
+  const { can, isAdmin, isLoading: roleLoading } = perms;
+
+  const tabAllowed: Record<SettingsTab, boolean> = {
+    "user-roles": isAdmin,
+    departments: can('employees', 'manage'),
+    "leave-types": can('leaves', 'manage'),
+    "employee-id": can('settings', 'manage'),
+    "domain-whitelist": can('settings', 'manage'),
+    "office-location": can('settings', 'manage'),
+    branding: can('settings', 'manage'),
+  };
+  // Display order; the first tab the user can use is the default
+  const TAB_ORDER: SettingsTab[] = [
+    "user-roles", "departments", "leave-types", "employee-id", "domain-whitelist", "office-location", "branding",
+  ];
+  const allowedTabs = TAB_ORDER.filter((t) => tabAllowed[t]);
+  const activeTab: SettingsTab | undefined =
+    requestedTab && tabAllowed[requestedTab] ? requestedTab : allowedTabs[0];
   
   // Department state
   const [deptDialogOpen, setDeptDialogOpen] = useState(false);
@@ -214,15 +241,15 @@ const Settings = () => {
     );
   }
 
-  // Redirect non-admin/HR users
-  if (!isAdminOrHR) {
+  // Same rule as the sidebar: admin, or manage on employees/leaves/settings
+  if (!canAccessSettings(perms) || allowedTabs.length === 0) {
     return (
       <DashboardLayout>
         <div className="flex min-h-[400px] flex-col items-center justify-center space-y-4">
           <ShieldAlert className="h-16 w-16 text-destructive" />
           <h2 className="text-2xl font-bold text-foreground">Access Denied</h2>
           <p className="text-muted-foreground">You don't have permission to access this page.</p>
-          <p className="text-sm text-muted-foreground">Only administrators and HR personnel can manage settings.</p>
+          <p className="text-sm text-muted-foreground">Ask an administrator if you need access to settings.</p>
         </div>
       </DashboardLayout>
     );
@@ -281,50 +308,54 @@ const Settings = () => {
           <p className="text-muted-foreground">Manage system configurations</p>
         </div>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <Tabs value={activeTab} onValueChange={(v) => setRequestedTab(v as SettingsTab)}>
           <TabsList className="grid h-auto w-full grid-cols-2 gap-1 sm:inline-flex sm:h-10 sm:w-auto">
-            {isAdmin && (
+            {tabAllowed["user-roles"] && (
               <TabsTrigger
                 value="user-roles"
                 className="w-full justify-center gap-2 sm:w-auto"
               >
                 <Users className="h-4 w-4" />
-                <span className="hidden sm:inline">Users</span>
+                <span className="hidden sm:inline">Users &amp; Access</span>
                 <span className="sm:hidden">Users</span>
               </TabsTrigger>
             )}
-            <TabsTrigger value="departments" className="w-full justify-center gap-2 sm:w-auto">
-              <Building2 className="h-4 w-4" />
-              <span className="hidden sm:inline">Departments</span>
-              <span className="sm:hidden">Depts</span>
-            </TabsTrigger>
-            <TabsTrigger value="leave-types" className="w-full justify-center gap-2 sm:w-auto">
-              <CalendarDays className="h-4 w-4" />
-              <span className="hidden sm:inline">Leave Types</span>
-              <span className="sm:hidden">Leaves</span>
-            </TabsTrigger>
-            {isAdmin && (
+            {tabAllowed.departments && (
+              <TabsTrigger value="departments" className="w-full justify-center gap-2 sm:w-auto">
+                <Building2 className="h-4 w-4" />
+                <span className="hidden sm:inline">Departments</span>
+                <span className="sm:hidden">Depts</span>
+              </TabsTrigger>
+            )}
+            {tabAllowed["leave-types"] && (
+              <TabsTrigger value="leave-types" className="w-full justify-center gap-2 sm:w-auto">
+                <CalendarDays className="h-4 w-4" />
+                <span className="hidden sm:inline">Leave Types</span>
+                <span className="sm:hidden">Leaves</span>
+              </TabsTrigger>
+            )}
+            {tabAllowed["employee-id"] && (
               <TabsTrigger value="employee-id" className="w-full justify-center gap-2 sm:w-auto">
                 <Hash className="h-4 w-4" />
                 <span className="hidden sm:inline">Employee ID</span>
                 <span className="sm:hidden">ID</span>
               </TabsTrigger>
             )}
-            {isAdmin && (
+            {tabAllowed["domain-whitelist"] && (
               <TabsTrigger value="domain-whitelist" className="w-full justify-center gap-2 sm:w-auto">
                 <Globe className="h-4 w-4" />
                 <span className="hidden sm:inline">Domain Whitelist</span>
                 <span className="sm:hidden">Domains</span>
               </TabsTrigger>
             )}
-            {isAdmin && (
+            {tabAllowed["office-location"] && (
               <TabsTrigger value="office-location" className="w-full justify-center gap-2 sm:w-auto">
                 <MapPin className="h-4 w-4" />
                 <span className="hidden sm:inline">Office Location</span>
                 <span className="sm:hidden">Office</span>
               </TabsTrigger>
             )}
-            {isAdmin && (
+            {tabAllowed.branding && (
               <TabsTrigger value="branding" className="w-full justify-center gap-2 sm:w-auto">
                 <Palette className="h-4 w-4" />
                 <span className="hidden sm:inline">Branding</span>
@@ -334,6 +365,7 @@ const Settings = () => {
           </TabsList>
 
           {/* Departments Tab */}
+          {tabAllowed.departments && (
           <TabsContent value="departments" className="mt-6">
             <Card>
               <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -435,8 +467,10 @@ const Settings = () => {
               </CardContent>
             </Card>
           </TabsContent>
+          )}
 
           {/* Leave Types Tab */}
+          {tabAllowed["leave-types"] && (
           <TabsContent value="leave-types" className="mt-6">
             <Card>
               <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -567,37 +601,39 @@ const Settings = () => {
               </CardContent>
             </Card>
           </TabsContent>
+          )}
 
-          {/* User Roles Tab - Admin Only */}
-          {isAdmin && (
-            <TabsContent value="user-roles" className="mt-6">
+          {/* Users & access - admin only (RLS also restricts roles/permissions to admins) */}
+          {tabAllowed["user-roles"] && (
+            <TabsContent value="user-roles" className="mt-6 space-y-6">
               <UserRolesManager />
+              <RolePermissionsMatrix />
             </TabsContent>
           )}
 
-          {/* Employee ID Pattern Tab - Admin Only */}
-          {isAdmin && (
+          {/* Employee ID Pattern Tab - settings:manage */}
+          {tabAllowed["employee-id"] && (
             <TabsContent value="employee-id" className="mt-6">
               <EmployeeCodeSettings />
             </TabsContent>
           )}
 
-          {/* Domain Whitelist Tab - Admin Only */}
-          {isAdmin && (
+          {/* Domain Whitelist Tab - settings:manage */}
+          {tabAllowed["domain-whitelist"] && (
             <TabsContent value="domain-whitelist" className="mt-6">
               <DomainWhitelistSettings />
             </TabsContent>
           )}
 
-          {/* Office Location Tab - Admin Only */}
-          {isAdmin && (
+          {/* Office Location Tab - settings:manage */}
+          {tabAllowed["office-location"] && (
             <TabsContent value="office-location" className="mt-6">
               <OfficeLocationSettings />
             </TabsContent>
           )}
 
-          {/* Branding Tab - Admin Only */}
-          {isAdmin && (
+          {/* Branding Tab - settings:manage */}
+          {tabAllowed["branding"] && (
             <TabsContent value="branding" className="mt-6">
               <BrandingSettings />
             </TabsContent>

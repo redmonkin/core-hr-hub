@@ -30,7 +30,9 @@ import { useDepartments } from "@/hooks/useEmployees";
 import { useNextEmployeeCode, isValidEmployeeCode } from "@/hooks/useNextEmployeeCode";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useIsAdminOrHR } from "@/hooks/useUserRole";
+import { usePermissions } from "@/hooks/usePermissions";
+import { InvitationsList } from "@/components/onboarding/InvitationsList";
+import { inviteEmployee } from "@/components/onboarding/inviteEmployee";
 import { useOnboardingRequests, OnboardingRequest } from "@/hooks/useOnboardingRequests";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate, useLocation } from "react-router-dom";
@@ -178,6 +180,17 @@ const useUnlinkedUsers = () => {
 
 // No longer needed - using useNextEmployeeCode hook instead
 
+/**
+ * Onboarding request documents are supplied by the applicant, so only trust
+ * paths inside their own folder of the onboarding-documents bucket. Otherwise
+ * an applicant could point at someone else's files and have HR copy them.
+ */
+const isOwnOnboardingPath = (path: string, applicantUserId: string) =>
+  !!applicantUserId &&
+  path.startsWith(`${applicantUserId}/`) &&
+  !path.includes('..') &&
+  !path.includes('\\');
+
 interface DocumentUpload {
   file: File | null;
   uploading: boolean;
@@ -186,6 +199,8 @@ interface DocumentUpload {
 }
 
 interface SourceRequestDocuments {
+  /** The applicant's user id; every path must be inside their folder */
+  user_id: string;
   resume_url?: string;
   offer_letter_url?: string;
   id_proof_url?: string;
@@ -266,8 +281,7 @@ const initialDocuments: Record<string, DocumentUpload> = {
 const Onboarding = () => {
   const currentLocation = useLocation();
   const searchParams = new URLSearchParams(currentLocation.search);
-  const initialTab = searchParams.get('tab') || 'add';
-  const [activeTab, setActiveTab] = useState(initialTab);
+  const [activeTab, setActiveTab] = useState<string>(searchParams.get('tab') || 'add');
   const [selectedEmployee, setSelectedEmployee] = useState<OnboardingEmployee | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [editFormData, setEditFormData] = useState({
@@ -298,7 +312,11 @@ const Onboarding = () => {
   
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const { isAdminOrHR, isLoading: roleLoading } = useIsAdminOrHR();
+  const { can, isLoading: roleLoading } = usePermissions();
+  const canView = can('onboarding', 'view');
+  const canManage = can('onboarding', 'manage');
+  // salary_structures inserts need payroll:manage (RLS)
+  const canSetSalary = can('payroll', 'manage');
   const { user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -430,31 +448,29 @@ const Onboarding = () => {
       
       let linkedUserId = data.linkedUserId;
       let inviteSent = false;
+      let inviteError: string | null = null;
+      const warnings: string[] = [];
 
-      // If no linked user, invite the employee via email
+      // If no linked user, invite the employee via email. If the invite fails
+      // (e.g. the domain isn't whitelisted) the employee record is still
+      // created, and the user is told the invite wasn't sent and why.
       if (!linkedUserId) {
         try {
-          const { data: inviteResult, error: inviteError } = await supabase.functions.invoke("invite-employee", {
-            body: {
-              email: data.email.trim(),
-              first_name: data.firstName.trim(),
-              last_name: data.lastName.trim(),
-              designation: data.designation.trim(),
-              department_name: selectedDept?.name,
-              redirect_url: `${window.location.origin}/`,
-            }
+          const inviteResult = await inviteEmployee({
+            email: data.email.trim(),
+            first_name: data.firstName.trim(),
+            last_name: data.lastName.trim(),
+            designation: data.designation.trim(),
+            department_name: selectedDept?.name,
+            redirect_url: `${window.location.origin}/`,
+            mode: 'employee',
           });
-
-          if (inviteError) {
-            console.error("Failed to invite employee:", inviteError);
-          } else if (inviteResult?.user_id) {
+          if (inviteResult.user_id) {
             linkedUserId = inviteResult.user_id;
             inviteSent = !inviteResult.already_exists;
-            console.log("Employee invited successfully:", inviteResult);
           }
         } catch (err) {
-          console.error("Error invoking invite-employee:", err);
-          // Continue with employee creation even if invite fails
+          inviteError = err instanceof Error ? err.message : 'Unknown error';
         }
       }
 
@@ -494,6 +510,7 @@ const Onboarding = () => {
             await uploadDocument(employee.id, docType, doc.file);
           } catch (err) {
             console.error(`Failed to upload ${docType}:`, err);
+            warnings.push(`${doc.file.name} couldn't be uploaded`);
           }
         }
       }
@@ -509,6 +526,11 @@ const Onboarding = () => {
         ];
         for (const doc of requestDocs) {
           if (!doc.path || manuallyUploadedTypes.has(doc.docType)) continue;
+          if (!isOwnOnboardingPath(doc.path, data.sourceRequestDocuments.user_id)) {
+            console.warn(`Skipped ${doc.docType}: path is outside the applicant's folder`, doc.path);
+            warnings.push(`${doc.name} from the request was skipped because its file location is invalid`);
+            continue;
+          }
           try {
             const { data: blob, error: downloadError } = await supabase.storage
               .from('onboarding-documents')
@@ -533,12 +555,13 @@ const Onboarding = () => {
             if (dbError) throw dbError;
           } catch (err) {
             console.error(`Failed to copy ${doc.docType} from onboarding request:`, err);
+            warnings.push(`${doc.name} from the request couldn't be copied`);
           }
         }
       }
 
-      // If salary is provided, create salary structure
-      if (data.salary && parseFloat(data.salary) > 0) {
+      // If salary is provided, create salary structure (payroll:manage only)
+      if (canSetSalary && data.salary && parseFloat(data.salary) > 0) {
         const { error: salaryError } = await supabase
           .from('salary_structures')
           .insert({
@@ -565,7 +588,7 @@ const Onboarding = () => {
         console.error("Failed to send onboarding notification:", err);
       });
 
-      return { employee, inviteSent };
+      return { employee, inviteSent, inviteError, linked: !!linkedUserId, warnings };
     },
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ['onboarding-employees'] });
@@ -576,12 +599,30 @@ const Onboarding = () => {
       setFormData(initialFormData);
       setDocuments(initialDocuments);
       setActiveTab('pending');
-      toast({
-        title: "Employee Added",
-        description: result.inviteSent 
-          ? "New employee has been added and an email invite has been sent to set up their account."
-          : "New employee has been added to the onboarding queue.",
-      });
+      queryClient.invalidateQueries({ queryKey: ['user-invitations'] });
+      if (result.inviteError) {
+        toast({
+          title: "Employee added, but the invite wasn't sent",
+          description: `${result.inviteError} The employee record was created without a login. Fix the issue, then use Resend Invite.`,
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Employee Added",
+          description: result.inviteSent
+            ? "New employee has been added and an email invite has been sent to set up their account."
+            : result.linked
+              ? "New employee has been added and linked to their existing account."
+              : "New employee has been added to the onboarding queue.",
+        });
+      }
+      if (result.warnings.length > 0) {
+        toast({
+          title: "Some documents weren't added",
+          description: result.warnings.join('. ') + '.',
+          variant: "destructive",
+        });
+      }
     },
     onError: (error: Error) => {
       toast({
@@ -610,6 +651,7 @@ const Onboarding = () => {
       
       if (leaveTypesError) throw leaveTypesError;
 
+      let balanceWarning: string | null = null;
       if (leaveTypes && leaveTypes.length > 0) {
         const leaveBalances = leaveTypes.map(lt => ({
           employee_id: employeeId,
@@ -625,19 +667,28 @@ const Onboarding = () => {
         
         if (balanceError) {
           console.error('Failed to initialize leave balances:', balanceError);
+          balanceWarning = balanceError.message;
         }
       }
 
-      return employeeId;
+      return { employeeId, balanceWarning };
     },
-    onSuccess: () => {
+    onSuccess: ({ balanceWarning }) => {
       queryClient.invalidateQueries({ queryKey: ['onboarding-employees'] });
       queryClient.invalidateQueries({ queryKey: ['employees'] });
       setSelectedEmployee(null);
-      toast({
-        title: "Employee Activated",
-        description: "Employee has been marked as active and leave balances have been initialized.",
-      });
+      if (balanceWarning) {
+        toast({
+          title: "Employee activated, leave balances not set up",
+          description: `${balanceWarning} Someone who manages leaves needs to set up their leave balances.`,
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Employee Activated",
+          description: "Employee has been marked as active and leave balances have been initialized.",
+        });
+      }
     },
     onError: (error: Error) => {
       toast({
@@ -696,30 +747,27 @@ const Onboarding = () => {
     try {
       const selectedDept = departments.find(d => d.id === employee.department_id);
       
-      const { data: inviteResult, error: inviteError } = await supabase.functions.invoke("invite-employee", {
-        body: {
-          email: employee.email,
-          first_name: employee.first_name,
-          last_name: employee.last_name,
-          designation: employee.designation || '',
-          department_name: selectedDept?.name,
-          redirect_url: `${window.location.origin}/`,
-        }
+      const inviteResult = await inviteEmployee({
+        email: employee.email,
+        first_name: employee.first_name,
+        last_name: employee.last_name,
+        designation: employee.designation || undefined,
+        department_name: selectedDept?.name,
+        redirect_url: `${window.location.origin}/`,
+        mode: 'employee',
       });
 
-      if (inviteError) {
-        throw new Error(inviteError.message || 'Failed to resend invite');
-      }
-
       // Update employee user_id if not already linked
-      if (inviteResult?.user_id && !employee.user_id) {
-        await supabase
+      if (inviteResult.user_id && !employee.user_id) {
+        const { error: linkError } = await supabase
           .from('employees')
           .update({ user_id: inviteResult.user_id })
           .eq('id', employee.id);
-        
+        if (linkError) throw linkError;
+
         queryClient.invalidateQueries({ queryKey: ['onboarding-employees'] });
       }
+      queryClient.invalidateQueries({ queryKey: ['user-invitations'] });
 
       toast({
         title: "Invite Sent",
@@ -729,7 +777,7 @@ const Onboarding = () => {
       });
     } catch (error) {
       toast({
-        title: "Error",
+        title: "Invite not sent",
         description: error instanceof Error ? error.message : "Failed to resend invite.",
         variant: "destructive",
       });
@@ -806,6 +854,7 @@ const Onboarding = () => {
       designation: request.designation || '',
       joinDate: request.joining_date || '',
       sourceRequestDocuments: {
+        user_id: request.user_id,
         resume_url: request.resume_url,
         offer_letter_url: request.offer_letter_url,
         id_proof_url: request.id_proof_url,
@@ -875,15 +924,14 @@ const Onboarding = () => {
     );
   }
 
-  // Redirect non-admin/HR users
-  if (!isAdminOrHR) {
+  if (!canView) {
     return (
       <DashboardLayout>
         <div className="flex min-h-[400px] flex-col items-center justify-center space-y-4">
           <ShieldAlert className="h-16 w-16 text-destructive" />
           <h2 className="text-2xl font-bold text-foreground">Access Denied</h2>
           <p className="text-muted-foreground">You don't have permission to access this page.</p>
-          <p className="text-sm text-muted-foreground">Only administrators and HR personnel can manage onboarding.</p>
+          <p className="text-sm text-muted-foreground">Ask an administrator for access to onboarding.</p>
         </div>
       </DashboardLayout>
     );
@@ -961,15 +1009,27 @@ const Onboarding = () => {
 
   const isSubmitting = createEmployeeMutation.isPending;
 
+  // People with onboarding:view only can't create employees, so no Add tab
+  const availableTabs = canManage ? ['add', 'pending', 'requests', 'invitations'] : ['pending', 'requests', 'invitations'];
+  const currentTab = availableTabs.includes(activeTab) ? activeTab : availableTabs[0];
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid h-auto w-full grid-cols-1 gap-1 sm:h-10 sm:max-w-xl sm:grid-cols-3">
-            <TabsTrigger value="add" className="w-full justify-center">
-              <span className="hidden sm:inline">Add Employee</span>
-              <span className="sm:hidden">Add</span>
-            </TabsTrigger>
+        {!canManage && (
+          <p className="rounded-md border bg-muted/40 p-3 text-sm text-muted-foreground">
+            You have view-only access to onboarding. Ask an administrator if you need to add employees, send
+            invitations or approve requests.
+          </p>
+        )}
+        <Tabs value={currentTab} onValueChange={setActiveTab}>
+          <TabsList className={`grid h-auto w-full grid-cols-2 gap-1 sm:h-10 sm:max-w-2xl ${canManage ? 'sm:grid-cols-4' : 'sm:grid-cols-3'}`}>
+            {canManage && (
+              <TabsTrigger value="add" className="w-full justify-center">
+                <span className="hidden sm:inline">Add Employee</span>
+                <span className="sm:hidden">Add</span>
+              </TabsTrigger>
+            )}
             <TabsTrigger value="pending" className="w-full justify-center">
               <span className="hidden sm:inline">Pending</span>
               <span className="sm:hidden">Pending</span>
@@ -988,8 +1048,12 @@ const Onboarding = () => {
                 </Badge>
               )}
             </TabsTrigger>
+            <TabsTrigger value="invitations" className="w-full justify-center">
+              Invitations
+            </TabsTrigger>
           </TabsList>
 
+          {canManage && (
           <TabsContent value="add" className="mt-6">
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="grid gap-6 lg:grid-cols-2">
@@ -1218,7 +1282,7 @@ const Onboarding = () => {
                         </p>
                       )}
                     </div>
-                    <div className="grid gap-4 sm:grid-cols-2">
+                    <div className={`grid gap-4 ${canSetSalary ? 'sm:grid-cols-2' : ''}`}>
                       <div className="space-y-2">
                         <Label htmlFor="joinDate">Join Date *</Label>
                         <Input 
@@ -1229,17 +1293,19 @@ const Onboarding = () => {
                           disabled={isSubmitting}
                         />
                       </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="salary">Base Salary</Label>
-                        <Input 
-                          id="salary" 
-                          type="number" 
-                          placeholder="50000" 
-                          value={formData.salary}
-                          onChange={(e) => handleInputChange('salary', e.target.value)}
-                          disabled={isSubmitting}
-                        />
-                      </div>
+                      {canSetSalary && (
+                        <div className="space-y-2">
+                          <Label htmlFor="salary">Base Salary</Label>
+                          <Input 
+                            id="salary" 
+                            type="number" 
+                            placeholder="50000" 
+                            value={formData.salary}
+                            onChange={(e) => handleInputChange('salary', e.target.value)}
+                            disabled={isSubmitting}
+                          />
+                        </div>
+                      )}
                     </div>
                     
                     {/* Working Hours Section */}
@@ -1392,6 +1458,11 @@ const Onboarding = () => {
               </div>
             </form>
           </TabsContent>
+          )}
+
+          <TabsContent value="invitations" className="mt-6">
+            <InvitationsList canManage={canManage} />
+          </TabsContent>
 
           <TabsContent value="pending" className="mt-6">
             <div className="space-y-4">
@@ -1419,13 +1490,15 @@ const Onboarding = () => {
                           </div>
                           <div className="flex items-center gap-2 sm:gap-4 flex-wrap">
                             <Badge variant="default" className="bg-primary/10 text-primary hover:bg-primary/10">Approved</Badge>
-                            <Button 
-                              size="sm"
-                              onClick={() => handleCreateEmployeeFromRequest(request)}
-                            >
-                              <UserPlus className="mr-2 h-4 w-4" />
-                              Create Employee
-                            </Button>
+                            {canManage && (
+                              <Button 
+                                size="sm"
+                                onClick={() => handleCreateEmployeeFromRequest(request)}
+                              >
+                                <UserPlus className="mr-2 h-4 w-4" />
+                                Create Employee
+                              </Button>
+                            )}
                           </div>
                         </div>
                       </CardContent>
@@ -1465,6 +1538,7 @@ const Onboarding = () => {
                             </div>
                             <div className="flex items-center gap-2 sm:gap-4 flex-wrap">
                               <Badge variant="secondary">Onboarding</Badge>
+                              {canManage && (
                               <Button 
                                 variant="ghost" 
                                 size="sm"
@@ -1479,6 +1553,7 @@ const Onboarding = () => {
                                 )}
                                 {resendingInvite === employee.id ? 'Sending...' : 'Resend Invite'}
                               </Button>
+                              )}
                               <Button 
                                 variant="outline" 
                                 size="sm"
@@ -1518,7 +1593,7 @@ const Onboarding = () => {
               <CardHeader>
                 <CardTitle>Join Requests</CardTitle>
                 <CardDescription>
-                  Review onboarding requests from users who have signed up
+                  Review onboarding details submitted by invited users
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -1613,7 +1688,7 @@ const Onboarding = () => {
                                 >
                                   <Eye className="h-4 w-4" />
                                 </Button>
-                                {request.status === "pending" && (
+                                {canManage && request.status === "pending" && (
                                   <>
                                     <Button
                                       variant="outline"
@@ -1635,7 +1710,7 @@ const Onboarding = () => {
                                     </Button>
                                   </>
                                 )}
-                                {request.status === "approved" && !hasEmployeeRecord(request.user_id) && (
+                                {canManage && request.status === "approved" && !hasEmployeeRecord(request.user_id) && (
                                   <Button
                                     size="sm"
                                     onClick={() => handleCreateEmployeeFromRequest(request)}
@@ -1695,9 +1770,11 @@ const Onboarding = () => {
                       <p className="text-sm text-muted-foreground">{selectedEmployee.designation || 'No designation'}</p>
                     </div>
                   </div>
-                  <Button variant="outline" size="icon" onClick={() => openEditMode(selectedEmployee)}>
-                    <Pencil className="h-4 w-4" />
-                  </Button>
+                  {canManage && (
+                    <Button variant="outline" size="icon" onClick={() => openEditMode(selectedEmployee)}>
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                  )}
                 </div>
                 
                 <div className="space-y-3 rounded-lg border p-4">
@@ -1830,6 +1907,7 @@ const Onboarding = () => {
                   )}
                   
                   {/* Upload Additional Document */}
+                  {canManage && (
                   <div className="space-y-3 pt-2 border-t">
                     <p className="text-xs font-medium text-muted-foreground">Upload Additional Document</p>
                     <div className="flex flex-col gap-2 sm:flex-row">
@@ -1876,10 +1954,12 @@ const Onboarding = () => {
                       </p>
                     )}
                   </div>
+                  )}
                 </div>
                 
                 <div className="flex items-center justify-between pt-2">
                   <Badge variant="secondary">Onboarding</Badge>
+                  {canManage && (
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
                       <Button 
@@ -1911,11 +1991,12 @@ const Onboarding = () => {
                       </AlertDialogFooter>
                     </AlertDialogContent>
                   </AlertDialog>
+                  )}
                 </div>
               </div>
             )}
             
-            {selectedEmployee && isEditing && (
+            {selectedEmployee && isEditing && canManage && (
               <div className="space-y-4">
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
@@ -2206,7 +2287,7 @@ const Onboarding = () => {
               </div>
             )}
             <DialogFooter>
-              {selectedRequest?.status === "pending" && (
+              {canManage && selectedRequest?.status === "pending" && (
                 <>
                   <Button
                     variant="outline"
@@ -2230,7 +2311,7 @@ const Onboarding = () => {
                   </Button>
                 </>
               )}
-              {selectedRequest?.status === "approved" && (
+              {canManage && selectedRequest?.status === "approved" && !hasEmployeeRecord(selectedRequest.user_id) && (
                 <Button onClick={() => {
                   handleCreateEmployeeFromRequest(selectedRequest);
                   setSelectedRequest(null);

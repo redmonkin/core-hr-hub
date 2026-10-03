@@ -34,7 +34,7 @@ import {
 } from "@/components/ui/pagination";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval } from "date-fns";
 import { useAttendance, useTodayAttendance, useClockIn, useClockOut, useAttendanceReport, LocationData, WorkMode } from "@/hooks/useAttendance";
-import { useIsAdminOrHR } from "@/hooks/useUserRole";
+import { usePermissions } from "@/hooks/usePermissions";
 import { useActiveBreak, useBreaksForRecord, usePause, useResume, calculateTotalBreakHours } from "@/hooks/useAttendanceBreaks";
 import { useOfficeLocation, getDistanceMeters } from "@/components/settings/OfficeLocationSettings";
 import { getExpectedHours, getShiftEndTime } from "@/lib/shiftUtils";
@@ -70,7 +70,9 @@ function getStatusBadge(status: string) {
 
 const Attendance = () => {
   const { user } = useAuth();
-  const { isAdminOrHR } = useIsAdminOrHR();
+  const { can } = usePermissions();
+  // Late-arrival and overtime insights are for people who oversee attendance
+  const canViewAttendanceInsights = can("attendance", "view");
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth().toString());
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
   const [workMode, setWorkMode] = useState<WorkMode>('wfo');
@@ -505,7 +507,7 @@ const Attendance = () => {
                               ? format(new Date(todayRecord.clock_in), "hh:mm a")
                               : "--:--"}
                           </p>
-                          {isAdminOrHR && todayRecord?.clock_in && calculateLateArrival(todayRecord.clock_in) > 0 && (
+                          {canViewAttendanceInsights && todayRecord?.clock_in && calculateLateArrival(todayRecord.clock_in) > 0 && (
                             <Badge variant="destructive" className="text-xs">
                               <AlertTriangle className="h-3 w-3 mr-1" />
                               {formatLateDuration(calculateLateArrival(todayRecord.clock_in))} late
@@ -767,7 +769,7 @@ const Attendance = () => {
                       {myData.totalDays > 0 ? (myData.totalHours / myData.totalDays).toFixed(1) : "0"}h
                     </p>
                   </div>
-                  {isAdminOrHR && (
+                  {canViewAttendanceInsights && (
                     <div className="rounded-lg border bg-muted/50 p-4">
                       <p className="text-sm text-muted-foreground">Late Arrivals</p>
                       <p className="text-2xl font-bold">{myData.lateDays}</p>
@@ -788,7 +790,7 @@ const Attendance = () => {
             </div>
             {attendanceRecords && attendanceRecords.length > 0 && (
               <div className="flex flex-wrap items-center gap-3">
-                {isAdminOrHR && countLateArrivals() > 0 && (
+                {canViewAttendanceInsights && countLateArrivals() > 0 && (
                   <div className="flex items-center gap-2 rounded-lg bg-red-50 px-3 py-2 border border-red-100">
                     <AlertTriangle className="h-4 w-4 text-red-500" />
                     <div className="text-sm">
@@ -797,7 +799,7 @@ const Attendance = () => {
                     </div>
                   </div>
                 )}
-                {isAdminOrHR && (
+                {canViewAttendanceInsights && (
                   <div className="flex items-center gap-2 rounded-lg bg-muted px-3 py-2">
                     <Timer className="h-4 w-4 text-orange-500" />
                     <div className="text-sm">
@@ -837,7 +839,7 @@ const Attendance = () => {
                       >
                         Total Hours
                       </SortableTableHead>
-                      {isAdminOrHR && <TableHead>Overtime</TableHead>}
+                      {canViewAttendanceInsights && <TableHead>Overtime</TableHead>}
                       <TableHead>Mode</TableHead>
                       <TableHead>Location</TableHead>
                       <SortableTableHead
@@ -872,7 +874,7 @@ const Attendance = () => {
                           <TableCell>
                             <div className="flex items-center gap-2">
                               {record.clock_in ? format(new Date(record.clock_in), "hh:mm a") : "-"}
-                              {isAdminOrHR && lateMinutes > 0 && (
+                              {canViewAttendanceInsights && lateMinutes > 0 && (
                                 <Badge variant="destructive" className="text-xs">
                                   <AlertTriangle className="h-3 w-3 mr-1" />
                                   {formatLateDuration(lateMinutes)} late
@@ -886,7 +888,7 @@ const Attendance = () => {
                           <TableCell>
                             {record.total_hours ? `${record.total_hours.toFixed(2)} hrs` : "-"}
                           </TableCell>
-                          {isAdminOrHR && (
+                          {canViewAttendanceInsights && (
                             <TableCell>
                               {overtime > 0 ? (
                                 <Badge variant="secondary" className="text-xs">

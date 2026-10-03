@@ -135,7 +135,8 @@ INSERT INTO public.user_invitations (email, roles) VALUES
   ('bob@acme.test', '{employee}'),
   ('carol@acme.test', '{employee}'),
   ('dave@acme.test', '{employee}'),
-  ('erin@acme.test', '{hr}');
+  ('erin@acme.test', '{hr}'),
+  ('frank@acme.test', '{employee}');
 
 -- Employee records for alice and erin exist before their accounts, the way
 -- HR creates them during onboarding; the new-user trigger links them by email.
@@ -151,7 +152,8 @@ INSERT INTO auth.users (id, email) VALUES
   ('10000000-0000-0000-0000-00000000000b', 'bob@acme.test'),
   ('10000000-0000-0000-0000-00000000000c', 'carol@acme.test'),
   ('10000000-0000-0000-0000-00000000000d', 'dave@acme.test'),
-  ('10000000-0000-0000-0000-00000000000e', 'erin@acme.test');
+  ('10000000-0000-0000-0000-00000000000e', 'erin@acme.test'),
+  ('10000000-0000-0000-0000-00000000000f', 'frank@acme.test');
 
 INSERT INTO tests.users VALUES
   ('admin', '10000000-0000-0000-0000-000000000001'),
@@ -161,7 +163,8 @@ INSERT INTO tests.users VALUES
   ('bob', '10000000-0000-0000-0000-00000000000b'),     -- employee, other team
   ('carol', '10000000-0000-0000-0000-00000000000c'),   -- employee with assets:manage only
   ('dave', '10000000-0000-0000-0000-00000000000d'),    -- invited, not onboarded (no employee record)
-  ('erin', '10000000-0000-0000-0000-00000000000e');    -- HR, but blocked
+  ('erin', '10000000-0000-0000-0000-00000000000e'),    -- HR, but blocked
+  ('frank', '10000000-0000-0000-0000-00000000000f');   -- employee with onboarding:manage only
 
 INSERT INTO public.employees (id, user_id, employee_code, first_name, last_name, email, designation, hire_date, status) VALUES
   ('00000000-0000-0000-0000-000000000003', tests.uid('manager'), 'E-M', 'Mona', 'M', 'manager@acme.test', 'Lead', '2024-01-01', 'active'),
@@ -170,7 +173,9 @@ INSERT INTO public.employees (id, user_id, employee_code, first_name, last_name,
 UPDATE public.employees SET manager_id = '00000000-0000-0000-0000-000000000003'
   WHERE id = '00000000-0000-0000-0000-00000000000a';
 
-INSERT INTO public.user_permissions (user_id, module, level) VALUES (tests.uid('carol'), 'assets', 'manage');
+INSERT INTO public.user_permissions (user_id, module, level) VALUES
+  (tests.uid('carol'), 'assets', 'manage'),
+  (tests.uid('frank'), 'onboarding', 'manage');
 UPDATE public.profiles SET blocked = true WHERE id = tests.uid('erin');
 
 INSERT INTO public.employee_bank_details (employee_id, bank_name, bank_account_number) VALUES
@@ -213,7 +218,7 @@ DO $$ BEGIN
     '';
   INSERT INTO tests.results (name, ok, detail) SELECT
     'invitations are marked accepted',
-    (SELECT count(*) FROM user_invitations WHERE accepted_at IS NOT NULL) = 8, '';
+    (SELECT count(*) FROM user_invitations WHERE accepted_at IS NOT NULL) = 9, '';
   INSERT INTO tests.results (name, ok, detail) SELECT
     'existing employee record is linked to the new account by email',
     (SELECT user_id FROM employees WHERE id = '00000000-0000-0000-0000-00000000000a') = tests.uid('alice'), '';
@@ -337,6 +342,21 @@ SELECT tests.rows('assets-only user cannot edit employees', 'carol',
   $$UPDATE employees SET designation = 'CEO' WHERE id = '00000000-0000-0000-0000-00000000000b'$$, 0);
 SELECT tests.fails('plain employees cannot add assets', 'alice',
   $$INSERT INTO assets (asset_code, name, category) VALUES ('LAP-3', 'x', 'laptop')$$, 'row-level security');
+
+-- ===========================================================================
+-- Module-scoped access: an onboarding-only user
+-- ===========================================================================
+SELECT tests.rows('onboarding-only user can create employee records', 'frank',
+  $$INSERT INTO employees (employee_code, first_name, last_name, email, designation, hire_date)
+    VALUES ('E-N', 'New', 'Joiner', 'new@acme.test', 'Designer', current_date)$$, 1);
+SELECT tests.rows('onboarding-only user can upload a new joiner''s documents', 'frank',
+  $$INSERT INTO storage.objects (bucket_id, name) VALUES ('employee-documents', '00000000-0000-0000-0000-00000000000b/offer.pdf') RETURNING id$$, 1);
+SELECT tests.rows('onboarding-only user sees accounts to link', 'frank',
+  $$SELECT * FROM profiles$$, 9);
+SELECT tests.rows('onboarding-only user cannot change existing leave balances', 'frank',
+  $$UPDATE leave_balances SET total_days = 99$$, 0);
+SELECT tests.rows('onboarding-only user cannot see payroll', 'frank',
+  $$SELECT * FROM payroll_records$$, 0);
 
 -- ===========================================================================
 -- Payroll and bank details

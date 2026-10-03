@@ -21,7 +21,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useLeaveRequests, useLeaveStats } from "@/hooks/useLeaves";
-import { useIsAdminOrHR } from "@/hooks/useUserRole";
+import { usePermissions } from "@/hooks/usePermissions";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { useCompanyBranding } from "@/hooks/useCompanyBranding";
@@ -37,10 +37,7 @@ const Leaves = () => {
   } = useToast();
   const queryClient = useQueryClient();
   const [isNewRequestOpen, setIsNewRequestOpen] = useState(false);
-  const {
-    isAdminOrHR,
-    roles
-  } = useIsAdminOrHR();
+  const { can, roles } = usePermissions();
   const { data: branding } = useCompanyBranding();
 
   // Approval dialog state
@@ -53,7 +50,9 @@ const Leaves = () => {
   const [processedTypeFilter, setProcessedTypeFilter] = useState<string>("all");
   const [processedMonthFilter, setProcessedMonthFilter] = useState<string>("all");
   const [processedYearFilter, setProcessedYearFilter] = useState<string>("all");
-  const canApproveLeaves = isAdminOrHR || roles.includes("manager");
+  // Managers approve their reports (RLS limits them to their team);
+  // leaves:manage approves anyone's
+  const canApproveLeaves = can("leaves", "manage") || roles.includes("manager");
   const {
     data: myEmployeeId,
     isLoading: isLoadingMyEmployee

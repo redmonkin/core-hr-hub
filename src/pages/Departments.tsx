@@ -14,14 +14,16 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Building2, Plus, Pencil, Trash2, Users, Loader2, ShieldAlert } from "lucide-react";
 import { useDepartments, useCreateDepartment, useUpdateDepartment, useDeleteDepartment, Department } from "@/hooks/useDepartments";
-import { useIsAdminOrHR } from "@/hooks/useUserRole";
+import { usePermissions } from "@/hooks/usePermissions";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { format } from "date-fns";
 
 const Departments = () => {
   const { data: departments, isLoading } = useDepartments();
-  const { isAdminOrHR, isLoading: roleLoading } = useIsAdminOrHR();
+  const { can, isLoading: roleLoading } = usePermissions();
+  const canView = can("employees", "view");
+  const canManage = can("employees", "manage");
   const createDepartment = useCreateDepartment();
   const updateDepartment = useUpdateDepartment();
   const deleteDepartment = useDeleteDepartment();
@@ -120,7 +122,7 @@ const Departments = () => {
   }
 
   // Redirect non-admin/HR users
-  if (!isAdminOrHR) {
+  if (!canView) {
     return (
       <DashboardLayout>
         <div className="flex min-h-[400px] flex-col items-center justify-center space-y-4">
@@ -142,6 +144,7 @@ const Departments = () => {
             <h2 className="text-2xl font-bold text-foreground">Departments</h2>
             <p className="text-muted-foreground">Manage company departments and teams</p>
           </div>
+          {canManage && (
           <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
             <DialogTrigger asChild>
               <Button onClick={() => resetForm()}>
@@ -203,6 +206,7 @@ const Departments = () => {
               </DialogFooter>
             </DialogContent>
           </Dialog>
+          )}
         </div>
 
         {/* Stats */}
@@ -260,7 +264,7 @@ const Departments = () => {
                       <TableHead>Department Head</TableHead>
                       <TableHead>Employees</TableHead>
                       <TableHead>Created</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
+                      {canManage && <TableHead className="text-right">Actions</TableHead>}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -281,6 +285,7 @@ const Departments = () => {
                             ? format(new Date(department.created_at), "MMM d, yyyy")
                             : "-"}
                         </TableCell>
+                        {canManage && (
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-2">
                             <Dialog
@@ -387,6 +392,7 @@ const Departments = () => {
                             </AlertDialog>
                           </div>
                         </TableCell>
+                        )}
                       </TableRow>
                     ))}
                   </TableBody>

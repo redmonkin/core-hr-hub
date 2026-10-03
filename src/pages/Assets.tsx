@@ -12,7 +12,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Label } from "@/components/ui/label";
 import { Plus, Search, Package, Laptop, Monitor, Smartphone, ArrowUpDown, ShieldAlert } from "lucide-react";
 import { usePagination } from "@/hooks/usePagination";
-import { useIsAdminOrHR } from "@/hooks/useUserRole";
+import { usePermissions } from "@/hooks/usePermissions";
 import { useSorting } from "@/hooks/useSorting";
 import { DropdownMenu as SortDropdownMenu, DropdownMenuContent as SortDropdownMenuContent, DropdownMenuItem as SortDropdownMenuItem, DropdownMenuTrigger as SortDropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
@@ -60,9 +60,9 @@ const Assets = () => {
   const {
     data: employees = []
   } = useEmployees();
-  const {
-    isAdminOrHR
-  } = useIsAdminOrHR();
+  const { can } = usePermissions();
+  const canViewAssets = can("assets", "view");
+  const canManageAssets = can("assets", "manage");
   const { data: branding } = useCompanyBranding();
   const createAsset = useCreateAsset();
   const updateAsset = useUpdateAsset();
@@ -339,14 +339,14 @@ const Assets = () => {
     value: stats?.phones || 0,
     icon: <Smartphone className="h-5 w-5" />
   }];
-  if (!isAdminOrHR) {
+  if (!canViewAssets) {
     return (
       <DashboardLayout>
         <div className="flex min-h-[400px] flex-col items-center justify-center space-y-4">
           <ShieldAlert className="h-16 w-16 text-destructive" />
           <h2 className="text-2xl font-bold text-foreground">Access Denied</h2>
           <p className="text-muted-foreground">You don't have permission to access this page.</p>
-          <p className="text-sm text-muted-foreground">Only administrators and HR personnel can manage assets.</p>
+          <p className="text-sm text-muted-foreground">Ask an administrator for access to the Assets module.</p>
         </div>
       </DashboardLayout>
     );
@@ -361,13 +361,11 @@ const Assets = () => {
             <p className="text-muted-foreground">Track and manage company assets</p>
           </div>
           <div className="flex gap-3">
-            {isAdminOrHR && <>
-                <DateRangeExportDialog title="Export Assets" description="Export asset inventory with optional date range filter based on purchase date." onExportCSV={exportToCSV} onExportPDF={exportToPDF} />
-                <Button onClick={() => setIsAddDialogOpen(true)}>
-                  <Plus className="mr-2 h-4 w-4" />
-                  Add Asset
-                </Button>
-              </>}
+            <DateRangeExportDialog title="Export Assets" description="Export asset inventory with optional date range filter based on purchase date." onExportCSV={exportToCSV} onExportPDF={exportToPDF} />
+            {canManageAssets && <Button onClick={() => setIsAddDialogOpen(true)}>
+                <Plus className="mr-2 h-4 w-4" />
+                Add Asset
+              </Button>}
           </div>
         </div>
 
@@ -440,14 +438,14 @@ const Assets = () => {
               <p className="text-muted-foreground">
                 {assets.length === 0 ? "Start by adding your first asset" : "No assets match your search criteria"}
               </p>
-              {assets.length === 0 && isAdminOrHR && <Button className="mt-4" onClick={() => setIsAddDialogOpen(true)}>
+              {assets.length === 0 && canManageAssets && <Button className="mt-4" onClick={() => setIsAddDialogOpen(true)}>
                   <Plus className="mr-2 h-4 w-4" />
                   Add Asset
                 </Button>}
             </CardContent>
           </Card> : <>
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {paginatedAssets.map(asset => <AssetCard key={asset.id} asset={asset} onEdit={handleEditAsset} onDelete={handleDeleteAsset} onAssign={handleAssignAsset} onReturn={handleReturnAsset} onViewHistory={handleViewHistory} showAdminActions={isAdminOrHR} />)}
+              {paginatedAssets.map(asset => <AssetCard key={asset.id} asset={asset} onEdit={handleEditAsset} onDelete={handleDeleteAsset} onAssign={handleAssignAsset} onReturn={handleReturnAsset} onViewHistory={handleViewHistory} showAdminActions={canManageAssets} />)}
             </div>
             
             {/* Pagination Controls */}

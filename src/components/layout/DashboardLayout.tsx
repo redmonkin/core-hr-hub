@@ -4,7 +4,8 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { Loader2 } from "lucide-react";
-import { useIsAdminOrHR } from "@/hooks/useUserRole";
+import { usePermissions } from "@/hooks/usePermissions";
+import { AppModule, Permissions, canAccessReports, canAccessSettings, hasModuleAccess } from "@/lib/permissions";
 import { useCompanyBranding } from "@/hooks/useCompanyBranding";
 import {
   Users,
@@ -50,25 +51,27 @@ interface NavItem {
   href: string;
   icon: ReactNode;
   badge?: number;
-  adminOnly?: boolean;
-  employeeOnly?: boolean;
+  /** Shown only to users who pass this check; omitted = everyone (self-service). */
+  visible?: (perms: Permissions) => boolean;
 }
+
+const canView = (module: AppModule) => (perms: Permissions) => hasModuleAccess(perms, module, "view");
 
 const navItems: NavItem[] = [
   { label: "Dashboard", href: "/dashboard", icon: <Home className="h-5 w-5" /> },
-  { label: "Employees", href: "/employees", icon: <Users className="h-5 w-5" />, adminOnly: true },
-  { label: "Team Directory", href: "/employees", icon: <Users className="h-5 w-5" />, employeeOnly: true },
-  { label: "Departments", href: "/departments", icon: <Building2 className="h-5 w-5" />, adminOnly: true },
-  { label: "Onboarding", href: "/onboarding", icon: <UserPlus className="h-5 w-5" />, adminOnly: true },
+  { label: "Employees", href: "/employees", icon: <Users className="h-5 w-5" />, visible: canView("employees") },
+  { label: "Team Directory", href: "/employees", icon: <Users className="h-5 w-5" />, visible: (p) => !hasModuleAccess(p, "employees") },
+  { label: "Departments", href: "/departments", icon: <Building2 className="h-5 w-5" />, visible: canView("employees") },
+  { label: "Onboarding", href: "/onboarding", icon: <UserPlus className="h-5 w-5" />, visible: canView("onboarding") },
   { label: "Attendance", href: "/attendance", icon: <Clock className="h-5 w-5" /> },
   { label: "Calendar", href: "/calendar", icon: <CalendarDays className="h-5 w-5" /> },
   { label: "Leaves", href: "/leaves", icon: <Calendar className="h-5 w-5" /> },
   { label: "Reimbursements", href: "/reimbursements", icon: <Receipt className="h-5 w-5" /> },
   { label: "Performance", href: "/performance", icon: <Target className="h-5 w-5" /> },
-  { label: "Assets", href: "/assets", icon: <Package className="h-5 w-5" />, adminOnly: true },
-  { label: "Payroll", href: "/payroll", icon: <CreditCard className="h-5 w-5" />, adminOnly: true },
-  { label: "Reports", href: "/reports", icon: <ClipboardList className="h-5 w-5" />, adminOnly: true },
-  { label: "Settings", href: "/settings", icon: <Settings className="h-5 w-5" />, adminOnly: true },
+  { label: "Assets", href: "/assets", icon: <Package className="h-5 w-5" />, visible: canView("assets") },
+  { label: "Payroll", href: "/payroll", icon: <CreditCard className="h-5 w-5" />, visible: canView("payroll") },
+  { label: "Reports", href: "/reports", icon: <ClipboardList className="h-5 w-5" />, visible: canAccessReports },
+  { label: "Settings", href: "/settings", icon: <Settings className="h-5 w-5" />, visible: canAccessSettings },
 ];
 
 interface DashboardLayoutProps {
@@ -80,15 +83,12 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, signOut, isSigningOut } = useAuth();
-  const { isAdminOrHR } = useIsAdminOrHR();
+  const permissions = usePermissions();
+  const showSettings = canAccessSettings(permissions);
   const { data: versionData } = useVersionCheck();
   const { data: branding } = useCompanyBranding();
 
-  const filteredNavItems = navItems.filter(item => {
-    if (item.adminOnly && !isAdminOrHR) return false;
-    if (item.employeeOnly && isAdminOrHR) return false;
-    return true;
-  });
+  const filteredNavItems = navItems.filter(item => !item.visible || item.visible(permissions));
   
   // For auto-updating environments, show the latest version from GitHub
   // For self-hosted: if there's no update (up to date), show the latest from GitHub
@@ -240,8 +240,8 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
             {/* Notifications */}
             <NotificationBell />
 
-            {/* Settings - only show for admin/HR */}
-            {isAdminOrHR && (
+            {/* Settings - only for people who can manage something there */}
+            {showSettings && (
               <Button variant="ghost" size="icon" asChild>
                 <Link to="/settings">
                   <Settings className="h-5 w-5" />
@@ -275,7 +275,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                     Notification Preferences
                   </Link>
                 </DropdownMenuItem>
-                {isAdminOrHR && (
+                {showSettings && (
                   <DropdownMenuItem asChild>
                     <Link to="/settings">
                       <Settings className="mr-2 h-4 w-4" />
