@@ -91,7 +91,10 @@ CREATE EXTENSION IF NOT EXISTS pg_net;
 1. Go to Authentication > Providers
 2. Enable Email provider (enabled by default)
 3. (Optional) Configure OAuth providers (Google, GitHub, etc.)
-4. Go to Authentication > URL Configuration:
+4. Turn off **Allow new users to sign up**. Accounts are invite-only: a database
+   trigger rejects any account without a pending invitation regardless, but
+   turning this off avoids confusing errors.
+5. Go to Authentication > URL Configuration:
    - Set Site URL to your deployment URL
    - Add redirect URLs for your domains
 
@@ -148,7 +151,9 @@ Set these secrets in your Supabase dashboard (**Settings > Edge Functions > Secr
 | `SUPABASE_URL` | Your Supabase project URL | Settings > API → Project URL |
 | `SUPABASE_ANON_KEY` | Your Supabase anon/public key | Settings > API → anon/public key |
 | `SUPABASE_SERVICE_ROLE_KEY` | Your Supabase service role key | Settings > API → service_role key (keep secret!) |
-| `CRON_SECRET` | Random string for cron security | Generate your own (e.g., `openssl rand -hex 32`) |
+| `CRON_SECRET` | Random string for cron security, sent by cron jobs in the `x-cron-secret` header. Cron functions refuse every request while it is unset | Generate your own (e.g., `openssl rand -hex 32`) |
+| `APP_URL` | Public URL of the web app, used for links in emails. `invite-employee` only accepts invite redirect URLs on this host or its subdomains (plus `localhost`/`127.0.0.1`) | Your deployment URL, e.g. `https://hr.example.com` |
+| `EXTRA_REDIRECT_HOSTS` | Optional. Comma-separated extra hosts allowed as invite redirect targets, e.g. a preview domain. Entries match exactly; prefix with `*.` to allow subdomains (`*.preview.example.com`) | Your own hosting setup |
 
 > **Note:** The `service_role` key has full database access and bypasses RLS. Never expose it in client-side code.
 
@@ -169,6 +174,8 @@ CREATE EXTENSION IF NOT EXISTS pg_net;
 
 Replace `your-project-id` with your actual Supabase project ID and `YOUR_CRON_SECRET` with your cron secret.
 
+The cron functions authenticate the caller with the `x-cron-secret` header (compared against the `CRON_SECRET` function secret); an `Authorization: Bearer ...` header is not accepted in its place. The weekly event notification can also be sent manually from the Company Calendar by users with **manage** access to the calendar module.
+
 ```sql
 -- 1. Attendance reminders (every 10 min during work hours, Mon-Sat)
 SELECT cron.schedule(
@@ -179,7 +186,7 @@ SELECT cron.schedule(
     url:='https://your-project-id.supabase.co/functions/v1/attendance-reminders',
     headers:=jsonb_build_object(
       'Content-Type', 'application/json',
-      'Authorization', 'Bearer YOUR_CRON_SECRET'
+      'x-cron-secret', 'YOUR_CRON_SECRET'
     ),
     body:='{}'::jsonb
   );
@@ -195,7 +202,7 @@ SELECT cron.schedule(
     url:='https://your-project-id.supabase.co/functions/v1/goal-reminders',
     headers:=jsonb_build_object(
       'Content-Type', 'application/json',
-      'Authorization', 'Bearer YOUR_CRON_SECRET'
+      'x-cron-secret', 'YOUR_CRON_SECRET'
     ),
     body:='{}'::jsonb
   );
@@ -211,7 +218,7 @@ SELECT cron.schedule(
     url:='https://your-project-id.supabase.co/functions/v1/onboarding-reminders',
     headers:=jsonb_build_object(
       'Content-Type', 'application/json',
-      'Authorization', 'Bearer YOUR_CRON_SECRET'
+      'x-cron-secret', 'YOUR_CRON_SECRET'
     ),
     body:='{}'::jsonb
   );
@@ -227,7 +234,23 @@ SELECT cron.schedule(
     url:='https://your-project-id.supabase.co/functions/v1/event-notification',
     headers:=jsonb_build_object(
       'Content-Type', 'application/json',
-      'Authorization', 'Bearer YOUR_CRON_SECRET'
+      'x-cron-secret', 'YOUR_CRON_SECRET'
+    ),
+    body:='{}'::jsonb
+  );
+  $$
+);
+
+-- 5. Monthly payroll generation (27th of every month at 2 AM UTC)
+SELECT cron.schedule(
+  'generate-monthly-payroll',
+  '0 2 27 * *',
+  $$
+  SELECT net.http_post(
+    url:='https://your-project-id.supabase.co/functions/v1/generate-monthly-payroll',
+    headers:=jsonb_build_object(
+      'Content-Type', 'application/json',
+      'x-cron-secret', 'YOUR_CRON_SECRET'
     ),
     body:='{}'::jsonb
   );
@@ -254,18 +277,20 @@ Open [http://localhost:5173](http://localhost:5173)
 
 ### 7. Create Initial Admin User
 
-1. Sign up through the app
-2. In Supabase SQL Editor, promote yourself to admin:
+There is no public sign-up, so the first admin is created by invitation:
 
-```sql
--- Find your user ID
-SELECT id, email FROM auth.users WHERE email = 'your-email@example.com';
+1. In the Supabase SQL Editor, invite yourself as admin:
 
--- Add admin role
-INSERT INTO user_roles (user_id, role) 
-VALUES ('your-user-id', 'admin')
-ON CONFLICT (user_id, role) DO NOTHING;
-```
+   ```sql
+   INSERT INTO public.user_invitations (email, roles)
+   VALUES ('you@company.com', '{admin}');
+   ```
+
+2. In the Supabase Dashboard go to Authentication > Users > **Invite user** and
+   enter the same email. Open the email, set a password, and sign in.
+
+After that, invite everyone else from the app (Onboarding page). The last
+admin can't be removed, so the organisation can't lock itself out.
 
 ## Deployment
 
@@ -337,14 +362,40 @@ EXPOSE 80
 └── public/              # Static assets
 ```
 
-## User Roles
+## Roles and Permissions
 
-| Role | Permissions |
-|------|-------------|
-| `admin` | Full system access, user management |
-| `hr` | Employee management, payroll, reports |
-| `manager` | Team management, leave approvals |
-| `employee` | Self-service (profile, leaves, documents) |
+Everyone gets self-service access to their own profile, leave, attendance,
+payslips, reimbursements and goals. Managers also approve and review their
+direct reports. Organisation-wide access is granted **per module**, at one of
+two levels:
+
+- **View**: read the module's data for the whole organisation
+- **Manage**: create, edit and delete, and approve requests
+
+Modules: Employees, Onboarding, Attendance, Leaves, Reimbursements,
+Performance, Assets, Payroll, Calendar, Settings.
+
+| Role | Default access |
+|------|----------------|
+| `admin` | Everything, including roles and permissions (not configurable) |
+| `hr` | Manage on every module (editable) |
+| `manager` | Their team only (editable) |
+| `employee` | Self-service only (editable) |
+
+Admins can change each role's defaults and give individual users extra
+modules in **Settings > Users & Access** (for example, give one employee
+Manage on Assets only). The same rules are enforced by row-level security in
+the database, not just in the UI.
+
+### Testing the security rules
+
+`supabase/tests/run.sh` applies every migration to a throwaway Postgres
+database (with a small stand-in for Supabase's auth and storage schemas) and
+runs the RLS and permission tests. It runs in CI; locally:
+
+```bash
+PGHOST=localhost PGPORT=5432 PGUSER=postgres PGPASSWORD=postgres supabase/tests/run.sh
+```
 
 ## Contributing
 

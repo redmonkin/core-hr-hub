@@ -1,5 +1,11 @@
 project_id = "ppdsxgkmnmjfwmpnamts"
 
+[auth]
+# Accounts are invite-only. Also turn off "Allow new users to sign up" in the
+# dashboard (Authentication -> Sign In / Providers); a database trigger rejects
+# uninvited accounts either way.
+enable_signup = false
+
 [functions.goal-reminders]
 verify_jwt = false
 

@@ -1,34 +1,17 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { createClient } from "npm:@supabase/supabase-js@2.87.1";
+import { corsHeaders, jsonResponse } from "../_shared/cors.ts";
+import { escapeHtml } from "../_shared/html.ts";
+import { authenticateCaller, userCan, usersWithModuleAccess } from "../_shared/auth.ts";
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
 const APP_URL = Deno.env.get("APP_URL") ?? "https://peoplo.redmonk.in";
 const RESEND_FROM_EMAIL = Deno.env.get("RESEND_FROM_EMAIL")!;
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
-
-// HTML escape utility to prevent XSS in email templates
-const escapeHtml = (text: string | null | undefined): string => {
-  if (!text) return '';
-  return text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
-};
-
+// Only employee_id is used; name, email, designation, department, join date
+// and manager are loaded from the employee record (the other fields sent by
+// older clients are ignored).
 interface OnboardingNotificationRequest {
   employee_id: string;
-  employee_name: string;
-  employee_email: string;
-  designation: string;
-  department_name?: string;
-  join_date: string;
-  manager_id?: string;
 }
 
 const sendEmail = async (to: string[], subject: string, html: string) => {
@@ -58,98 +41,69 @@ serve(async (req) => {
   }
 
   try {
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
-
-    // Verify authentication
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader?.startsWith('Bearer ')) {
-      console.error("No authorization header provided");
-      return new Response(
-        JSON.stringify({ error: 'Unauthorized' }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    // Create client with user's auth token
-    const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey, {
-      global: { headers: { Authorization: authHeader } }
-    });
-
-    // Verify the token and get claims
-    const token = authHeader.replace('Bearer ', '');
-    const { data: claimsData, error: claimsError } = await supabaseAuth.auth.getClaims(token);
-    if (claimsError || !claimsData?.claims) {
-      console.error("Invalid token:", claimsError);
-      return new Response(
-        JSON.stringify({ error: 'Unauthorized' }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    const userId = claimsData.claims.sub;
+    const caller = await authenticateCaller(req);
+    if (!caller.ok) return caller.response;
+    const { userId, supabase } = caller;
     console.log("Authenticated user:", userId);
 
-    // Use service role for data operations
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
-    // Verify the caller is HR or admin
-    const { data: userRoles } = await supabase
-      .from('user_roles')
-      .select('role')
-      .eq('user_id', userId)
-      .in('role', ['admin', 'hr']);
-
-    if (!userRoles || userRoles.length === 0) {
-      console.error("User not authorized - must be HR or admin");
-      return new Response(
-        JSON.stringify({ error: 'Forbidden - Only HR or admin can send onboarding notifications' }),
-        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+    // Verify the caller can manage onboarding
+    if (!(await userCan(supabase, userId, "onboarding", "manage"))) {
+      console.error("User not authorized - onboarding:manage required");
+      return jsonResponse({ error: 'Forbidden - Only HR or admin can send onboarding notifications' }, 403);
     }
 
     const payload: OnboardingNotificationRequest = await req.json();
-    console.log("Onboarding notification payload:", payload);
+    const employeeId = payload?.employee_id;
+    console.log("Onboarding notification:", { employee_id: employeeId });
 
-    const {
-      employee_name,
-      employee_email,
-      designation,
-      department_name,
-      join_date,
-      manager_id,
-    } = payload;
+    if (!employeeId || typeof employeeId !== "string") {
+      return jsonResponse({ error: "Invalid input" }, 400);
+    }
 
-    // Escape user-provided data for HTML
+    const { data: newEmployee } = await supabase
+      .from("employees")
+      .select("id, first_name, last_name, email, designation, department_id, hire_date, manager_id")
+      .eq("id", employeeId)
+      .maybeSingle();
+
+    if (!newEmployee) {
+      return jsonResponse({ error: "Employee not found" }, 404);
+    }
+
+    let department_name: string | null = null;
+    if (newEmployee.department_id) {
+      const { data: department } = await supabase
+        .from("departments")
+        .select("name")
+        .eq("id", newEmployee.department_id)
+        .maybeSingle();
+      department_name = department?.name ?? null;
+    }
+
+    const employee_name = `${newEmployee.first_name} ${newEmployee.last_name}`;
+    const employee_email = newEmployee.email;
+    const designation = newEmployee.designation;
+    const join_date = String(newEmployee.hire_date ?? "");
+    const manager_id = newEmployee.manager_id;
+
+    // Escape everything interpolated into HTML
     const safeEmployeeName = escapeHtml(employee_name);
     const safeEmployeeEmail = escapeHtml(employee_email);
     const safeDesignation = escapeHtml(designation);
     const safeDepartmentName = escapeHtml(department_name);
     const safeJoinDate = escapeHtml(join_date);
 
-    // Get HR users to notify
-    const { data: hrUsersRaw, error: hrError } = await supabase
-      .from("user_roles")
-      .select("user_id")
-      .in("role", ["admin", "hr"]);
+    // Notify everyone who can manage onboarding
+    const hrUserIds = await usersWithModuleAccess(supabase, "onboarding", "manage");
+    const hrUsers = hrUserIds.map((user_id) => ({ user_id }));
 
-    if (hrError) {
-      console.error("Error fetching HR users:", hrError);
-    }
-
-    // A user holding both admin and hr roles has two rows above with the same
-    // user_id - dedupe so they don't get notified twice for one event.
-    const hrUsers = Array.from(
-      new Map((hrUsersRaw || []).map((u: { user_id: string }) => [u.user_id, u])).values()
-    );
-
-    // Get notification preferences for HR users
-    const hrUserIds = (hrUsers || []).map((u: { user_id: string }) => u.user_id);
-    const { data: hrPreferences } = await supabase
-      .from("notification_preferences")
-      .select("user_id, onboarding_notifications")
-      .in("user_id", hrUserIds);
+    // Get notification preferences for those users
+    const { data: hrPreferences } = hrUserIds.length > 0
+      ? await supabase
+        .from("notification_preferences")
+        .select("user_id, onboarding_notifications")
+        .in("user_id", hrUserIds)
+      : { data: [] };
 
     const hrPreferencesMap = new Map(
       (hrPreferences || []).map((p: { user_id: string; onboarding_notifications: boolean }) => [p.user_id, p.onboarding_notifications])
@@ -295,9 +249,6 @@ serve(async (req) => {
     });
   } catch (error) {
     console.error("Error in onboarding-notification:", error);
-    return new Response(JSON.stringify({ error: String(error) }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return jsonResponse({ error: "An unexpected error occurred" }, 500);
   }
 });

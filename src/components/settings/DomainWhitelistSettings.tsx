@@ -125,7 +125,7 @@ const DomainWhitelistSettings = () => {
             <CardTitle>Domain Whitelisting</CardTitle>
           </div>
           <CardDescription>
-            Control which email domains can register for your organization. When enabled, only users with whitelisted email domains can sign up.
+            Control which email domains can join your organization. When enabled, only addresses on these domains can be invited or used when someone changes their email.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -213,7 +213,7 @@ const DomainWhitelistSettings = () => {
               {settingValue.enabled && settingValue.domains.length === 0 && (
                 <div className="bg-destructive/10 border border-destructive/20 rounded-md p-3">
                   <p className="text-sm text-destructive">
-                    ⚠️ Warning: No domains added. New users won't be able to sign up until at least one domain is whitelisted.
+                    ⚠️ No domains added yet. The whitelist has no effect until you add at least one domain.
                   </p>
                 </div>
               )}

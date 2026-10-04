@@ -33,7 +33,8 @@ jobs:
         run: npm run build
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          # The app reads VITE_SUPABASE_PUBLISHABLE_KEY; VITE_SUPABASE_ANON_KEY is accepted as a legacy secret name
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY || secrets.VITE_SUPABASE_ANON_KEY }}
 
       - name: Deploy to Netlify (Production)
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -90,7 +91,7 @@ jobs:
 #    VITE_SUPABASE_URL:
 #      - Your Supabase project URL (e.g., https://xxxxx.supabase.co)
 #
-#    VITE_SUPABASE_ANON_KEY:
+#    VITE_SUPABASE_PUBLISHABLE_KEY:
 #      - Your Supabase anon/public key
 #
 # 3. Configure build settings in Netlify (optional, already handled by workflow):

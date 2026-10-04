@@ -1,23 +1,14 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.87.1";
+import { corsHeaders } from "../_shared/cors.ts";
+import { escapeHtml } from "../_shared/html.ts";
+import { verifyCronSecret } from "../_shared/secrets.ts";
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
 const APP_URL = Deno.env.get("APP_URL") ?? "https://peoplo.redmonk.in";
 const RESEND_FROM_EMAIL = Deno.env.get("RESEND_FROM_EMAIL")!;
-const CRON_SECRET = Deno.env.get("CRON_SECRET");
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-
-// HTML escape utility to prevent XSS in email templates
-const escapeHtml = (text: string | null | undefined): string => {
-  if (!text) return '';
-  return text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
-};
 
 const sendEmail = async (to: string[], subject: string, html: string) => {
   const res = await fetch("https://api.resend.com/emails", {
@@ -38,11 +29,6 @@ const sendEmail = async (to: string[], subject: string, html: string) => {
     console.error("Resend API error:", res.status, json);
   }
   return json;
-};
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-cron-secret",
 };
 
 interface Employee {
@@ -83,9 +69,8 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  // Validate CRON_SECRET to prevent unauthorized triggering
-  const cronSecret = req.headers.get("x-cron-secret");
-  if (!CRON_SECRET || cronSecret !== CRON_SECRET) {
+  // Validate CRON_SECRET (constant-time) to prevent unauthorized triggering
+  if (!(await verifyCronSecret(req))) {
     console.error("Unauthorized: Invalid or missing cron secret");
     return new Response(
       JSON.stringify({ error: "Unauthorized - invalid cron secret" }),

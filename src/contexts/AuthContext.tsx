@@ -9,7 +9,6 @@ interface AuthContextType {
   isLoading: boolean;
   isSigningOut: boolean;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
-  signUp: (email: string, password: string, fullName: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
 }
 
@@ -84,32 +83,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { error: null };
   };
 
-  const signUp = async (email: string, password: string, fullName: string) => {
-    const redirectUrl = `${window.location.origin}/`;
-    
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        emailRedirectTo: redirectUrl,
-        data: {
-          full_name: fullName,
-        },
-      },
-    });
-
-    if (error) {
-      return { error: error as Error };
-    }
-
-    // Supabase returns a fake user with empty identities for duplicate signups
-    if (data?.user?.identities && data.user.identities.length === 0) {
-      return { error: new Error("User already registered") };
-    }
-
-    return { error: null };
-  };
-
   const signOut = async () => {
     setIsSigningOut(true);
     try {
@@ -126,7 +99,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, isLoading, isSigningOut, signIn, signUp, signOut }}>
+    <AuthContext.Provider value={{ user, session, isLoading, isSigningOut, signIn, signOut }}>
       {children}
     </AuthContext.Provider>
   );

@@ -11,7 +11,7 @@ import { UpcomingHolidays } from "@/components/dashboard/UpcomingHolidays";
 import { Calendar, Package, ClipboardCheck, CalendarDays, Zap, UserPlus, FileText, Target, ClipboardList } from "lucide-react";
 import { useDashboardStats } from "@/hooks/useDashboardStats";
 import { useEmployeeStatus } from "@/hooks/useEmployeeStatus";
-import { useIsAdminOrHR } from "@/hooks/useUserRole";
+import { usePermissions } from "@/hooks/usePermissions";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
@@ -21,7 +21,11 @@ import { Button } from "@/components/ui/button";
 const Index = () => {
   const { data: stats, isLoading } = useDashboardStats();
   const { data: employeeStatus, isLoading: isEmployeeStatusLoading } = useEmployeeStatus();
-  const { isAdminOrHR, isLoading: isRoleLoading } = useIsAdminOrHR();
+  const { can, hasAnyModuleAccess, isLoading: isRoleLoading } = usePermissions();
+  const canAddEmployees = can("onboarding", "manage");
+  const canViewAssets = can("assets", "view");
+  const canViewPayroll = can("payroll", "view");
+  const showAdminQuickActions = canAddEmployees || canViewAssets || canViewPayroll;
   const { user } = useAuth();
   const navigate = useNavigate();
   const hasPendingApprovals = (stats?.pendingApprovals ?? 0) > 0;
@@ -62,8 +66,9 @@ const Index = () => {
     );
   }
 
-  // Show non-employee dashboard if user is not an employee and not admin/HR
-  if (!employeeStatus?.isEmployee && !isAdminOrHR) {
+  // Invited users who haven't been onboarded yet (no employee record and no
+  // module access) see the onboarding request form instead
+  if (!employeeStatus?.isEmployee && !hasAnyModuleAccess) {
     return (
       <DashboardLayout>
         <NonEmployeeDashboard />
@@ -90,23 +95,29 @@ const Index = () => {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48 bg-popover z-50">
-              {isAdminOrHR ? (
+              {showAdminQuickActions ? (
                 <>
-                  <DropdownMenuItem asChild>
-                    <Link to="/onboarding" className="flex items-center gap-2 cursor-pointer">
-                      <UserPlus className="h-4 w-4" /> Add Employee
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link to="/assets" className="flex items-center gap-2 cursor-pointer">
-                      <Package className="h-4 w-4" /> Manage Assets
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link to="/payroll" className="flex items-center gap-2 cursor-pointer">
-                      <FileText className="h-4 w-4" /> View Payroll
-                    </Link>
-                  </DropdownMenuItem>
+                  {canAddEmployees && (
+                    <DropdownMenuItem asChild>
+                      <Link to="/onboarding" className="flex items-center gap-2 cursor-pointer">
+                        <UserPlus className="h-4 w-4" /> Add Employee
+                      </Link>
+                    </DropdownMenuItem>
+                  )}
+                  {canViewAssets && (
+                    <DropdownMenuItem asChild>
+                      <Link to="/assets" className="flex items-center gap-2 cursor-pointer">
+                        <Package className="h-4 w-4" /> Manage Assets
+                      </Link>
+                    </DropdownMenuItem>
+                  )}
+                  {canViewPayroll && (
+                    <DropdownMenuItem asChild>
+                      <Link to="/payroll" className="flex items-center gap-2 cursor-pointer">
+                        <FileText className="h-4 w-4" /> View Payroll
+                      </Link>
+                    </DropdownMenuItem>
+                  )}
                 </>
               ) : (
                 <>

@@ -1,26 +1,12 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { createClient } from "npm:@supabase/supabase-js@2.87.1";
+import { corsHeaders, jsonResponse } from "../_shared/cors.ts";
+import { escapeHtml } from "../_shared/html.ts";
+import { verifyCronSecret } from "../_shared/secrets.ts";
+import { authenticateCaller, createServiceClient, userCan } from "../_shared/auth.ts";
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
 const APP_URL = Deno.env.get("APP_URL") ?? "https://peoplo.redmonk.in";
 const RESEND_FROM_EMAIL = Deno.env.get("RESEND_FROM_EMAIL")!;
-const CRON_SECRET = Deno.env.get("CRON_SECRET");
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-cron-secret",
-};
-
-// HTML escape utility to prevent XSS in email templates
-const escapeHtml = (text: string | null | undefined): string => {
-  if (!text) return '';
-  return text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
-};
 
 interface CompanyEvent {
   id: string;
@@ -39,27 +25,37 @@ interface Employee {
   user_id: string | null;
 }
 
-// This function is designed to be called by a cron job
-// CRON_SECRET validation provides an additional security layer
+// Called by a cron job (x-cron-secret header) or manually from the company
+// calendar by a user with calendar:manage permission.
 const handler = async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
-  // Validate CRON_SECRET to prevent unauthorized triggering
-  const cronSecret = req.headers.get("x-cron-secret");
-  if (!CRON_SECRET || cronSecret !== CRON_SECRET) {
-    console.error("Unauthorized: Invalid or missing cron secret");
-    return new Response(
-      JSON.stringify({ error: "Unauthorized - invalid cron secret" }),
-      { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+  let isCron = false;
+  try {
+    isCron = await verifyCronSecret(req);
+  } catch (err) {
+    console.error("Error verifying cron secret:", err);
+  }
+
+  if (!isCron) {
+    if (req.headers.has("x-cron-secret")) {
+      console.error("Unauthorized: Invalid cron secret");
+      return jsonResponse({ error: "Unauthorized - invalid cron secret" }, 401);
+    }
+    // User-triggered: requires calendar:manage
+    const caller = await authenticateCaller(req);
+    if (!caller.ok) return caller.response;
+    if (!(await userCan(caller.supabase, caller.userId, "calendar", "manage"))) {
+      console.error("User not authorized - calendar:manage required");
+      return jsonResponse({ error: "Forbidden - You do not have permission to send event notifications" }, 403);
+    }
+    console.log("Event notifications triggered by user:", caller.userId);
   }
 
   try {
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const supabase = createServiceClient();
 
     // Get upcoming events in the next 7 days
     const today = new Date();
@@ -259,7 +255,8 @@ const handler = async (req: Request): Promise<Response> => {
       JSON.stringify({
         message: `Sent ${successCount} notifications, ${skippedCount} skipped (preferences), ${failCount} failed`,
         eventsCount: events.length,
-        results,
+        // Per-recipient results (with email addresses) only for the cron caller
+        ...(isCron ? { results } : {}),
       }),
       {
         status: 200,

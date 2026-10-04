@@ -28,7 +28,7 @@ import { useEmployees, useEmployeeDirectory, useDepartments, useBulkDeleteEmploy
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent } from "@/components/ui/card";
 import { EmployeeDocuments } from "@/components/documents/EmployeeDocuments";
-import { useIsAdminOrHR } from "@/hooks/useUserRole";
+import { usePermissions } from "@/hooks/usePermissions";
 import { EmployeeViewDialog } from "@/components/employees/EmployeeViewDialog";
 import { EmployeeEditDialog } from "@/components/employees/EmployeeEditDialog";
 import { BulkDeleteDialog } from "@/components/employees/BulkDeleteDialog";
@@ -63,15 +63,20 @@ const Employees = () => {
   const [bulkAssignManagerOpen, setBulkAssignManagerOpen] = useState(false);
   const [employeesToAssignManager, setEmployeesToAssignManager] = useState<Employee[]>([]);
 
-  const { isAdminOrHR, isLoading: isLoadingRole } = useIsAdminOrHR();
+  const { can, isLoading: isLoadingRole } = usePermissions();
+  // Full records for people with access to the Employees module; everyone
+  // else gets the directory (name, contact, designation, department).
+  const canViewEmployees = can("employees", "view");
+  const canManageEmployees = can("employees", "manage");
+  const canAddEmployees = can("onboarding", "manage");
   const { data: fullEmployees = [], isLoading: isLoadingFullEmployees } = useEmployees({
-    enabled: !isLoadingRole && isAdminOrHR,
+    enabled: !isLoadingRole && canViewEmployees,
   });
   const { data: directoryEmployees = [], isLoading: isLoadingDirectoryEmployees } = useEmployeeDirectory({
-    enabled: !isLoadingRole && !isAdminOrHR,
+    enabled: !isLoadingRole && !canViewEmployees,
   });
-  const employees = isAdminOrHR ? fullEmployees : directoryEmployees;
-  const isLoadingEmployees = isAdminOrHR ? isLoadingFullEmployees : isLoadingDirectoryEmployees;
+  const employees = canViewEmployees ? fullEmployees : directoryEmployees;
+  const isLoadingEmployees = canViewEmployees ? isLoadingFullEmployees : isLoadingDirectoryEmployees;
   const { data: departments = [] } = useDepartments();
   const { data: branding } = useCompanyBranding();
   const bulkDeleteMutation = useBulkDeleteEmployees();
@@ -309,13 +314,13 @@ const Employees = () => {
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h2 className="text-2xl font-bold text-foreground">
-              {isAdminOrHR ? "Employee Directory" : "Team Directory"}
+              {canViewEmployees ? "Employee Directory" : "Team Directory"}
             </h2>
             <p className="text-muted-foreground">
-              {isAdminOrHR ? "Manage and view all employees" : "View your colleagues"}
+              {canManageEmployees ? "Manage and view all employees" : canViewEmployees ? "View all employees" : "View your colleagues"}
             </p>
           </div>
-          {isAdminOrHR && (
+          {canViewEmployees && (
             <div className="flex gap-3">
               <DateRangeExportDialog
                 title="Export Employee Directory"
@@ -323,12 +328,14 @@ const Employees = () => {
                 onExportCSV={exportToCSV}
                 onExportPDF={exportToPDF}
               />
+              {canAddEmployees && (
               <Link to="/onboarding">
                 <Button>
                   <UserPlus className="mr-2 h-4 w-4" />
                   Add Employee
                 </Button>
               </Link>
+              )}
             </div>
           )}
         </div>
@@ -373,12 +380,12 @@ const Employees = () => {
               <h3 className="text-lg font-semibold text-foreground">No Employees Found</h3>
               <p className="text-muted-foreground">
                 {employees.length === 0
-                  ? isAdminOrHR 
+                  ? canAddEmployees
                     ? "Start by adding your first employee"
                     : "No team members available to display"
                   : "No employees match your search criteria"}
               </p>
-              {employees.length === 0 && isAdminOrHR && (
+              {employees.length === 0 && canAddEmployees && (
                 <Link to="/onboarding" className="mt-4">
                   <Button>
                     <UserPlus className="mr-2 h-4 w-4" />
@@ -393,9 +400,9 @@ const Employees = () => {
             <EmployeeTable 
               employees={paginatedEmployees} 
               onView={(employee) => setViewEmployee(employee)}
-              onEdit={isAdminOrHR ? (employee) => setEditEmployee(employee) : undefined}
-              onManageDocuments={isAdminOrHR ? (employee) => setDocumentsEmployee(employee) : undefined}
-              isAdminOrHR={isAdminOrHR}
+              onEdit={canManageEmployees ? (employee) => setEditEmployee(employee) : undefined}
+              onManageDocuments={canManageEmployees ? (employee) => setDocumentsEmployee(employee) : undefined}
+              canManage={canManageEmployees}
               sortKey={sortConfig.key}
               sortDirection={sortConfig.direction}
               onSort={requestSort}

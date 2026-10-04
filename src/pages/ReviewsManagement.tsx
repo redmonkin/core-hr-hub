@@ -19,7 +19,7 @@ import {
 import { Plus, Star, Loader2, FileText, ShieldX } from "lucide-react";
 import { useAllPerformanceReviews, useCreateReview } from "@/hooks/usePerformance";
 import { useEmployees } from "@/hooks/useEmployees";
-import { useIsAdminOrHR } from "@/hooks/useUserRole";
+import { usePermissions } from "@/hooks/usePermissions";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -46,7 +46,8 @@ const statusColors: Record<string, string> = {
 
 const ReviewsManagement = () => {
   const { user } = useAuth();
-  const { isAdminOrHR, isLoading: isRoleLoading } = useIsAdminOrHR();
+  const { can, isLoading: isRoleLoading } = usePermissions();
+  const canManage = can("performance", "manage");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [formData, setFormData] = useState({
@@ -164,7 +165,7 @@ const ReviewsManagement = () => {
     );
   }
 
-  if (!isAdminOrHR) {
+  if (!can("performance", "view")) {
     return (
       <DashboardLayout>
         <div className="space-y-6">
@@ -177,7 +178,7 @@ const ReviewsManagement = () => {
               <ShieldX className="mx-auto h-12 w-12 text-muted-foreground" />
               <h3 className="mt-4 text-lg font-semibold">Access Denied</h3>
               <p className="mt-2 text-muted-foreground">
-                Only HR and Admin users can manage performance reviews.
+                You need access to the Performance module to see all reviews.
               </p>
             </CardContent>
           </Card>
@@ -206,10 +207,12 @@ const ReviewsManagement = () => {
                 <SelectItem value="acknowledged">Acknowledged</SelectItem>
               </SelectContent>
             </Select>
-            <Button onClick={() => setIsDialogOpen(true)}>
-              <Plus className="h-4 w-4 mr-2" />
-              Create Review
-            </Button>
+            {canManage && (
+              <Button onClick={() => setIsDialogOpen(true)}>
+                <Plus className="h-4 w-4 mr-2" />
+                Create Review
+              </Button>
+            )}
           </div>
         </div>
 

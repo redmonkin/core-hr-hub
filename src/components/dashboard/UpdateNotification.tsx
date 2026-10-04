@@ -3,18 +3,19 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ArrowUpCircle, ExternalLink, X } from "lucide-react";
 import { useVersionCheck } from "@/hooks/useVersionCheck";
-import { useIsAdminOrHR } from "@/hooks/useUserRole";
+import { usePermissions } from "@/hooks/usePermissions";
 import { APP_VERSION } from "@/lib/version";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 
 export function UpdateNotification() {
-  const { isAdminOrHR } = useIsAdminOrHR();
-  const { data: versionData, isLoading } = useVersionCheck(isAdminOrHR);
+  // App updates are an administrator's concern
+  const { isAdmin } = usePermissions();
+  const { data: versionData, isLoading } = useVersionCheck(isAdmin);
   const [dismissed, setDismissed] = useState(false);
 
   // Only show to admins/HR when there's an update
-  if (!isAdminOrHR || isLoading || !versionData?.hasUpdate || dismissed) {
+  if (!isAdmin || isLoading || !versionData?.hasUpdate || dismissed) {
     return null;
   }
 

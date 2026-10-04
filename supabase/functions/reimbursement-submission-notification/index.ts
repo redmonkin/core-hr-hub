@@ -1,23 +1,15 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { createClient } from "npm:@supabase/supabase-js@2.87.1";
+import { corsHeaders, jsonResponse } from "../_shared/cors.ts";
+import { escapeHtml } from "../_shared/html.ts";
+import { authenticateCaller, getEmployeeIdForUser, usersWithModuleAccess } from "../_shared/auth.ts";
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
 const APP_URL = Deno.env.get("APP_URL") ?? "https://peoplo.redmonk.in";
 const RESEND_FROM_EMAIL = Deno.env.get("RESEND_FROM_EMAIL")!;
-const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
 
-// HTML escape utility to prevent XSS in email templates
-const escapeHtml = (text: string | null | undefined): string => {
-  if (!text) return '';
-  return text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
-};
+// Submission notifications are only sent shortly after the request is created,
+// so the endpoint can't be used to re-send old requests over and over.
+const SUBMISSION_WINDOW_MS = 15 * 60 * 1000;
 
 const sendEmail = async (to: string[], subject: string, html: string) => {
   const res = await fetch("https://api.resend.com/emails", {
@@ -40,18 +32,10 @@ const sendEmail = async (to: string[], subject: string, html: string) => {
   return json;
 };
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
-
+// Only request_id is used; everything else is loaded from the database.
+// (Older clients also send employee_id, category, amount etc. - ignored.)
 interface ReimbursementSubmissionNotificationRequest {
   request_id: string;
-  employee_id: string;
-  category: string;
-  amount: number;
-  expense_date: string;
-  description: string;
 }
 
 serve(async (req) => {
@@ -60,61 +44,44 @@ serve(async (req) => {
   }
 
   try {
-    // Verify authentication
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader?.startsWith('Bearer ')) {
-      console.error("No authorization header provided");
-      return new Response(
-        JSON.stringify({ error: 'Unauthorized' }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    // Create client with user's auth token
-    const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey, {
-      global: { headers: { Authorization: authHeader } }
-    });
-
-    // Verify the token and get claims
-    const token = authHeader.replace('Bearer ', '');
-    const { data: claimsData, error: claimsError } = await supabaseAuth.auth.getClaims(token);
-    if (claimsError || !claimsData?.claims) {
-      console.error("Invalid token:", claimsError);
-      return new Response(
-        JSON.stringify({ error: 'Unauthorized' }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    const userId = claimsData.claims.sub;
+    const caller = await authenticateCaller(req);
+    if (!caller.ok) return caller.response;
+    const { userId, supabase } = caller;
     console.log("Authenticated user:", userId);
 
-    // Use service role for data operations
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
     const payload: ReimbursementSubmissionNotificationRequest = await req.json();
+    const requestId = payload?.request_id;
+    console.log("Processing reimbursement submission notification:", { request_id: requestId });
 
-    console.log("Processing reimbursement submission notification:", payload);
+    if (!requestId || typeof requestId !== "string") {
+      return jsonResponse({ error: "Invalid input" }, 400);
+    }
 
-    // Verify the caller is the employee submitting their own reimbursement request
-    const { data: callerEmployee } = await supabase
-      .from('employees')
-      .select('id')
-      .eq('user_id', userId)
-      .single();
+    const callerEmployeeId = await getEmployeeIdForUser(supabase, userId);
 
-    if (!callerEmployee || callerEmployee.id !== payload.employee_id) {
+    const { data: reimbursement } = await supabase
+      .from("reimbursement_requests")
+      .select("id, employee_id, category, amount, expense_date, description, status, created_at")
+      .eq("id", requestId)
+      .maybeSingle();
+
+    // Verify the request exists and belongs to the caller
+    if (!callerEmployeeId || !reimbursement || reimbursement.employee_id !== callerEmployeeId) {
       console.error("User not authorized - can only notify for own reimbursement requests");
-      return new Response(
-        JSON.stringify({ error: 'Forbidden - You can only submit notifications for your own reimbursement requests' }),
-        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return jsonResponse({ error: 'Forbidden - You can only submit notifications for your own reimbursement requests' }, 403);
+    }
+
+    if (reimbursement.status !== "pending" ||
+        Date.now() - new Date(reimbursement.created_at).getTime() > SUBMISSION_WINDOW_MS) {
+      console.log("Reimbursement is not a fresh pending request, skipping notification");
+      return jsonResponse({ success: true, message: "No recipients to notify" });
     }
 
     // Get employee with manager details
     const { data: employee, error: employeeError } = await supabase
       .from("employees")
       .select("id, first_name, last_name, manager_id")
-      .eq("id", payload.employee_id)
+      .eq("id", reimbursement.employee_id)
       .single();
 
     if (employeeError || !employee) {
@@ -123,11 +90,18 @@ serve(async (req) => {
     }
 
     const employeeName = `${employee.first_name} ${employee.last_name}`;
-    const safeEmployeeName = escapeHtml(employeeName);
-    const safeCategory = escapeHtml(payload.category);
-    const safeDescription = escapeHtml(payload.description);
+    const category = String(reimbursement.category);
+    const amount = String(reimbursement.amount);
 
-    // Collect recipients: the employee's manager (if any) + all HR/admin users, deduped by user_id
+    // Escape everything interpolated into HTML
+    const safeEmployeeName = escapeHtml(employeeName);
+    const safeCategory = escapeHtml(category);
+    const safeDescription = escapeHtml(reimbursement.description);
+    const safeAmount = escapeHtml(amount);
+    const safeExpenseDate = escapeHtml(reimbursement.expense_date);
+
+    // Collect recipients: the employee's manager (if any) + everyone who can
+    // manage reimbursements, deduped by user_id
     const recipients: { user_id: string; first_name: string; email: string }[] = [];
 
     if (employee.manager_id) {
@@ -142,28 +116,15 @@ serve(async (req) => {
       }
     }
 
-    const { data: hrUsersRaw, error: hrError } = await supabase
-      .from("user_roles")
-      .select("user_id")
-      .in("role", ["admin", "hr"]);
+    const managerUserIds = await usersWithModuleAccess(supabase, "reimbursements", "manage");
 
-    if (hrError) {
-      console.error("Error fetching HR users:", hrError);
-    }
-
-    // A user holding both admin and hr roles has two rows above with the same
-    // user_id - dedupe so they don't get notified twice for one event.
-    const hrUserIds = Array.from(
-      new Set((hrUsersRaw || []).map((u: { user_id: string }) => u.user_id))
-    );
-
-    if (hrUserIds.length > 0) {
-      const { data: hrProfiles } = await supabase
+    if (managerUserIds.length > 0) {
+      const { data: managerProfiles } = await supabase
         .from("profiles")
         .select("id, full_name, email")
-        .in("id", hrUserIds);
+        .in("id", managerUserIds);
 
-      for (const profile of hrProfiles || []) {
+      for (const profile of managerProfiles || []) {
         recipients.push({
           user_id: profile.id,
           first_name: profile.full_name?.split(" ")[0] || "there",
@@ -172,17 +133,14 @@ serve(async (req) => {
       }
     }
 
-    // Dedupe recipients (manager might also be admin/hr)
+    // Dedupe recipients (manager might also have reimbursements:manage)
     const uniqueRecipients = Array.from(
       new Map(recipients.map((r) => [r.user_id, r])).values()
     );
 
     if (uniqueRecipients.length === 0) {
-      console.log("No manager or HR/admin to notify");
-      return new Response(
-        JSON.stringify({ success: true, message: "No recipients to notify" }),
-        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      console.log("No manager or reimbursement managers to notify");
+      return jsonResponse({ success: true, message: "No recipients to notify" });
     }
 
     const { data: preferences } = await supabase
@@ -200,7 +158,7 @@ serve(async (req) => {
         .insert({
           user_id: recipient.user_id,
           title: "New Reimbursement Request",
-          message: `${employeeName} has submitted a ${payload.category} expense claim for ₹${payload.amount}.`,
+          message: `${employeeName} has submitted a ${category} expense claim for ₹${amount}.`,
           type: "info",
           link: "/reimbursements",
         });
@@ -227,8 +185,8 @@ serve(async (req) => {
 
               <div style="background-color: #f5f5f5; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #2196f3;">
                 <p style="margin: 0;"><strong>Category:</strong> ${safeCategory}</p>
-                <p style="margin: 10px 0 0;"><strong>Amount:</strong> ₹${payload.amount}</p>
-                <p style="margin: 10px 0 0;"><strong>Expense Date:</strong> ${payload.expense_date}</p>
+                <p style="margin: 10px 0 0;"><strong>Amount:</strong> ₹${safeAmount}</p>
+                <p style="margin: 10px 0 0;"><strong>Expense Date:</strong> ${safeExpenseDate}</p>
                 ${safeDescription ? `<p style="margin: 10px 0 0;"><strong>Description:</strong> ${safeDescription}</p>` : ""}
               </div>
 
@@ -247,21 +205,9 @@ serve(async (req) => {
       }
     }
 
-    return new Response(
-      JSON.stringify({ success: true, notified: uniqueRecipients.length }),
-      {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
-    );
+    return jsonResponse({ success: true, notified: uniqueRecipients.length });
   } catch (error) {
     console.error("Error in reimbursement-submission-notification function:", error);
-    return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : String(error) }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
-    );
+    return jsonResponse({ error: error instanceof Error ? error.message : String(error) }, 500);
   }
 });

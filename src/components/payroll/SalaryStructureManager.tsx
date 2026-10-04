@@ -59,7 +59,12 @@ const formatCurrency = (amount: number) => {
   }).format(amount);
 };
 
-export function SalaryStructureManager() {
+interface SalaryStructureManagerProps {
+  /** Allow adding, editing and deleting structures (payroll:manage). */
+  canManage?: boolean;
+}
+
+export function SalaryStructureManager({ canManage = true }: SalaryStructureManagerProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -335,10 +340,12 @@ export function SalaryStructureManager() {
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
-        <Button onClick={() => setIsAddDialogOpen(true)} disabled={employeesWithoutStructure.length === 0}>
-          <Plus className="mr-2 h-4 w-4" />
-          Add Salary Structure
-        </Button>
+        {canManage && (
+          <Button onClick={() => setIsAddDialogOpen(true)} disabled={employeesWithoutStructure.length === 0}>
+            <Plus className="mr-2 h-4 w-4" />
+            Add Salary Structure
+          </Button>
+        )}
       </div>
 
       {/* Table */}
@@ -358,7 +365,7 @@ export function SalaryStructureManager() {
                 ? "Add salary structures to enable payroll generation"
                 : "No structures match your search"}
             </p>
-            {structures.length === 0 && employeesWithoutStructure.length > 0 && (
+            {canManage && structures.length === 0 && employeesWithoutStructure.length > 0 && (
               <Button className="mt-4" onClick={() => setIsAddDialogOpen(true)}>
                 <Plus className="mr-2 h-4 w-4" />
                 Add First Salary Structure
@@ -410,6 +417,7 @@ export function SalaryStructureManager() {
                       {formatCurrency(structure.netSalary)}
                     </TableCell>
                     <TableCell className="text-right">
+                      {canManage && (
                       <div className="flex justify-end gap-2">
                         <Button variant="ghost" size="icon" onClick={() => handleEdit(structure)}>
                           <Edit className="h-4 w-4" />
@@ -423,6 +431,7 @@ export function SalaryStructureManager() {
                           <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))}

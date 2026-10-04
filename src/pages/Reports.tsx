@@ -32,7 +32,8 @@ import { AssetInventoryReport } from "@/components/reports/AssetInventoryReport"
 import { AttendanceReport } from "@/components/reports/AttendanceReport";
 import { EmployeeReport } from "@/components/reports/EmployeeReport";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useIsAdminOrHR } from "@/hooks/useUserRole";
+import { usePermissions } from "@/hooks/usePermissions";
+import { AppModule, canAccessReports } from "@/lib/permissions";
 import {
   useEmployeeGrowthData,
   useDepartmentDistribution,
@@ -52,17 +53,19 @@ const LEAVE_COLORS = [
   "hsl(var(--chart-5))",
 ];
 
-const reportCards = [
-  { title: "Attendance Report", description: "Monthly attendance tracking", icon: <Users className="h-5 w-5" />, sectionId: "report-attendance" },
-  { title: "Leave Summary", description: "Leave balance and usage report", icon: <Calendar className="h-5 w-5" />, sectionId: "report-leave" },
-  { title: "Payroll Report", description: "Monthly payroll breakdown", icon: <CreditCard className="h-5 w-5" />, sectionId: "report-payroll" },
-  { title: "Asset Report", description: "Asset inventory and assignments", icon: <FileText className="h-5 w-5" />, sectionId: "report-asset" },
+// Each report is shown to people who can view the module whose data it reads.
+const reportCards: { title: string; description: string; icon: JSX.Element; sectionId: string; module: AppModule }[] = [
+  { title: "Attendance Report", description: "Monthly attendance tracking", icon: <Users className="h-5 w-5" />, sectionId: "report-attendance", module: "attendance" },
+  { title: "Leave Summary", description: "Leave balance and usage report", icon: <Calendar className="h-5 w-5" />, sectionId: "report-leave", module: "leaves" },
+  { title: "Payroll Report", description: "Monthly payroll breakdown", icon: <CreditCard className="h-5 w-5" />, sectionId: "report-payroll", module: "payroll" },
+  { title: "Asset Report", description: "Asset inventory and assignments", icon: <FileText className="h-5 w-5" />, sectionId: "report-asset", module: "assets" },
 ];
 
 const Reports = () => {
   const [selectedYear, setSelectedYear] = useState(String(currentYear));
   const year = parseInt(selectedYear);
-  const { isAdminOrHR, isLoading: roleLoading } = useIsAdminOrHR();
+  const permissions = usePermissions();
+  const { can, isLoading: roleLoading } = permissions;
 
   const { data: employeeGrowthData, isLoading: isLoadingGrowth } = useEmployeeGrowthData(year);
   const { data: departmentData, isLoading: isLoadingDept } = useDepartmentDistribution();
@@ -81,15 +84,15 @@ const Reports = () => {
     );
   }
 
-  // Redirect non-admin/HR users
-  if (!isAdminOrHR) {
+  // Only for people who can view at least one module that has a report
+  if (!canAccessReports(permissions)) {
     return (
       <DashboardLayout>
         <div className="flex min-h-[400px] flex-col items-center justify-center space-y-4">
           <ShieldAlert className="h-16 w-16 text-destructive" />
           <h2 className="text-2xl font-bold text-foreground">Access Denied</h2>
           <p className="text-muted-foreground">You don't have permission to access this page.</p>
-          <p className="text-sm text-muted-foreground">Only administrators and HR personnel can view reports.</p>
+          <p className="text-sm text-muted-foreground">Ask an administrator for access to the modules you need reports for.</p>
         </div>
       </DashboardLayout>
     );
@@ -110,10 +113,12 @@ const Reports = () => {
               <FileText className="mr-2 h-4 w-4" />
               Overview
             </TabsTrigger>
-            <TabsTrigger value="employee">
-              <User className="mr-2 h-4 w-4" />
-              Employee Report
-            </TabsTrigger>
+            {can("employees") && (
+              <TabsTrigger value="employee">
+                <User className="mr-2 h-4 w-4" />
+                Employee Report
+              </TabsTrigger>
+            )}
           </TabsList>
 
           <TabsContent value="overview" className="space-y-6">
@@ -134,7 +139,7 @@ const Reports = () => {
 
         {/* Quick Reports */}
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {reportCards.map((report) => (
+          {reportCards.filter((report) => can(report.module)).map((report) => (
             <Card
               key={report.title}
               className="cursor-pointer transition-all hover:shadow-lg"
@@ -156,6 +161,7 @@ const Reports = () => {
         </div>
 
         {/* Headcount Summary Widget */}
+        {can("employees") && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -250,10 +256,12 @@ const Reports = () => {
             ) : null}
           </CardContent>
         </Card>
+        )}
 
         {/* Charts Grid */}
         <div className="grid gap-6 lg:grid-cols-2">
           {/* Employee Growth */}
+          {can("employees") && (
           <Card>
             <CardHeader>
               <CardTitle>Employee Growth</CardTitle>
@@ -293,8 +301,10 @@ const Reports = () => {
               </div>
             </CardContent>
           </Card>
+          )}
 
           {/* Department Distribution */}
+          {can("employees") && (
           <Card>
             <CardHeader>
               <CardTitle>Department Distribution</CardTitle>
@@ -352,8 +362,10 @@ const Reports = () => {
               )}
             </CardContent>
           </Card>
+          )}
 
           {/* Leave Statistics */}
+          {can("leaves") && (
           <Card>
             <CardHeader>
               <CardTitle>Leave Statistics</CardTitle>
@@ -397,8 +409,10 @@ const Reports = () => {
               </div>
             </CardContent>
           </Card>
+          )}
 
           {/* Payroll Trend */}
+          {can("payroll") && (
           <Card>
             <CardHeader>
               <CardTitle>Payroll Trend</CardTitle>
@@ -437,32 +451,43 @@ const Reports = () => {
               </div>
             </CardContent>
           </Card>
+          )}
         </div>
 
         {/* Payroll Summary Report */}
+        {can("payroll") && (
         <div id="report-payroll">
           <PayrollSummaryReport />
         </div>
+        )}
 
         {/* Leave Balance Report */}
+        {can("leaves") && (
         <div id="report-leave">
           <LeaveBalanceReport />
         </div>
+        )}
 
         {/* Asset Inventory Report */}
+        {can("assets") && (
         <div id="report-asset">
           <AssetInventoryReport />
         </div>
+        )}
 
         {/* Attendance Report */}
+        {can("attendance") && (
         <div id="report-attendance">
           <AttendanceReport />
         </div>
+        )}
           </TabsContent>
 
-          <TabsContent value="employee">
-            <EmployeeReport />
-          </TabsContent>
+          {can("employees") && (
+            <TabsContent value="employee">
+              <EmployeeReport />
+            </TabsContent>
+          )}
         </Tabs>
       </div>
     </DashboardLayout>

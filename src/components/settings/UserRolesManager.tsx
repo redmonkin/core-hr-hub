@@ -37,12 +37,14 @@ import {
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Pencil, Loader2, Ban, CheckCircle, Link, Unlink } from "lucide-react";
+import { Pencil, Loader2, Ban, CheckCircle, Link, Unlink, KeyRound } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Database } from "@/integrations/supabase/types";
 import { useAuth } from "@/contexts/AuthContext";
+import { UserPermissionsDialog } from "./UserPermissionsDialog";
+import { levelLabel, moduleLabel, useAllUserPermissions, useRolePermissions } from "./permissionsData";
 
 type AppRole = Database["public"]["Enums"]["app_role"];
 type EmployeeStatus = Database["public"]["Enums"]["employee_status"];
@@ -52,8 +54,10 @@ interface UserWithRole {
   email: string;
   full_name: string | null;
   avatar_url: string | null;
+  /** Highest-ranked role, for display and the role editor */
   role: AppRole | null;
-  role_id: string | null;
+  /** Every user_roles row (a user can have more than one) */
+  role_rows: { id: string; role: AppRole }[];
   employee_status: EmployeeStatus | null;
   blocked: boolean;
   employee_id: string | null;
@@ -82,6 +86,8 @@ const roleBadgeVariant: Record<AppRole, "default" | "secondary" | "outline"> = {
   employee: "outline",
 };
 
+const ROLE_RANK: Record<AppRole, number> = { admin: 4, hr: 3, manager: 2, employee: 1 };
+
 const statusLabels: Record<EmployeeStatus, string> = {
   active: "Active",
   inactive: "Inactive",
@@ -107,6 +113,10 @@ export function UserRolesManager() {
   const [selectedUser, setSelectedUser] = useState<UserWithRole | null>(null);
   const [selectedRole, setSelectedRole] = useState<AppRole>("employee");
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>("");
+  const [permissionsUser, setPermissionsUser] = useState<UserWithRole | null>(null);
+
+  const { data: rolePermissions = [], isLoading: loadingRolePerms } = useRolePermissions();
+  const { data: userPermissions = [], isLoading: loadingUserPerms } = useAllUserPermissions();
 
   const { data: users = [], isLoading } = useQuery({
     queryKey: ['users-with-roles'],
@@ -135,12 +145,15 @@ export function UserRolesManager() {
 
       // Map roles and status to users
       const usersWithRoles: UserWithRole[] = (profiles || []).map(profile => {
-        const userRole = roles?.find(r => r.user_id === profile.id);
+        const roleRows = (roles || [])
+          .filter(r => r.user_id === profile.id)
+          .map(r => ({ id: r.id, role: r.role as AppRole }))
+          .sort((a, b) => ROLE_RANK[b.role] - ROLE_RANK[a.role]);
         const employee = employees?.find(e => e.user_id === profile.id);
         return {
           ...profile,
-          role: userRole?.role as AppRole | null,
-          role_id: userRole?.id || null,
+          role: roleRows[0]?.role ?? null,
+          role_rows: roleRows,
           employee_status: employee?.status as EmployeeStatus | null,
           blocked: profile.blocked ?? false,
           employee_id: employee?.id || null,
@@ -166,14 +179,24 @@ export function UserRolesManager() {
   });
 
   const updateRoleMutation = useMutation({
-    mutationFn: async ({ userId, role, existingRoleId }: { userId: string; role: AppRole; existingRoleId: string | null }) => {
-      if (existingRoleId) {
-        // Update existing role
-        const { error } = await supabase
-          .from('user_roles')
-          .update({ role })
-          .eq('id', existingRoleId);
-        if (error) throw error;
+    mutationFn: async ({ userId, role, existingRows }: { userId: string; role: AppRole; existingRows: { id: string; role: AppRole }[] }) => {
+      if (existingRows.length > 0) {
+        // Keep one row with the chosen role and remove any others, so the user
+        // ends up with exactly the selected role. Prefer reusing a row that
+        // already has it (avoids tripping the last-admin guard needlessly).
+        const keep = existingRows.find(r => r.role === role) ?? existingRows[0];
+        if (keep.role !== role) {
+          const { error } = await supabase
+            .from('user_roles')
+            .update({ role })
+            .eq('id', keep.id);
+          if (error) throw error;
+        }
+        const extra = existingRows.filter(r => r.id !== keep.id).map(r => r.id);
+        if (extra.length > 0) {
+          const { error } = await supabase.from('user_roles').delete().in('id', extra);
+          if (error) throw error;
+        }
       } else {
         // Insert new role
         const { error } = await supabase
@@ -185,12 +208,15 @@ export function UserRolesManager() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['users-with-roles'] });
       queryClient.invalidateQueries({ queryKey: ['user-role'] });
+      queryClient.invalidateQueries({ queryKey: ['permissions'] });
       setDialogOpen(false);
       setSelectedUser(null);
       toast({ title: "Role updated", description: "User role has been updated successfully." });
     },
     onError: (error: Error) => {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
+      // e.g. "Cannot remove the last admin. Make someone else an admin first."
+      queryClient.invalidateQueries({ queryKey: ['users-with-roles'] });
+      toast({ title: "Couldn't change role", description: error.message, variant: "destructive" });
     },
   });
 
@@ -302,7 +328,7 @@ export function UserRolesManager() {
     updateRoleMutation.mutate({
       userId: selectedUser.id,
       role: selectedRole,
-      existingRoleId: selectedUser.role_id,
+      existingRows: selectedUser.role_rows,
     });
   };
 
@@ -326,6 +352,36 @@ export function UserRolesManager() {
     return displayName.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2);
   };
 
+  const grantsByUser = new Map<string, typeof userPermissions>();
+  for (const g of userPermissions) {
+    const list = grantsByUser.get(g.user_id) ?? [];
+    list.push(g);
+    grantsByUser.set(g.user_id, list);
+  }
+
+  const renderAccess = (user: UserWithRole) => {
+    if (user.role === 'admin') {
+      return <span className="text-xs text-muted-foreground">Full access</span>;
+    }
+    const grants = grantsByUser.get(user.id) ?? [];
+    if (grants.length === 0) {
+      return <span className="text-xs text-muted-foreground">Role defaults</span>;
+    }
+    return (
+      <div className="flex flex-wrap gap-1">
+        {grants.map(g => (
+          <Badge
+            key={g.module}
+            variant={g.level === 'manage' ? 'default' : 'secondary'}
+            className="whitespace-nowrap text-xs font-normal"
+          >
+            {moduleLabel(g.module)} · {levelLabel(g.level).toLowerCase()}
+          </Badge>
+        ))}
+      </div>
+    );
+  };
+
   // Sort unlinked employees to show matching email first
   const sortedUnlinkedEmployees = selectedUser
     ? [...unlinkedEmployees].sort((a, b) => {
@@ -340,8 +396,11 @@ export function UserRolesManager() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>User Roles</CardTitle>
-        <CardDescription>Manage user access levels and permissions</CardDescription>
+        <CardTitle>Users &amp; access</CardTitle>
+        <CardDescription>
+          Assign roles, and give individual people extra access to specific modules with{" "}
+          <KeyRound className="inline h-3.5 w-3.5 align-text-bottom" /> Module access.
+        </CardDescription>
       </CardHeader>
       <CardContent>
         {isLoading ? (
@@ -353,9 +412,10 @@ export function UserRolesManager() {
             <TableHeader>
               <TableRow>
                 <TableHead>User</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Role</TableHead>
+                <TableHead className="hidden lg:table-cell">Email</TableHead>
+                <TableHead className="hidden sm:table-cell">Status</TableHead>
+                <TableHead className="hidden sm:table-cell">Role</TableHead>
+                <TableHead className="hidden md:table-cell">Extra access</TableHead>
                 <TableHead className="w-24">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -363,16 +423,27 @@ export function UserRolesManager() {
               {users.map((user) => (
                 <TableRow key={user.id}>
                   <TableCell>
-                    <div className="flex items-center gap-3">
-                      <Avatar className="h-8 w-8">
+                    <div className="flex items-start gap-3">
+                      <Avatar className="h-8 w-8 shrink-0">
                         <AvatarImage src={user.avatar_url || undefined} />
                         <AvatarFallback>{getUserInitials(user.full_name, user.email)}</AvatarFallback>
                       </Avatar>
-                      <span className="font-medium">{user.full_name || "Unnamed User"}</span>
+                      <div className="min-w-0 space-y-1">
+                        <p className="font-medium">{user.full_name || "Unnamed User"}</p>
+                        <p className="break-all text-xs text-muted-foreground lg:hidden">{user.email}</p>
+                        {/* Compact summary on small screens, where the other columns are hidden */}
+                        <div className="flex flex-wrap gap-1 sm:hidden">
+                          {user.blocked && <Badge variant="destructive">Blocked</Badge>}
+                          {user.role_rows.map(r => (
+                            <Badge key={r.id} variant={roleBadgeVariant[r.role]}>{roleLabels[r.role]}</Badge>
+                          ))}
+                        </div>
+                        <div className="md:hidden">{renderAccess(user)}</div>
+                      </div>
                     </div>
                   </TableCell>
-                  <TableCell className="text-muted-foreground">{user.email}</TableCell>
-                  <TableCell>
+                  <TableCell className="hidden text-muted-foreground lg:table-cell">{user.email}</TableCell>
+                  <TableCell className="hidden sm:table-cell">
                     {user.blocked ? (
                       <Badge variant="destructive">Blocked</Badge>
                     ) : user.employee_status ? (
@@ -383,19 +454,33 @@ export function UserRolesManager() {
                       <Badge variant="outline">Not Linked</Badge>
                     )}
                   </TableCell>
-                  <TableCell>
-                    {user.role ? (
-                      <Badge variant={roleBadgeVariant[user.role]}>
-                        {roleLabels[user.role]}
-                      </Badge>
+                  <TableCell className="hidden sm:table-cell">
+                    {user.role_rows.length > 0 ? (
+                      <div className="flex flex-wrap gap-1">
+                        {user.role_rows.map(r => (
+                          <Badge key={r.id} variant={roleBadgeVariant[r.role]}>
+                            {roleLabels[r.role]}
+                          </Badge>
+                        ))}
+                      </div>
                     ) : (
                       <Badge variant="outline">No Role</Badge>
                     )}
                   </TableCell>
+                  <TableCell className="hidden max-w-[260px] md:table-cell">{renderAccess(user)}</TableCell>
                   <TableCell>
-                    <div className="flex gap-1">
+                    <div className="flex flex-wrap gap-1">
                       <Button variant="ghost" size="icon" onClick={() => handleEditRole(user)} title="Edit role">
                         <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setPermissionsUser(user)}
+                        title="Module access"
+                        aria-label="Module access"
+                      >
+                        <KeyRound className="h-4 w-4" />
                       </Button>
                       {/* Link/Unlink Employee Button */}
                       {user.employee_id ? (
@@ -449,6 +534,12 @@ export function UserRolesManager() {
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
+              {selectedUser && selectedUser.role_rows.length > 1 && (
+                <p className="rounded-md bg-muted/50 p-3 text-xs text-muted-foreground">
+                  This user currently has several roles ({selectedUser.role_rows.map(r => roleLabels[r.role]).join(", ")}).
+                  Saving replaces them with the role selected here.
+                </p>
+              )}
               <div className="space-y-2">
                 <Label>Role</Label>
                 <Select value={selectedRole} onValueChange={(value) => setSelectedRole(value as AppRole)}>
@@ -465,19 +556,19 @@ export function UserRolesManager() {
                     <SelectItem value="hr">
                       <div className="flex flex-col">
                         <span>HR Manager</span>
-                        <span className="text-xs text-muted-foreground">Manage employees, leaves, payroll</span>
+                        <span className="text-xs text-muted-foreground">Module access set under Role access</span>
                       </div>
                     </SelectItem>
                     <SelectItem value="manager">
                       <div className="flex flex-col">
                         <span>Manager</span>
-                        <span className="text-xs text-muted-foreground">Manage team members</span>
+                        <span className="text-xs text-muted-foreground">Their team, plus any Role access</span>
                       </div>
                     </SelectItem>
                     <SelectItem value="employee">
                       <div className="flex flex-col">
                         <span>Employee</span>
-                        <span className="text-xs text-muted-foreground">Basic access</span>
+                        <span className="text-xs text-muted-foreground">Self-service, plus any Role access</span>
                       </div>
                     </SelectItem>
                   </SelectContent>
@@ -593,6 +684,20 @@ export function UserRolesManager() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        <UserPermissionsDialog
+          open={!!permissionsUser}
+          onOpenChange={(open) => { if (!open) setPermissionsUser(null); }}
+          user={permissionsUser ? {
+            id: permissionsUser.id,
+            full_name: permissionsUser.full_name,
+            email: permissionsUser.email,
+            roles: permissionsUser.role_rows.map(r => r.role),
+          } : null}
+          rolePermissions={rolePermissions}
+          userPermissions={userPermissions}
+          loading={loadingRolePerms || loadingUserPerms}
+        />
 
         {/* Unlink Employee Dialog */}
         <AlertDialog open={unlinkDialogOpen} onOpenChange={(open) => {

@@ -71,6 +71,8 @@ interface PayrollTableProps {
   onBulkMarkPaid?: (ids: string[]) => void;
   onBulkRevertToPending?: (ids: string[]) => void;
   isBulkUpdating?: boolean;
+  /** Show status/edit actions and bulk selection (payroll:manage). */
+  canManage?: boolean;
 }
 
 const statusStyles = {
@@ -97,6 +99,7 @@ export function PayrollTable({
   onBulkMarkPaid,
   onBulkRevertToPending,
   isBulkUpdating = false,
+  canManage = true,
 }: PayrollTableProps) {
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -184,8 +187,14 @@ export function PayrollTable({
 
       const { data: employeeInfo } = await supabase
         .from("employees")
-        .select("hire_date, designation, department:departments!employees_department_id_fkey(name), bank_name, bank_account_number")
+        .select("hire_date, designation, department:departments!employees_department_id_fkey(name)")
         .eq("id", record.employeeId)
+        .maybeSingle();
+
+      const { data: bankDetails } = await supabase
+        .from("employee_bank_details")
+        .select("bank_name, bank_account_number")
+        .eq("employee_id", record.employeeId)
         .maybeSingle();
 
       const periodStart = startOfMonth(new Date(record.year, record.monthNum - 1));
@@ -218,8 +227,8 @@ export function PayrollTable({
         designation: employeeInfo?.designation ?? undefined,
         department: employeeInfo?.department?.name ?? undefined,
         workedDays: workedDays ?? undefined,
-        bankName: employeeInfo?.bank_name ?? undefined,
-        bankAccountNumber: employeeInfo?.bank_account_number ?? undefined,
+        bankName: bankDetails?.bank_name ?? undefined,
+        bankAccountNumber: bankDetails?.bank_account_number ?? undefined,
         daysInMonth,
         lossOfPayDays: record.lossOfPayDays,
         salaryBreakdown: salaryStructure ? {
@@ -255,7 +264,7 @@ export function PayrollTable({
   return (
     <div className="space-y-3">
       {/* Bulk Actions Bar */}
-      {selectedIds.size > 0 && (
+      {canManage && selectedIds.size > 0 && (
         <div className="flex items-center justify-between rounded-lg border border-primary/20 bg-primary/5 px-4 py-3">
           <div className="flex items-center gap-3">
             <span className="text-sm font-medium">
@@ -308,13 +317,15 @@ export function PayrollTable({
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-[40px]">
-                <Checkbox
-                  checked={selectedIds.size === records.length && records.length > 0}
-                  onCheckedChange={toggleSelectAll}
-                  aria-label="Select all"
-                />
-              </TableHead>
+              {canManage && (
+                <TableHead className="w-[40px]">
+                  <Checkbox
+                    checked={selectedIds.size === records.length && records.length > 0}
+                    onCheckedChange={toggleSelectAll}
+                    aria-label="Select all"
+                  />
+                </TableHead>
+              )}
               <TableHead className="w-[220px]">Employee</TableHead>
               <TableHead>Month</TableHead>
               <TableHead className="text-right">Basic</TableHead>
@@ -328,13 +339,15 @@ export function PayrollTable({
           <TableBody>
             {records.map((record) => (
               <TableRow key={record.id} data-state={selectedIds.has(record.id) ? "selected" : undefined}>
-                <TableCell>
-                  <Checkbox
-                    checked={selectedIds.has(record.id)}
-                    onCheckedChange={() => toggleSelection(record.id)}
-                    aria-label={`Select ${record.employee.name}`}
-                  />
-                </TableCell>
+                {canManage && (
+                  <TableCell>
+                    <Checkbox
+                      checked={selectedIds.has(record.id)}
+                      onCheckedChange={() => toggleSelection(record.id)}
+                      aria-label={`Select ${record.employee.name}`}
+                    />
+                  </TableCell>
+                )}
                 <TableCell>
                   <div className="flex items-center gap-3">
                     <Avatar className="h-9 w-9">
@@ -404,6 +417,7 @@ export function PayrollTable({
                         <Download className="h-4 w-4" />
                       )}
                     </Button>
+                    {canManage && (
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button variant="ghost" size="icon" className="h-8 w-8">
@@ -442,6 +456,7 @@ export function PayrollTable({
                         )}
                       </DropdownMenuContent>
                     </DropdownMenu>
+                    )}
                   </div>
                 </TableCell>
               </TableRow>

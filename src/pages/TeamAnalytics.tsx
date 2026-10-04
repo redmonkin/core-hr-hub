@@ -2,14 +2,15 @@ import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Loader2, ShieldX } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import { useIsAdminOrHR } from "@/hooks/useUserRole";
+import { usePermissions } from "@/hooks/usePermissions";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { TeamAnalytics as TeamAnalyticsComponent } from "@/components/performance/TeamAnalytics";
 
 const TeamAnalytics = () => {
   const { user } = useAuth();
-  const { isAdminOrHR, isLoading: roleLoading } = useIsAdminOrHR();
+  const { can, isLoading: roleLoading } = usePermissions();
+  const canViewAllPerformance = can("performance", "view");
 
   // Check if user is a manager
   const { data: managerData, isLoading: managerLoading } = useQuery({
@@ -44,7 +45,7 @@ const TeamAnalytics = () => {
   });
 
   const isLoading = roleLoading || managerLoading;
-  const canAccessAnalytics = isAdminOrHR || managerData?.isManager;
+  const canAccessAnalytics = canViewAllPerformance || managerData?.isManager;
 
   if (isLoading) {
     return (
@@ -84,14 +85,14 @@ const TeamAnalytics = () => {
         <div>
           <h2 className="text-2xl font-bold text-foreground">Team Analytics</h2>
           <p className="text-muted-foreground">
-            {isAdminOrHR
+            {canViewAllPerformance
               ? "View organization-wide performance metrics and trends"
               : "View your team's performance metrics and trends"}
           </p>
         </div>
 
         <TeamAnalyticsComponent
-          isManager={!isAdminOrHR && managerData?.isManager}
+          isManager={!canViewAllPerformance && managerData?.isManager}
           managerId={managerData?.employeeId}
         />
       </div>

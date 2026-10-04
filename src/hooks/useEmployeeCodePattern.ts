@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import type { Json } from "@/integrations/supabase/types";
 
 export interface EmployeeCodePattern {
   prefix: string;
@@ -29,11 +30,10 @@ export function useEmployeeCodePattern() {
   return useQuery({
     queryKey: ["employee-code-pattern"],
     queryFn: async (): Promise<EmployeeCodePattern> => {
-      // Use raw SQL query since the table isn't in generated types
       const { data, error } = await supabase
-        .from("system_settings" as "profiles") // Type cast to bypass type check
+        .from("system_settings")
         .select("setting_value")
-        .eq("setting_key" as "id", "employee_code_pattern")
+        .eq("setting_key", "employee_code_pattern")
         .maybeSingle();
 
       if (error) throw error;
@@ -57,9 +57,9 @@ export function useUpdateEmployeeCodePattern() {
   return useMutation({
     mutationFn: async (pattern: EmployeeCodePattern) => {
       const { error } = await supabase
-        .from("system_settings" as "profiles") // Type cast to bypass type check
+        .from("system_settings")
         .upsert(
-          { setting_key: "employee_code_pattern", setting_value: pattern } as Record<string, unknown>,
+          { setting_key: "employee_code_pattern", setting_value: pattern as unknown as Json },
           { onConflict: "setting_key" }
         );
 

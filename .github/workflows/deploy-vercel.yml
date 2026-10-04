@@ -84,6 +84,6 @@ jobs:
 #
 # 4. Add environment variables in Vercel Dashboard:
 #    - Go to Project > Settings > Environment Variables
-#    - Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY
+#    - Add VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY
 #
 # ============================================================================

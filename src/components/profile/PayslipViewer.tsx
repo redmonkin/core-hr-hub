@@ -135,7 +135,7 @@ export function PayslipViewer({ employeeId, employeeName, employeeCode }: Paysli
     queryFn: async () => {
       const { data, error } = await supabase
         .from("employees")
-        .select("hire_date, designation, department:departments!employees_department_id_fkey(name), bank_name, bank_account_number")
+        .select("hire_date, designation, department:departments!employees_department_id_fkey(name), bank:employee_bank_details(bank_name, bank_account_number)")
         .eq("id", employeeId)
         .maybeSingle();
 
@@ -194,8 +194,8 @@ export function PayslipViewer({ employeeId, employeeName, employeeCode }: Paysli
       designation: employeeInfo?.designation ?? undefined,
       department: employeeInfo?.department?.name ?? undefined,
       workedDays: workedDays ?? undefined,
-      bankName: employeeInfo?.bank_name ?? undefined,
-      bankAccountNumber: employeeInfo?.bank_account_number ?? undefined,
+      bankName: employeeInfo?.bank?.bank_name ?? undefined,
+      bankAccountNumber: employeeInfo?.bank?.bank_account_number ?? undefined,
       daysInMonth,
       lossOfPayDays: Number(record.loss_of_pay_days || 0),
       salaryBreakdown: salaryStructure ? {
