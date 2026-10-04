@@ -118,7 +118,7 @@ export function RolePermissionsMatrix() {
       }
     },
     onSuccess: () => {
-      toast({ title: "Role access saved", description: "Changes apply to everyone with these roles." });
+      toast({ title: "Role defaults saved", description: "Changes apply to everyone with these roles." });
     },
     onError: (err: Error) => {
       toast({ title: "Error", description: err.message, variant: "destructive" });
@@ -144,9 +144,11 @@ export function RolePermissionsMatrix() {
     <Card>
       <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="space-y-1.5">
-          <CardTitle>Role access</CardTitle>
+          <CardTitle>Defaults for each role</CardTitle>
           <CardDescription>
-            Default module access for everyone with each role. Administrators always have full access.
+            Changes here apply to everyone with that role. To give just one person more access, use{" "}
+            <span className="font-medium text-foreground">Extra access</span> on their row in the list above.
+            Administrators always have full access.
           </CardDescription>
           <p className="text-xs text-muted-foreground">
             Managers and employees always keep self-service and team access without any grant; anything set here gives

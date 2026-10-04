@@ -398,8 +398,9 @@ export function UserRolesManager() {
       <CardHeader>
         <CardTitle>Users &amp; access</CardTitle>
         <CardDescription>
-          Assign roles, and give individual people extra access to specific modules with{" "}
-          <KeyRound className="inline h-3.5 w-3.5 align-text-bottom" /> Module access.
+          To give one person access to more modules (for example Assets), tap{" "}
+          <span className="font-medium text-foreground">Extra access</span> on their row. This only affects that
+          person.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -416,7 +417,7 @@ export function UserRolesManager() {
                 <TableHead className="hidden sm:table-cell">Status</TableHead>
                 <TableHead className="hidden sm:table-cell">Role</TableHead>
                 <TableHead className="hidden md:table-cell">Extra access</TableHead>
-                <TableHead className="w-24">Actions</TableHead>
+                <TableHead>Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -470,17 +471,17 @@ export function UserRolesManager() {
                   <TableCell className="hidden max-w-[260px] md:table-cell">{renderAccess(user)}</TableCell>
                   <TableCell>
                     <div className="flex flex-wrap gap-1">
-                      <Button variant="ghost" size="icon" onClick={() => handleEditRole(user)} title="Edit role">
-                        <Pencil className="h-4 w-4" />
-                      </Button>
                       <Button
-                        variant="ghost"
-                        size="icon"
+                        variant="outline"
+                        size="sm"
                         onClick={() => setPermissionsUser(user)}
-                        title="Module access"
-                        aria-label="Module access"
+                        title="Give this person access to extra modules"
                       >
-                        <KeyRound className="h-4 w-4" />
+                        <KeyRound className="mr-1.5 h-4 w-4" />
+                        Extra access
+                      </Button>
+                      <Button variant="ghost" size="icon" onClick={() => handleEditRole(user)} title="Change role">
+                        <Pencil className="h-4 w-4" />
                       </Button>
                       {/* Link/Unlink Employee Button */}
                       {user.employee_id ? (
@@ -556,19 +557,19 @@ export function UserRolesManager() {
                     <SelectItem value="hr">
                       <div className="flex flex-col">
                         <span>HR Manager</span>
-                        <span className="text-xs text-muted-foreground">Module access set under Role access</span>
+                        <span className="text-xs text-muted-foreground">Module access set under "Defaults for each role"</span>
                       </div>
                     </SelectItem>
                     <SelectItem value="manager">
                       <div className="flex flex-col">
                         <span>Manager</span>
-                        <span className="text-xs text-muted-foreground">Their team, plus any Role access</span>
+                        <span className="text-xs text-muted-foreground">Their team, plus their role defaults</span>
                       </div>
                     </SelectItem>
                     <SelectItem value="employee">
                       <div className="flex flex-col">
                         <span>Employee</span>
-                        <span className="text-xs text-muted-foreground">Self-service, plus any Role access</span>
+                        <span className="text-xs text-muted-foreground">Self-service, plus their role defaults</span>
                       </div>
                     </SelectItem>
                   </SelectContent>
