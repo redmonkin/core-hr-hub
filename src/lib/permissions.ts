@@ -94,3 +94,24 @@ export const REPORT_MODULES: AppModule[] = ["employees", "attendance", "leaves",
 export function canAccessReports(perms: Permissions): boolean {
   return REPORT_MODULES.some((m) => hasModuleAccess(perms, m, "view"));
 }
+
+/**
+ * Permissions implied by roles alone, matching the default role setup (admin:
+ * everything; HR: manage on every module; others: self-service). Used when
+ * the database doesn't have get_my_permissions() yet, i.e. the app was
+ * deployed before the migrations, so the UI keeps working instead of hanging.
+ */
+export function permissionsFromRoles(roles: AppRole[]): Permissions {
+  const isAdmin = roles.includes("admin");
+  const modules: ModuleLevels = {};
+  if (!isAdmin && roles.includes("hr")) {
+    for (const m of MODULES) modules[m.key] = "manage";
+  }
+  return { isAdmin, isBlocked: false, roles, modules };
+}
+
+/** PostgREST/Postgres error for a function that doesn't exist (not deployed yet). */
+export function isMissingFunctionError(error: unknown): boolean {
+  const code = (error as { code?: unknown } | null)?.code;
+  return code === "PGRST202" || code === "42883";
+}

@@ -6,8 +6,10 @@ import {
   canAccessSettings,
   hasAnyModuleAccess,
   hasModuleAccess,
+  isMissingFunctionError,
   levelSatisfies,
   parsePermissions,
+  permissionsFromRoles,
 } from "./permissions";
 
 const perms = (overrides: Partial<Permissions>): Permissions => ({ ...NO_PERMISSIONS, ...overrides });
@@ -95,5 +97,34 @@ describe("parsePermissions", () => {
   it("returns no permissions for empty or malformed input", () => {
     expect(parsePermissions(null)).toEqual(NO_PERMISSIONS);
     expect(parsePermissions("nope")).toEqual(NO_PERMISSIONS);
+  });
+});
+
+describe("permissionsFromRoles (fallback before migrations)", () => {
+  it("gives admins everything", () => {
+    const p = permissionsFromRoles(["admin", "hr"]);
+    expect(p.isAdmin).toBe(true);
+    expect(hasModuleAccess(p, "payroll", "manage")).toBe(true);
+  });
+
+  it("gives HR manage on every module", () => {
+    const p = permissionsFromRoles(["hr"]);
+    expect(p.isAdmin).toBe(false);
+    expect(hasModuleAccess(p, "settings", "manage")).toBe(true);
+    expect(hasModuleAccess(p, "assets", "manage")).toBe(true);
+  });
+
+  it("gives managers and employees no module access", () => {
+    expect(hasAnyModuleAccess(permissionsFromRoles(["manager"]))).toBe(false);
+    expect(hasAnyModuleAccess(permissionsFromRoles(["employee"]))).toBe(false);
+  });
+});
+
+describe("isMissingFunctionError", () => {
+  it("recognises PostgREST and Postgres missing-function codes", () => {
+    expect(isMissingFunctionError({ code: "PGRST202" })).toBe(true);
+    expect(isMissingFunctionError({ code: "42883" })).toBe(true);
+    expect(isMissingFunctionError({ code: "42501" })).toBe(false);
+    expect(isMissingFunctionError(null)).toBe(false);
   });
 });

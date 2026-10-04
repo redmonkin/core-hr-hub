@@ -4,12 +4,15 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   AppModule,
+  AppRole,
   NO_PERMISSIONS,
   PermissionLevel,
   Permissions,
   hasAnyModuleAccess,
   hasModuleAccess,
+  isMissingFunctionError,
   parsePermissions,
+  permissionsFromRoles,
 } from "@/lib/permissions";
 
 /**
@@ -24,12 +27,22 @@ export function usePermissions() {
     queryKey: ["permissions", user?.id],
     queryFn: async (): Promise<Permissions> => {
       const { data, error } = await supabase.rpc("get_my_permissions");
-      if (error) throw error;
-      return parsePermissions(data);
+      if (!error) return parsePermissions(data);
+      if (!isMissingFunctionError(error)) throw error;
+
+      // The database hasn't been migrated to module permissions yet: fall
+      // back to the user's roles rather than failing (or retrying forever).
+      console.warn("get_my_permissions() not found; using role-based permissions until migrations are applied");
+      const { data: roleRows, error: rolesError } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", user!.id);
+      if (rolesError) throw rolesError;
+      return permissionsFromRoles((roleRows ?? []).map((r) => r.role as AppRole));
     },
     enabled: !!user?.id,
     staleTime: 60 * 1000,
-    retry: 3,
+    retry: (failureCount, error) => !isMissingFunctionError(error) && failureCount < 3,
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 5000),
   });
 
