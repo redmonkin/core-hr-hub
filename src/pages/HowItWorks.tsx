@@ -190,7 +190,7 @@ const HowItWorks = () => {
 
       <PublicCtaSection
         title="Ready to simplify your HR?"
-        description="Start managing your workforce effectively today. Get started in minutes — no credit card required."
+        description="Host it yourself for free under AGPL-3.0, or book a demo and we'll set it up for you."
       />
 
       <Footer />

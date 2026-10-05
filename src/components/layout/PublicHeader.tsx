@@ -1,12 +1,13 @@
 import { useState } from "react";
 import { Link, NavLink } from "react-router-dom";
-import { Menu } from "lucide-react";
+import { Github, Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import hrHubLogo from "@/assets/hr-hub-logo.svg";
 import { isProductionDomain } from "@/lib/domain";
 import { cn } from "@/lib/utils";
 import { DEMO_URL, PUBLIC_NAV_LINKS } from "./publicSite";
+import { REPO_URL } from "@/lib/site";
 
 /** Shared sticky header for all public (logged-out) pages, with a mobile menu below md. */
 const PublicHeader = () => {
@@ -39,6 +40,16 @@ const PublicHeader = () => {
         </div>
 
         <div className="flex items-center gap-2 sm:gap-3">
+          <a
+            href={REPO_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="Peoplo on GitHub"
+            className="hidden items-center gap-2 rounded-md px-2 py-2 text-sm text-muted-foreground transition-colors hover:text-foreground sm:inline-flex"
+          >
+            <Github className="h-4 w-4" aria-hidden="true" />
+            <span className="hidden lg:inline">GitHub</span>
+          </a>
           <Button asChild variant="ghost" size="sm">
             <Link to="/auth">Sign in</Link>
           </Button>
@@ -89,6 +100,12 @@ const PublicHeader = () => {
                     </a>
                   </Button>
                 )}
+                <Button asChild variant="ghost" className="w-full gap-2">
+                  <a href={REPO_URL} target="_blank" rel="noopener noreferrer">
+                    <Github className="h-4 w-4" aria-hidden="true" />
+                    View on GitHub
+                  </a>
+                </Button>
               </div>
             </SheetContent>
           </Sheet>

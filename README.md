@@ -1,6 +1,8 @@
-# CoreHR Hub
+# Peoplo (CoreHR Hub)
 
-A comprehensive HR management system built with React, TypeScript, and Supabase.
+[![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-blue.svg)](LICENSE)
+
+Open-source HR management for growing teams, built with React, TypeScript, and Supabase. Host it yourself for free, or use the managed version at [peoplo.redmonk.in](https://peoplo.redmonk.in).
 
 ## Features
 
@@ -406,4 +408,8 @@ PGHOST=localhost PGPORT=5432 PGUSER=postgres PGPASSWORD=postgres supabase/tests/
 
 ## License
 
-MIT License - feel free to use this for your own projects.
+Peoplo is licensed under the [GNU Affero General Public License v3.0](LICENSE) (AGPL-3.0-only).
+
+You can use, modify and self-host it freely, including for your own company's staff. If you modify Peoplo and let other people use it over a network, you must make your modified source available to them under the same license; keeping the "Source code" link in the app is the easiest way to do that.
+
+Releases published before the license change remain available under the MIT license they were released with.
