@@ -1,5 +1,6 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { statusBadgeClass, formatStatus } from "@/lib/statusStyles";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Clock, MapPin, CalendarDays, Coffee } from "lucide-react";
@@ -24,13 +25,6 @@ interface AttendanceRecord {
   clock_in_location_name: string | null;
   clock_out_location_name: string | null;
 }
-
-const statusStyles: Record<string, string> = {
-  present: "bg-emerald-500/10 text-emerald-600 border-emerald-500/20",
-  late: "bg-amber-500/10 text-amber-600 border-amber-500/20",
-  absent: "bg-destructive/10 text-destructive border-destructive/20",
-  "half-day": "bg-sky-500/10 text-sky-600 border-sky-500/20",
-};
 
 export function MyAttendanceHistory({ employeeId }: MyAttendanceHistoryProps) {
   const { data: records, isLoading } = useQuery({
@@ -103,14 +97,15 @@ export function MyAttendanceHistory({ employeeId }: MyAttendanceHistoryProps) {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Clock className="h-5 w-5" />
-          Attendance History
+          <Clock className="h-5 w-5" aria-hidden="true" />
+          Attendance history
         </CardTitle>
         <CardDescription>Your recent attendance records (last 30 days)</CardDescription>
       </CardHeader>
       <CardContent>
         {records && records.length > 0 ? (
-          <div className="overflow-x-auto">
+          <>
+          <div className="hidden overflow-x-auto sm:block">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -199,8 +194,8 @@ export function MyAttendanceHistory({ employeeId }: MyAttendanceHistoryProps) {
                       )}
                     </TableCell>
                     <TableCell>
-                      <Badge variant="outline" className={statusStyles[record.status] || ""}>
-                        {record.status}
+                      <Badge variant="outline" className={statusBadgeClass(record.status)}>
+                        {formatStatus(record.status)}
                       </Badge>
                     </TableCell>
                   </TableRow>
@@ -208,6 +203,48 @@ export function MyAttendanceHistory({ employeeId }: MyAttendanceHistoryProps) {
               </TableBody>
             </Table>
           </div>
+          <ul className="space-y-2 sm:hidden">
+            {records.map((record) => {
+              const breaks = getBreaksForRecord(record.id);
+              return (
+                <li key={record.id} className="rounded-lg border p-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="font-medium">{format(new Date(record.date), "EEE, MMM d, yyyy")}</p>
+                    <Badge variant="outline" className={statusBadgeClass(record.status)}>
+                      {formatStatus(record.status)}
+                    </Badge>
+                  </div>
+                  <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-sm">
+                    <dt className="text-muted-foreground">In / out</dt>
+                    <dd className="text-right">{formatTime(record.clock_in)} – {formatTime(record.clock_out)}</dd>
+                    <dt className="text-muted-foreground">Hours</dt>
+                    <dd className="text-right">{formatHours(record.total_hours)}</dd>
+                    {breaks.length > 0 && (
+                      <>
+                        <dt className="text-muted-foreground">Breaks</dt>
+                        <dd className="text-right">
+                          {breaks.length} · {calculateTotalBreakHours(breaks).toFixed(1)}h
+                        </dd>
+                      </>
+                    )}
+                    {record.work_mode && (
+                      <>
+                        <dt className="text-muted-foreground">Mode</dt>
+                        <dd className="text-right">{record.work_mode === "wfh" ? "WFH" : "Office"}</dd>
+                      </>
+                    )}
+                  </dl>
+                  {(record.clock_in_location_name || record.clock_out_location_name) && (
+                    <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
+                      <MapPin className="h-3 w-3 shrink-0" aria-hidden="true" />
+                      {record.clock_in_location_name || record.clock_out_location_name}
+                    </p>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+          </>
         ) : (
           <div className="text-center py-8 text-muted-foreground">
             <Clock className="mx-auto h-8 w-8 mb-2 opacity-50" />

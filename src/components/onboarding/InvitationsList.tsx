@@ -30,6 +30,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import { inviteEmployee } from "./inviteEmployee";
+import { statusBadgeClass } from "@/lib/statusStyles";
 
 type Invitation = Database["public"]["Tables"]["user_invitations"]["Row"];
 type InvitationStatus = "pending" | "accepted" | "revoked" | "expired";
@@ -43,17 +44,19 @@ function invitationStatus(inv: Invitation): InvitationStatus {
   return "pending";
 }
 
+const STATUS_LABEL: Record<InvitationStatus, string> = {
+  pending: "Pending",
+  accepted: "Account created",
+  revoked: "Revoked",
+  expired: "Expired",
+};
+
 function StatusBadge({ status }: { status: InvitationStatus }) {
-  switch (status) {
-    case "pending":
-      return <Badge variant="secondary">Pending</Badge>;
-    case "accepted":
-      return <Badge className="bg-green-100 text-green-800 hover:bg-green-100">Account created</Badge>;
-    case "revoked":
-      return <Badge variant="destructive">Revoked</Badge>;
-    case "expired":
-      return <Badge variant="outline">Expired</Badge>;
-  }
+  return (
+    <Badge variant="outline" className={`whitespace-nowrap ${statusBadgeClass(status)}`}>
+      {STATUS_LABEL[status]}
+    </Badge>
+  );
 }
 
 function useInvitations() {
@@ -146,6 +149,25 @@ export function InvitationsList({ canManage }: InvitationsListProps) {
     },
   });
 
+  const showActions = canManage && invitations.some((inv) => invitationStatus(inv) === "pending");
+
+  // Only name an inviter when we actually know who it was.
+  const inviterName = (inv: Invitation) => (inv.invited_by ? names.get(inv.invited_by) ?? null : null);
+
+  const renderRevoke = (inv: Invitation) => (
+    <Button
+      variant="outline"
+      size="sm"
+      className="h-9 text-red-700 hover:bg-red-50 hover:text-red-800"
+      onClick={() => setToRevoke(inv)}
+      disabled={revokeMutation.isPending}
+      aria-label={`Revoke invitation for ${inv.full_name || inv.email}`}
+    >
+      <Ban className="mr-2 h-4 w-4" aria-hidden="true" />
+      Revoke
+    </Button>
+  );
+
   const handleInvite = () => {
     if (!form.firstName.trim() || !form.lastName.trim()) {
       toast({ title: "Error", description: "First and last name are required", variant: "destructive" });
@@ -160,7 +182,7 @@ export function InvitationsList({ canManage }: InvitationsListProps) {
 
   return (
     <Card>
-      <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <CardHeader className="flex flex-col gap-4 p-4 sm:flex-row sm:p-6 sm:items-center sm:justify-between">
         <div className="space-y-1.5">
           <CardTitle>Invitations</CardTitle>
           <CardDescription>
@@ -168,13 +190,13 @@ export function InvitationsList({ canManage }: InvitationsListProps) {
           </CardDescription>
         </div>
         {canManage && (
-          <Button onClick={() => setInviteOpen(true)} className="shrink-0">
-            <MailPlus className="mr-2 h-4 w-4" />
+          <Button onClick={() => setInviteOpen(true)} className="self-start shrink-0 sm:self-auto">
+            <MailPlus className="mr-2 h-4 w-4" aria-hidden="true" />
             Invite to self-onboard
           </Button>
         )}
       </CardHeader>
-      <CardContent>
+      <CardContent className="p-4 pt-0 sm:p-6 sm:pt-0">
         {isLoading ? (
           <div className="flex items-center justify-center py-12">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -190,32 +212,35 @@ export function InvitationsList({ canManage }: InvitationsListProps) {
             <p className="text-muted-foreground">Invitations you send will show up here.</p>
           </div>
         ) : (
+          <>
+          {/* Table (sm and up) */}
+          <div className="hidden sm:block">
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>Invitee</TableHead>
                 <TableHead className="hidden md:table-cell">Invited by</TableHead>
-                <TableHead className="hidden sm:table-cell">Sent</TableHead>
+                <TableHead>Sent</TableHead>
                 <TableHead>Status</TableHead>
-                {canManage && <TableHead className="text-right">Actions</TableHead>}
+                {showActions && <TableHead className="w-[1%] whitespace-nowrap text-right">Actions</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
               {invitations.map((inv) => {
                 const status = invitationStatus(inv);
+                const inviter = inviterName(inv);
                 return (
-                  <TableRow key={inv.id}>
+                  <TableRow key={inv.id} data-invitation-row>
                     <TableCell>
-                      <p className="font-medium">{inv.full_name || "—"}</p>
-                      <p className="break-all text-xs text-muted-foreground">{inv.email}</p>
-                      <p className="text-xs text-muted-foreground sm:hidden">
-                        {format(new Date(inv.created_at), "MMM d, yyyy")}
-                      </p>
+                      <p className="break-words font-medium">{inv.full_name || inv.email}</p>
+                      {inv.full_name && (
+                        <p className="break-words text-xs text-muted-foreground">{inv.email}</p>
+                      )}
                     </TableCell>
                     <TableCell className="hidden text-muted-foreground md:table-cell">
-                      {inv.invited_by ? names.get(inv.invited_by) ?? "Unknown" : "System"}
+                      {inviter ?? "—"}
                     </TableCell>
-                    <TableCell className="hidden text-muted-foreground sm:table-cell">
+                    <TableCell className="whitespace-nowrap text-muted-foreground">
                       {format(new Date(inv.created_at), "MMM d, yyyy")}
                       {inv.expires_at && status === "pending" && (
                         <p className="text-xs">Expires {format(new Date(inv.expires_at), "MMM d")}</p>
@@ -224,20 +249,9 @@ export function InvitationsList({ canManage }: InvitationsListProps) {
                     <TableCell>
                       <StatusBadge status={status} />
                     </TableCell>
-                    {canManage && (
-                      <TableCell className="text-right">
-                        {status === "pending" && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="text-destructive hover:text-destructive"
-                            onClick={() => setToRevoke(inv)}
-                            disabled={revokeMutation.isPending}
-                          >
-                            <Ban className="h-4 w-4 sm:mr-2" />
-                            <span className="hidden sm:inline">Revoke</span>
-                          </Button>
-                        )}
+                    {showActions && (
+                      <TableCell className="w-[1%] whitespace-nowrap text-right">
+                        {status === "pending" && renderRevoke(inv)}
                       </TableCell>
                     )}
                   </TableRow>
@@ -245,6 +259,35 @@ export function InvitationsList({ canManage }: InvitationsListProps) {
               })}
             </TableBody>
           </Table>
+          </div>
+
+          {/* Cards (mobile) */}
+          <ul className="space-y-3 sm:hidden">
+            {invitations.map((inv) => {
+              const status = invitationStatus(inv);
+              const inviter = inviterName(inv);
+              return (
+                <li key={inv.id} data-invitation-row className="rounded-lg border p-3">
+                  <p className="truncate font-medium" title={inv.full_name || inv.email}>
+                    {inv.full_name || inv.email}
+                  </p>
+                  {inv.full_name && (
+                    <p className="truncate text-sm text-muted-foreground" title={inv.email}>{inv.email}</p>
+                  )}
+                  <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+                    <StatusBadge status={status} />
+                    <span>
+                      Sent {format(new Date(inv.created_at), "MMM d, yyyy")}
+                      {inviter && <> by {inviter}</>}
+                      {inv.expires_at && status === "pending" && <> · Expires {format(new Date(inv.expires_at), "MMM d")}</>}
+                    </span>
+                  </div>
+                  {canManage && status === "pending" && <div className="mt-2">{renderRevoke(inv)}</div>}
+                </li>
+              );
+            })}
+          </ul>
+          </>
         )}
         {invitations.length > 0 && (
           <p className="mt-4 text-xs text-muted-foreground">
@@ -297,7 +340,7 @@ export function InvitationsList({ canManage }: InvitationsListProps) {
               />
             </div>
           </div>
-          <DialogFooter className="gap-2 sm:gap-0">
+          <DialogFooter>
             <Button variant="outline" onClick={() => setInviteOpen(false)} disabled={inviteMutation.isPending}>
               Cancel
             </Button>
@@ -318,7 +361,7 @@ export function InvitationsList({ canManage }: InvitationsListProps) {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Revoke invitation?</AlertDialogTitle>
-            <AlertDialogDescription>
+            <AlertDialogDescription className="break-words">
               {toRevoke?.email} won't be able to create an account with this invitation. You can invite them again
               later.
             </AlertDialogDescription>

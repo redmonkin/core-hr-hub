@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Download, Loader2, FileText, ExternalLink } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
+import { documentTypeLabel } from "./documentTypes";
 
 interface DocumentInfo {
   id: string;
@@ -25,18 +26,6 @@ interface DocumentViewerDialogProps {
   documentInfo: DocumentInfo | null;
   bucketName?: string;
 }
-
-const DOCUMENT_TYPE_LABELS: Record<string, string> = {
-  id_proof: "ID Proof",
-  resume: "Resume",
-  offer_letter: "Offer Letter",
-  contract: "Contract",
-  other: "Others",
-  "W-2": "W-2",
-  "1099": "1099",
-  "Tax Statement": "Tax Statement",
-  "Tax Certificate": "Tax Certificate",
-};
 
 export function DocumentViewerDialog({
   open,
@@ -131,21 +120,21 @@ export function DocumentViewerDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
         <DialogHeader className="flex-shrink-0">
-          <div className="flex items-start justify-between gap-4">
-            <div className="space-y-1">
-              <DialogTitle className="flex items-center gap-2">
-                <FileText className="h-5 w-5" />
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+            <div className="min-w-0 space-y-1">
+              <DialogTitle className="flex items-start gap-2 break-words [overflow-wrap:anywhere]">
+                <FileText className="mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" />
                 {documentInfo.document_name}
               </DialogTitle>
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Badge variant="secondary">
-                  {DOCUMENT_TYPE_LABELS[documentInfo.document_type] || documentInfo.document_type}
+              <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+                <Badge variant="outline">
+                  {documentTypeLabel(documentInfo.document_type)}
                 </Badge>
                 <span>•</span>
                 <span>Uploaded {format(new Date(documentInfo.uploaded_at), "MMM d, yyyy")}</span>
               </div>
             </div>
-            <div className="flex gap-2">
+            <div className="flex shrink-0 gap-2">
               {previewUrl && (
                 <Button variant="outline" size="sm" onClick={handleOpenInNewTab}>
                   <ExternalLink className="h-4 w-4 mr-2" />

@@ -12,7 +12,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectContent,
@@ -32,17 +31,8 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import { WorkingDaysPicker } from "./WorkingDaysPicker";
 import { EmployeeLeaveEligibility, type EmployeeLeaveEligibilityHandle } from "./EmployeeLeaveEligibility";
-
-const WEEKDAYS = [
-  { value: 0, label: 'Sun' },
-  { value: 1, label: 'Mon' },
-  { value: 2, label: 'Tue' },
-  { value: 3, label: 'Wed' },
-  { value: 4, label: 'Thu' },
-  { value: 5, label: 'Fri' },
-  { value: 6, label: 'Sat' },
-];
 
 interface EmployeeEditDialogProps {
   employee: Employee | null;
@@ -468,21 +458,21 @@ export function EmployeeEditDialog({ employee, open, onOpenChange }: EmployeeEdi
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Edit Employee</DialogTitle>
+          <DialogTitle>Edit employee</DialogTitle>
         </DialogHeader>
         {isLoadingDetails ? (
           <div className="flex items-center justify-center py-8">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
           </div>
         ) : (
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <Tabs defaultValue="basic" className="w-full">
-              <TabsList className="grid w-full grid-cols-5">
-                <TabsTrigger value="basic">Basic Info</TabsTrigger>
-                <TabsTrigger value="job">Job Details</TabsTrigger>
-                <TabsTrigger value="schedule">Schedule</TabsTrigger>
-                <TabsTrigger value="salary">Salary</TabsTrigger>
-                <TabsTrigger value="leaves">Leaves</TabsTrigger>
+          <form onSubmit={handleSubmit} className="min-w-0 space-y-4">
+            <Tabs defaultValue="basic" className="w-full min-w-0">
+              <TabsList className="flex w-full justify-start sm:grid sm:grid-cols-5">
+                <TabsTrigger value="basic" className="shrink-0">Basic<span className="hidden sm:inline">&nbsp;info</span></TabsTrigger>
+                <TabsTrigger value="job" className="shrink-0">Job<span className="hidden sm:inline">&nbsp;details</span></TabsTrigger>
+                <TabsTrigger value="schedule" className="shrink-0">Schedule</TabsTrigger>
+                <TabsTrigger value="salary" className="shrink-0">Salary</TabsTrigger>
+                <TabsTrigger value="leaves" className="shrink-0">Leaves</TabsTrigger>
               </TabsList>
               
               <TabsContent value="basic" className="space-y-4 mt-4">
@@ -500,7 +490,7 @@ export function EmployeeEditDialog({ employee, open, onOpenChange }: EmployeeEdi
                   </div>
                 </div>
                 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
                     <Label htmlFor="first_name">First Name *</Label>
                     <Input
@@ -521,7 +511,7 @@ export function EmployeeEditDialog({ employee, open, onOpenChange }: EmployeeEdi
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
                     <Label htmlFor="email">Email *</Label>
                     <Input
@@ -542,7 +532,7 @@ export function EmployeeEditDialog({ employee, open, onOpenChange }: EmployeeEdi
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
                     <Label htmlFor="date_of_birth">Date of Birth</Label>
                     <Input
@@ -559,7 +549,7 @@ export function EmployeeEditDialog({ employee, open, onOpenChange }: EmployeeEdi
                       value={formData.gender}
                       onValueChange={(value) => setFormData({ ...formData, gender: value })}
                     >
-                      <SelectTrigger>
+                      <SelectTrigger id="gender">
                         <SelectValue placeholder="Select gender" />
                       </SelectTrigger>
                       <SelectContent>
@@ -582,7 +572,7 @@ export function EmployeeEditDialog({ employee, open, onOpenChange }: EmployeeEdi
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
                     <Label htmlFor="city">City</Label>
                     <Input
@@ -601,7 +591,7 @@ export function EmployeeEditDialog({ employee, open, onOpenChange }: EmployeeEdi
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
                     <Label htmlFor="bank_name">Bank Name</Label>
                     <Input
@@ -623,7 +613,7 @@ export function EmployeeEditDialog({ employee, open, onOpenChange }: EmployeeEdi
               </TabsContent>
 
               <TabsContent value="job" className="space-y-4 mt-4">
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
                     <Label htmlFor="designation">Designation *</Label>
                     <Input
@@ -645,14 +635,14 @@ export function EmployeeEditDialog({ employee, open, onOpenChange }: EmployeeEdi
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
                     <Label htmlFor="department">Department</Label>
                     <Select
                       value={formData.department_id}
                       onValueChange={(value) => setFormData({ ...formData, department_id: value })}
                     >
-                      <SelectTrigger>
+                      <SelectTrigger id="department">
                         <SelectValue placeholder="Select department" />
                       </SelectTrigger>
                       <SelectContent>
@@ -670,7 +660,7 @@ export function EmployeeEditDialog({ employee, open, onOpenChange }: EmployeeEdi
                       value={formData.employment_type}
                       onValueChange={(value) => setFormData({ ...formData, employment_type: value })}
                     >
-                      <SelectTrigger>
+                      <SelectTrigger id="employment_type">
                         <SelectValue placeholder="Select type" />
                       </SelectTrigger>
                       <SelectContent>
@@ -714,7 +704,7 @@ export function EmployeeEditDialog({ employee, open, onOpenChange }: EmployeeEdi
                     value={formData.manager_id}
                     onValueChange={(value) => setFormData({ ...formData, manager_id: value === "none" ? "" : value })}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger id="manager">
                       <SelectValue placeholder="Select manager" />
                     </SelectTrigger>
                     <SelectContent>
@@ -741,7 +731,7 @@ export function EmployeeEditDialog({ employee, open, onOpenChange }: EmployeeEdi
                     value={formData.status}
                     onValueChange={(value) => setFormData({ ...formData, status: value })}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger id="status">
                       <SelectValue placeholder="Select status" />
                     </SelectTrigger>
                     <SelectContent>
@@ -755,7 +745,7 @@ export function EmployeeEditDialog({ employee, open, onOpenChange }: EmployeeEdi
               </TabsContent>
 
               <TabsContent value="schedule" className="space-y-4 mt-4">
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
                     <Label htmlFor="working_hours_start">Work Start Time</Label>
                     <Input
@@ -777,33 +767,12 @@ export function EmployeeEditDialog({ employee, open, onOpenChange }: EmployeeEdi
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Working Days</Label>
-                  <div className="flex flex-wrap gap-2">
-                    {WEEKDAYS.map((day) => (
-                      <label
-                        key={day.value}
-                        className="flex items-center gap-2 rounded-md border border-border px-3 py-2 cursor-pointer hover:bg-muted/50"
-                      >
-                        <Checkbox
-                          checked={formData.working_days.includes(day.value)}
-                          onCheckedChange={(checked) => {
-                            if (checked) {
-                              setFormData({
-                                ...formData,
-                                working_days: [...formData.working_days, day.value].sort(),
-                              });
-                            } else {
-                              setFormData({
-                                ...formData,
-                                working_days: formData.working_days.filter((d) => d !== day.value),
-                              });
-                            }
-                          }}
-                        />
-                        <span className="text-sm">{day.label}</span>
-                      </label>
-                    ))}
-                  </div>
+                  <Label id="edit-working-days-label">Working days</Label>
+                  <WorkingDaysPicker
+                    labelledBy="edit-working-days-label"
+                    value={formData.working_days}
+                    onChange={(days) => setFormData({ ...formData, working_days: days })}
+                  />
                 </div>
               </TabsContent>
 
@@ -817,7 +786,7 @@ export function EmployeeEditDialog({ employee, open, onOpenChange }: EmployeeEdi
                     <p className="text-xs text-muted-foreground">
                       All amounts below are <span className="font-medium text-foreground">monthly</span> figures, not annual (CTC).
                     </p>
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                       <div className="space-y-2">
                         <Label htmlFor="basic_salary">Basic Salary (Monthly) *</Label>
                         <div className="relative">
@@ -845,7 +814,7 @@ export function EmployeeEditDialog({ employee, open, onOpenChange }: EmployeeEdi
 
                     <div className="space-y-3">
                       <h4 className="text-sm font-medium text-muted-foreground">Allowances</h4>
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                         <div className="space-y-2">
                           <Label htmlFor="hra">HRA</Label>
                           <div className="relative">
@@ -907,7 +876,7 @@ export function EmployeeEditDialog({ employee, open, onOpenChange }: EmployeeEdi
 
                     <div className="space-y-3">
                       <h4 className="text-sm font-medium text-muted-foreground">Deductions</h4>
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                         <div className="space-y-2">
                           <Label htmlFor="tax_deduction">Tax Deduction</Label>
                           <div className="relative">
@@ -1057,7 +1026,7 @@ export function EmployeeEditDialog({ employee, open, onOpenChange }: EmployeeEdi
               </Button>
               <Button type="submit" disabled={updateMutation.isPending || salaryMutation.isPending}>
                 {(updateMutation.isPending || salaryMutation.isPending) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Save Changes
+                Save changes
               </Button>
             </DialogFooter>
           </form>

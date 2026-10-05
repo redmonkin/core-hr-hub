@@ -90,6 +90,7 @@ export function useUploadDocument() {
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["employee-documents", variables.employeeId] });
+      queryClient.invalidateQueries({ queryKey: ["my-tax-documents", variables.employeeId] });
       toast.success("Document uploaded successfully");
     },
     onError: (error) => {
@@ -120,6 +121,7 @@ export function useDeleteDocument() {
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["employee-documents", variables.employeeId] });
+      queryClient.invalidateQueries({ queryKey: ["my-tax-documents", variables.employeeId] });
       toast.success("Document deleted successfully");
     },
     onError: (error) => {

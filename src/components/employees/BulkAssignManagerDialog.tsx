@@ -97,7 +97,7 @@ export function BulkAssignManagerDialog({
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Users className="h-5 w-5" />
+            <Users className="h-5 w-5" aria-hidden="true" />
             Assign Reporting Manager
           </DialogTitle>
           <DialogDescription>
@@ -134,7 +134,7 @@ export function BulkAssignManagerDialog({
               onValueChange={setSelectedManagerId}
               disabled={isLoadingManagers}
             >
-              <SelectTrigger>
+              <SelectTrigger id="manager">
                 <SelectValue placeholder="Select a manager" />
               </SelectTrigger>
               <SelectContent>

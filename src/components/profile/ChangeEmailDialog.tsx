@@ -116,23 +116,23 @@ export function ChangeEmailDialog({ currentEmail }: ChangeEmailDialogProps) {
       return;
     }
 
-    toast({ title: "Email Updated", description: "Your email address has been changed." });
+    toast({ title: "Email updated", description: "Your email address has been changed." });
     resetAndClose();
   };
 
   return (
     <Dialog open={open} onOpenChange={(next) => (next ? setOpen(true) : resetAndClose())}>
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm">
-          <Mail className="mr-2 h-4 w-4" />
-          Change Email
+        <Button variant="outline" className="h-10 shrink-0 self-start sm:self-auto">
+          <Mail className="mr-2 h-4 w-4" aria-hidden="true" />
+          Change email
         </Button>
       </DialogTrigger>
       <DialogContent>
         {step === "email" ? (
           <>
             <DialogHeader>
-              <DialogTitle>Change Email Address</DialogTitle>
+              <DialogTitle>Change email address</DialogTitle>
               <DialogDescription>
                 We'll send confirmation codes to your current and new address. Your login email won't change until
                 you confirm both.
@@ -140,11 +140,11 @@ export function ChangeEmailDialog({ currentEmail }: ChangeEmailDialogProps) {
             </DialogHeader>
             <div className="space-y-4 py-2">
               <div className="space-y-2">
-                <Label>Current Email</Label>
-                <Input value={currentEmail} disabled />
+                <Label htmlFor="current-email">Current email</Label>
+                <Input id="current-email" value={currentEmail} readOnly className="cursor-default bg-muted/50" />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="new-email">New Email</Label>
+                <Label htmlFor="new-email">New email</Label>
                 <Input
                   id="new-email"
                   type="email"
@@ -160,14 +160,14 @@ export function ChangeEmailDialog({ currentEmail }: ChangeEmailDialogProps) {
               </Button>
               <Button onClick={handleSendCode} disabled={isSubmitting || !newEmail}>
                 {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Send Code
+                Send code
               </Button>
             </DialogFooter>
           </>
         ) : (
           <>
             <DialogHeader>
-              <DialogTitle>Enter Confirmation Codes</DialogTitle>
+              <DialogTitle>Enter confirmation codes</DialogTitle>
               <DialogDescription>
                 Two different codes were sent — one to your current email, one to your new email. Enter both to
                 confirm the change.
@@ -175,7 +175,7 @@ export function ChangeEmailDialog({ currentEmail }: ChangeEmailDialogProps) {
             </DialogHeader>
             <div className="space-y-4 py-2">
               <div className="space-y-2">
-                <Label htmlFor="current-email-code">Code from {currentEmail}</Label>
+                <Label htmlFor="current-email-code" className="break-words">Code from {currentEmail}</Label>
                 <Input
                   id="current-email-code"
                   inputMode="numeric"
@@ -186,7 +186,7 @@ export function ChangeEmailDialog({ currentEmail }: ChangeEmailDialogProps) {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="new-email-code">Code from {newEmail}</Label>
+                <Label htmlFor="new-email-code" className="break-words">Code from {newEmail}</Label>
                 <Input
                   id="new-email-code"
                   inputMode="numeric"

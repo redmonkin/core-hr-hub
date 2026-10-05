@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { statusBadgeClass, formatStatus, pluralizeDays } from "@/lib/statusStyles";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ClipboardList, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -20,13 +21,6 @@ interface LeaveRequest {
   created_at: string;
   leave_types: { name: string } | null;
 }
-
-const statusStyles: Record<string, string> = {
-  pending: "bg-amber-500/10 text-amber-600 border-amber-500/20",
-  approved: "bg-emerald-500/10 text-emerald-600 border-emerald-500/20",
-  rejected: "bg-destructive/10 text-destructive border-destructive/20",
-  cancelled: "bg-muted text-muted-foreground border-border",
-};
 
 export function LeaveRequestHistory({ employeeId }: LeaveRequestHistoryProps) {
   const { data: requests, isLoading } = useQuery({
@@ -66,89 +60,70 @@ export function LeaveRequestHistory({ employeeId }: LeaveRequestHistoryProps) {
   const pendingRequests = requests?.filter((r) => r.status === "pending") || [];
   const pastRequests = requests?.filter((r) => r.status !== "pending") || [];
 
+  const formatRange = (start: string, end: string) =>
+    start === end
+      ? format(new Date(start), "MMM d, yyyy")
+      : `${format(new Date(start), "MMM d")} – ${format(new Date(end), "MMM d, yyyy")}`;
+
+  const renderGroup = (title: string, items: NonNullable<typeof requests>) => (
+    <div>
+      <h4 className="mb-3 text-sm font-medium">{title}</h4>
+      <div className="hidden rounded-lg border sm:block">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Type</TableHead>
+              <TableHead>Dates</TableHead>
+              <TableHead>Days</TableHead>
+              <TableHead>Status</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {items.map((request) => (
+              <TableRow key={request.id}>
+                <TableCell className="font-medium">{request.leave_types?.name || "Leave"}</TableCell>
+                <TableCell className="whitespace-nowrap">{formatRange(request.start_date, request.end_date)}</TableCell>
+                <TableCell>{request.days_count}</TableCell>
+                <TableCell>
+                  <Badge variant="outline" className={statusBadgeClass(request.status)}>
+                    {formatStatus(request.status)}
+                  </Badge>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+      <ul className="space-y-2 sm:hidden">
+        {items.map((request) => (
+          <li key={request.id} className="flex items-start justify-between gap-3 rounded-lg border p-3">
+            <div className="min-w-0">
+              <p className="font-medium">{request.leave_types?.name || "Leave"}</p>
+              <p className="text-sm text-muted-foreground">
+                {formatRange(request.start_date, request.end_date)} · {pluralizeDays(Number(request.days_count))}
+              </p>
+            </div>
+            <Badge variant="outline" className={statusBadgeClass(request.status)}>
+              {formatStatus(request.status)}
+            </Badge>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+
   return (
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <ClipboardList className="h-5 w-5" />
-          Leave Requests
+          <ClipboardList className="h-5 w-5" aria-hidden="true" />
+          Leave requests
         </CardTitle>
         <CardDescription>Track your submitted leave requests</CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
-        {/* Pending Requests */}
-        {pendingRequests.length > 0 && (
-          <div>
-            <h4 className="text-sm font-medium mb-3">Pending Approval ({pendingRequests.length})</h4>
-            <div className="rounded-lg border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Dates</TableHead>
-                    <TableHead>Days</TableHead>
-                    <TableHead>Status</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {pendingRequests.map((request) => (
-                    <TableRow key={request.id}>
-                      <TableCell className="font-medium">
-                        {request.leave_types?.name || "Leave"}
-                      </TableCell>
-                      <TableCell>
-                        {format(new Date(request.start_date), "MMM d")} - {format(new Date(request.end_date), "MMM d, yyyy")}
-                      </TableCell>
-                      <TableCell>{request.days_count}</TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className={statusStyles[request.status]}>
-                          {request.status}
-                        </Badge>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          </div>
-        )}
-
-        {/* Past Requests */}
-        {pastRequests.length > 0 && (
-          <div>
-            <h4 className="text-sm font-medium mb-3">Past Requests ({pastRequests.length})</h4>
-            <div className="rounded-lg border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Dates</TableHead>
-                    <TableHead>Days</TableHead>
-                    <TableHead>Status</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {pastRequests.map((request) => (
-                    <TableRow key={request.id}>
-                      <TableCell className="font-medium">
-                        {request.leave_types?.name || "Leave"}
-                      </TableCell>
-                      <TableCell>
-                        {format(new Date(request.start_date), "MMM d")} - {format(new Date(request.end_date), "MMM d, yyyy")}
-                      </TableCell>
-                      <TableCell>{request.days_count}</TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className={statusStyles[request.status]}>
-                          {request.status}
-                        </Badge>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          </div>
-        )}
+        {pendingRequests.length > 0 && renderGroup(`Pending approval (${pendingRequests.length})`, pendingRequests)}
+        {pastRequests.length > 0 && renderGroup(`Past requests (${pastRequests.length})`, pastRequests)}
 
         {(!requests || requests.length === 0) && (
           <div className="text-center py-6 text-muted-foreground">

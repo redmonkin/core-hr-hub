@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { statusBadgeClass, formatStatus } from "@/lib/statusStyles";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { AlertTriangle, Trash2 } from "lucide-react";
 import { Employee } from "./EmployeeTable";
@@ -21,13 +22,6 @@ interface BulkDeleteDialogProps {
   onConfirm: () => void;
   isDeleting?: boolean;
 }
-
-const statusStyles: Record<string, string> = {
-  active: "bg-emerald-500/10 text-emerald-600 border-emerald-500/20",
-  inactive: "bg-muted text-muted-foreground border-border",
-  onboarding: "bg-primary/10 text-primary border-primary/20",
-  offboarded: "bg-destructive/10 text-destructive border-destructive/20",
-};
 
 export function BulkDeleteDialog({
   open,
@@ -76,9 +70,9 @@ export function BulkDeleteDialog({
                   </span>
                   <Badge 
                     variant="outline" 
-                    className={`text-xs ${statusStyles[employee.status] || ''}`}
+                    className={`text-xs ${statusBadgeClass(employee.status)}`}
                   >
-                    {employee.status}
+                    {formatStatus(employee.status)}
                   </Badge>
                 </div>
               </div>

@@ -1,5 +1,6 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { statusBadgeClass } from "@/lib/statusStyles";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Package, Calendar, Tag, AlertCircle } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
@@ -57,8 +58,8 @@ export function MyAssets({ employeeId }: MyAssetsProps) {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Package className="h-5 w-5" />
-            My Assets
+            <Package className="h-5 w-5" aria-hidden="true" />
+            My assets
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -80,8 +81,8 @@ export function MyAssets({ employeeId }: MyAssetsProps) {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Package className="h-5 w-5" />
-            Currently Assigned Assets
+            <Package className="h-5 w-5" aria-hidden="true" />
+            Currently assigned assets
           </CardTitle>
           <CardDescription>Assets currently in your possession</CardDescription>
         </CardHeader>
@@ -93,12 +94,12 @@ export function MyAssets({ employeeId }: MyAssetsProps) {
                   key={assignment.id}
                   className="rounded-lg border p-4 space-y-3"
                 >
-                  <div className="flex items-start justify-between">
+                  <div className="flex items-start justify-between gap-2">
                     <div>
-                      <h4 className="font-medium">{assignment.asset?.name || "Unknown Asset"}</h4>
+                      <h4 className="font-medium">{assignment.asset?.name || "Unknown asset"}</h4>
                       <p className="text-sm text-muted-foreground">{assignment.asset?.asset_code}</p>
                     </div>
-                    <Badge variant="secondary" className="text-xs">
+                    <Badge variant="outline" className="shrink-0 text-xs capitalize">
                       {assignment.asset?.category}
                     </Badge>
                   </div>
@@ -130,7 +131,7 @@ export function MyAssets({ employeeId }: MyAssetsProps) {
       {returnedAssets.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Previously Assigned Assets</CardTitle>
+            <CardTitle className="text-lg">Previously assigned assets</CardTitle>
             <CardDescription>Assets you have returned</CardDescription>
           </CardHeader>
           <CardContent>
@@ -138,14 +139,14 @@ export function MyAssets({ employeeId }: MyAssetsProps) {
               {returnedAssets.map((assignment) => (
                 <div
                   key={assignment.id}
-                  className="rounded-lg border border-dashed p-4 space-y-2 opacity-75"
+                  className="rounded-lg border border-dashed p-4 space-y-2"
                 >
-                  <div className="flex items-start justify-between">
+                  <div className="flex items-start justify-between gap-2">
                     <div>
-                      <h4 className="font-medium">{assignment.asset?.name || "Unknown Asset"}</h4>
+                      <h4 className="font-medium">{assignment.asset?.name || "Unknown asset"}</h4>
                       <p className="text-sm text-muted-foreground">{assignment.asset?.asset_code}</p>
                     </div>
-                    <Badge variant="outline" className="text-xs">
+                    <Badge variant="outline" className={`shrink-0 text-xs ${statusBadgeClass("returned")}`}>
                       Returned
                     </Badge>
                   </div>

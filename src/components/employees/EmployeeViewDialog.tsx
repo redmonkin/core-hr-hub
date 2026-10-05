@@ -7,6 +7,7 @@ import {
 } from "@/components/ui/dialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { statusBadgeClass, formatStatus } from "@/lib/statusStyles";
 import { Card, CardContent } from "@/components/ui/card";
 import { Mail, Phone, Building2, Briefcase, Calendar, UserCheck, Crown, Hash } from "lucide-react";
 import { Employee } from "./EmployeeTable";
@@ -17,13 +18,6 @@ interface EmployeeViewDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
-
-const statusStyles = {
-  active: "bg-emerald-500/10 text-emerald-600 border-emerald-500/20",
-  inactive: "bg-muted text-muted-foreground border-border",
-  onboarding: "bg-primary/10 text-primary border-primary/20",
-  offboarded: "bg-destructive/10 text-destructive border-destructive/20",
-};
 
 export function EmployeeViewDialog({ employee, open, onOpenChange }: EmployeeViewDialogProps) {
   // Fetch extended employee details including manager and department head
@@ -77,7 +71,7 @@ export function EmployeeViewDialog({ employee, open, onOpenChange }: EmployeeVie
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Employee Profile</DialogTitle>
+          <DialogTitle>Employee profile</DialogTitle>
         </DialogHeader>
         <div className="space-y-6">
           {/* Profile Header */}
@@ -91,8 +85,8 @@ export function EmployeeViewDialog({ employee, open, onOpenChange }: EmployeeVie
             <div>
               <p className="text-xs font-mono text-muted-foreground mb-1">{employee.employeeCode}</p>
               <h3 className="text-lg font-semibold text-foreground">{employee.name}</h3>
-              <Badge variant="outline" className={statusStyles[employee.status]}>
-                {employee.status}
+              <Badge variant="outline" className={statusBadgeClass(employee.status)}>
+                {formatStatus(employee.status)}
               </Badge>
             </div>
           </div>
@@ -105,8 +99,8 @@ export function EmployeeViewDialog({ employee, open, onOpenChange }: EmployeeVie
                 <span className="font-mono text-muted-foreground">{employee.employeeCode}</span>
               </div>
               <div className="flex items-center gap-3 text-sm">
-                <Mail className="h-4 w-4 text-muted-foreground" />
-                <span className="text-muted-foreground">{employee.email}</span>
+                <Mail className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                <span className="min-w-0 break-words text-muted-foreground [overflow-wrap:anywhere]">{employee.email}</span>
               </div>
               {employee.phone && (
                 <div className="flex items-center gap-3 text-sm">
