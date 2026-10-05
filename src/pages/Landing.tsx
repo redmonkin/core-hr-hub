@@ -5,7 +5,6 @@ import {
   Bell,
   CalendarDays,
   CheckCircle,
-  ChevronDown,
   Clock,
   Cloud,
   Code2,
@@ -138,37 +137,6 @@ const openSourcePoints = [
   { icon: Layers, text: "Fork it and adapt it to your policies and workflows." },
   { icon: Scale, text: "AGPL-3.0 keeps improvements open, including on hosted versions." },
   { icon: Bell, text: "Report issues and suggest features in the open on GitHub." },
-];
-
-const faqs = [
-  {
-    q: "Is Peoplo really free?",
-    a: "Yes. The full app is open source under the AGPL-3.0 license, and you can run it on your own Supabase project at no cost. If you'd rather not run it yourself, we offer a managed workspace.",
-  },
-  {
-    q: "What does the AGPL-3.0 license mean for my company?",
-    a: "You can use, run and modify Peoplo for your own organisation freely. If you change it and offer it to others over a network, you must share your changes under the same license. Using it internally for your own staff doesn't require publishing anything.",
-  },
-  {
-    q: "Where is our data stored?",
-    a: "When you self-host, everything lives in your own Supabase project: your database, your file storage, your region. Nothing is sent to us.",
-  },
-  {
-    q: "Who can see salaries and personal details?",
-    a: "Only people you give access to. Payroll, employee records and every other module have view and manage levels, enforced by the database itself.",
-  },
-  {
-    q: "Can employees sign up on their own?",
-    a: "No. Accounts are invite-only. HR sends an invitation, the person completes their onboarding details, and HR approves them.",
-  },
-  {
-    q: "Can several companies share one Peoplo?",
-    a: "No. Each Peoplo deployment is one company's workspace, tied to your email domain, so your data never sits alongside another organisation's. Self-host your own, or book a demo and we'll set up a dedicated workspace for you.",
-  },
-  {
-    q: "Does it work on phones?",
-    a: "Yes. Peoplo is a progressive web app, so people can clock in, apply for leave and check payslips from their phone and get push notifications.",
-  },
 ];
 
 function ExternalLink({ href, className, children }: { href: string; className?: string; children: ReactNode }) {
@@ -537,26 +505,6 @@ const Landing = () => {
               Compare plans
             </Link>
           </p>
-        </section>
-
-        {/* FAQ */}
-        <section id="faq" className="scroll-mt-20 border-t border-border bg-card py-24 md:py-32">
-          <div className="container mx-auto max-w-3xl px-4">
-            <SectionHeading eyebrow="FAQ" title="Questions, answered" text="What people usually ask before trusting a tool with their team's data." />
-            <Reveal>
-              <div className="divide-y divide-border rounded-2xl border border-border bg-background">
-                {faqs.map((faq) => (
-                  <details key={faq.q} className="group px-5 [&_summary::-webkit-details-marker]:hidden">
-                    <summary className="flex cursor-pointer list-none items-center justify-between gap-4 py-4 text-left text-base font-semibold text-foreground transition-colors hover:text-primary">
-                      <h3>{faq.q}</h3>
-                      <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200 group-open:rotate-180" aria-hidden="true" />
-                    </summary>
-                    <p className="pb-5 text-base text-muted-foreground">{faq.a}</p>
-                  </details>
-                ))}
-              </div>
-            </Reveal>
-          </div>
         </section>
 
         {/* CTA */}

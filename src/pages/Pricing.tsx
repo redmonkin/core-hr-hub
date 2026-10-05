@@ -8,7 +8,8 @@ import {
   Github,
   Cloud,
   Zap,
-  HeartHandshake
+  HeartHandshake,
+  ChevronDown
 } from "lucide-react";
 import Footer from "@/components/layout/Footer";
 import PublicHeader from "@/components/layout/PublicHeader";
@@ -37,7 +38,7 @@ const plans = [
   },
   {
     name: "Cloud Hosted",
-    price: "₹499",
+    price: "₹3,500",
     period: "/month",
     description: "We handle hosting, updates, and backups. You focus on your business.",
     icon: <Cloud className="h-6 w-6" />,
@@ -86,6 +87,30 @@ const faqs = [
   {
     question: "How do I get a hosted workspace?",
     answer: "Book a demo and we'll set up a workspace for your company. Accounts are invite-only, so once it's ready you invite your team from inside Peoplo."
+  },
+  {
+    question: "What does the AGPL-3.0 license mean for my company?",
+    answer: "You can use, run and modify Peoplo for your own organisation freely. If you change it and offer it to others over a network, you must share your changes under the same license. Using it internally for your own staff doesn't require publishing anything."
+  },
+  {
+    question: "Where is our data stored?",
+    answer: "When you self-host, everything lives in your own Supabase project: your database, your file storage, your region. Nothing is sent to us."
+  },
+  {
+    question: "Who can see salaries and personal details?",
+    answer: "Only people you give access to. Payroll, employee records and every other module have view and manage levels, enforced by the database itself."
+  },
+  {
+    question: "Can employees sign up on their own?",
+    answer: "No. Accounts are invite-only. HR sends an invitation, the person completes their onboarding details, and HR approves them."
+  },
+  {
+    question: "Can several companies share one Peoplo?",
+    answer: "No. Each Peoplo deployment is one company's workspace, tied to your email domain, so your data never sits alongside another organisation's. Self-host your own, or book a demo and we'll set up a dedicated workspace for you."
+  },
+  {
+    question: "Does it work on phones?",
+    answer: "Yes. Peoplo is a progressive web app, so people can clock in, apply for leave and check payslips from their phone and get push notifications."
   },
   {
     question: "Do you offer discounts for NGOs?",
@@ -183,17 +208,18 @@ const Pricing = () => {
               Frequently Asked Questions
             </h2>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-              Everything you need to know about our pricing and plans.
+              Pricing, licensing, data and how Peoplo works for your team.
             </p>
           </div>
-          <div className="grid md:grid-cols-2 gap-6 max-w-4xl mx-auto">
-            {faqs.map((faq, index) => (
-              <Card key={index} className="hover:shadow-lg transition-all duration-300 hover:border-primary/30">
-                <CardContent className="p-6">
-                  <h3 className="font-semibold text-lg mb-3">{faq.question}</h3>
-                  <p className="text-muted-foreground">{faq.answer}</p>
-                </CardContent>
-              </Card>
+          <div className="mx-auto max-w-3xl divide-y divide-border rounded-2xl border border-border bg-card">
+            {faqs.map((faq) => (
+              <details key={faq.question} className="group px-5 [&_summary::-webkit-details-marker]:hidden">
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-4 py-4 text-left text-base font-semibold text-foreground transition-colors hover:text-primary">
+                  <h3>{faq.question}</h3>
+                  <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200 group-open:rotate-180" aria-hidden="true" />
+                </summary>
+                <p className="pb-5 text-base text-muted-foreground">{faq.answer}</p>
+              </details>
             ))}
           </div>
         </div>
