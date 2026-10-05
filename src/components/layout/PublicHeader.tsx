@@ -1,16 +1,15 @@
 import { useState } from "react";
 import { Link, NavLink } from "react-router-dom";
-import { Menu } from "lucide-react";
+import { Github, Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import hrHubLogo from "@/assets/hr-hub-logo.svg";
-import { isProductionDomain } from "@/lib/domain";
 import { cn } from "@/lib/utils";
 import { DEMO_URL, PUBLIC_NAV_LINKS } from "./publicSite";
+import { REPO_URL } from "@/lib/site";
 
 /** Shared sticky header for all public (logged-out) pages, with a mobile menu below md. */
 const PublicHeader = () => {
-  const isProduction = isProductionDomain();
   const [open, setOpen] = useState(false);
 
   return (
@@ -39,16 +38,24 @@ const PublicHeader = () => {
         </div>
 
         <div className="flex items-center gap-2 sm:gap-3">
+          <a
+            href={REPO_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="Peoplo on GitHub"
+            className="hidden items-center gap-2 rounded-md px-2 py-2 text-sm text-muted-foreground transition-colors hover:text-foreground sm:inline-flex"
+          >
+            <Github className="h-4 w-4" aria-hidden="true" />
+            <span className="hidden lg:inline">GitHub</span>
+          </a>
           <Button asChild variant="ghost" size="sm">
             <Link to="/auth">Sign in</Link>
           </Button>
-          {isProduction && (
-            <Button asChild size="sm" className="hidden sm:inline-flex">
-              <a href={DEMO_URL} target="_blank" rel="noopener noreferrer">
-                Request demo
-              </a>
-            </Button>
-          )}
+          <Button asChild size="sm" className="hidden sm:inline-flex">
+            <a href={DEMO_URL} target="_blank" rel="noopener noreferrer">
+              Book a demo
+            </a>
+          </Button>
           <Sheet open={open} onOpenChange={setOpen}>
             <SheetTrigger asChild>
               <Button variant="ghost" size="icon" className="h-10 w-10 md:hidden" aria-label="Open menu">
@@ -82,13 +89,17 @@ const PublicHeader = () => {
                     Sign in
                   </Link>
                 </Button>
-                {isProduction && (
-                  <Button asChild variant="outline" className="w-full">
-                    <a href={DEMO_URL} target="_blank" rel="noopener noreferrer">
-                      Request demo
-                    </a>
-                  </Button>
-                )}
+                <Button asChild variant="outline" className="w-full">
+                  <a href={DEMO_URL} target="_blank" rel="noopener noreferrer">
+                    Book a demo
+                  </a>
+                </Button>
+                <Button asChild variant="ghost" className="w-full gap-2">
+                  <a href={REPO_URL} target="_blank" rel="noopener noreferrer">
+                    <Github className="h-4 w-4" aria-hidden="true" />
+                    View on GitHub
+                  </a>
+                </Button>
               </div>
             </SheetContent>
           </Sheet>

@@ -1,3 +1,4 @@
+import { REPO_URL } from "@/lib/site";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -148,7 +149,7 @@ export default function Changelog() {
             </Button>
             <Button size="sm" asChild>
               <a
-                href="https://github.com/redmonk-org/peoplo/releases"
+                href={`${REPO_URL}/releases`}
                 target="_blank"
                 rel="noopener noreferrer"
               >

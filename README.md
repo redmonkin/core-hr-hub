@@ -1,409 +1,118 @@
-# CoreHR Hub
+<div align="center">
 
-A comprehensive HR management system built with React, TypeScript, and Supabase.
+<img src="src/assets/hr-hub-logo.svg" alt="" width="72" height="72" />
+
+# Peoplo
+
+**Open-source HR for growing teams.**
+
+People, onboarding, attendance, leave, payroll, performance, reimbursements and assets, in one secure app you can host yourself. Built on React and Supabase, with payroll in ₹.
+
+[Website](https://peoplo.redmonk.in) · [Self-hosting](docs/self-hosting.md) · [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md) · [Changelog](CHANGELOG.md)
+
+[![CI](https://github.com/redmonkin/core-hr-hub/actions/workflows/ci.yml/badge.svg)](https://github.com/redmonkin/core-hr-hub/actions/workflows/ci.yml)
+[![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-0284C7.svg)](LICENSE)
+[![GitHub stars](https://img.shields.io/github/stars/redmonkin/core-hr-hub?style=flat&color=0284C7)](https://github.com/redmonkin/core-hr-hub/stargazers)
+[![PRs welcome](https://img.shields.io/badge/PRs-welcome-0284C7.svg)](CONTRIBUTING.md)
+
+</div>
 
 ## Features
 
-- **Employee Management** - Full CRUD operations, bulk actions, manager assignments
-- **Leave Management** - Request, approve, and track leave balances
-- **Attendance Tracking** - Clock in/out with reminders
-- **Payroll** - Salary structures, payslips, and history tracking
-- **Performance Reviews** - Goals, reviews, and analytics
-- **Asset Management** - Track company assets assigned to employees
-- **Document Management** - Secure employee document storage
-- **Notifications** - Email notifications via Resend
-- **Role-Based Access** - Admin, HR, Manager, and Employee roles
+- **People & departments**: one record per person with job details, manager, documents, assets and history.
+- **Invite-only onboarding**: invite people by email; they complete their details and HR approves them. Accounts can be limited to your company's email domains.
+- **Attendance**: clock in and out with location and breaks, working schedules, and reminders.
+- **Leave & holidays**: leave types and balances, manager approvals, a team calendar and company holidays.
+- **Payroll & payslips**: salary structures, monthly payroll runs, PF and other deductions, and branded payslip PDFs.
+- **Performance**: KPIs, review cycles with self and manager ratings, and team analytics.
+- **Reimbursements**: claims with receipts, manager approval and payment tracking.
+- **Assets**: equipment, who has it, and assignment history.
+- **Reports**: headcount, attendance, leave balances, payroll and assets, exportable to CSV and PDF.
+- **Permissions per module**: roles set default view/manage access for each module, and you can give one person extra access (for example, Assets only).
+- **Notifications**: in-app, email and web push. Installable as a PWA on phones.
 
-## Tech Stack
+Each deployment is one company's workspace.
 
-- **Frontend**: React 18, TypeScript, Vite, Tailwind CSS
-- **UI Components**: shadcn/ui, Radix UI
-- **State Management**: TanStack Query
-- **Backend**: Supabase (PostgreSQL, Auth, Storage, Edge Functions)
-- **Email**: Resend
+## Tech stack
 
-## Prerequisites
+| Layer | Tools |
+| --- | --- |
+| Frontend | React 18, TypeScript, Vite, Tailwind CSS, shadcn/ui, TanStack Query |
+| Backend | [Supabase](https://supabase.com): Postgres with row-level security, Auth, Storage, Edge Functions (Deno) |
+| Email | [Resend](https://resend.com) |
+| Scheduling | `pg_cron` + `pg_net` for reminders and monthly payroll |
 
-- Node.js 18+ and npm
-- Supabase account (free tier works)
-- Resend account for email notifications (optional)
+The browser talks to Supabase directly. Row-level security decides what each person can read and write, based on their module permissions; database triggers guard sensitive changes (no self-approval, no backdated attendance). Edge functions handle anything that needs the service role: invitations, email, push notifications and scheduled jobs.
 
-## Setup Instructions
+## Local development
 
-### 1. Clone and Install
+Requirements: Node.js 20+ and a Supabase project (the free tier is fine). The [self-hosting guide](docs/self-hosting.md) explains how to set the project up.
 
-```bash
-git clone <your-repo-url>
-cd <project-directory>
+```sh
+git clone https://github.com/redmonkin/core-hr-hub.git peoplo
+cd peoplo
 npm install
+cp .env.example .env   # fill in your Supabase URL, anon key and project ref
+npm run dev            # http://localhost:9002
 ```
 
-### 2. Supabase Setup
+Useful scripts:
 
-#### Create a Supabase Project
+| Command | What it does |
+| --- | --- |
+| `npm run dev` | Start the dev server |
+| `npm run build` | Production build into `dist/` |
+| `npm run lint` | ESLint |
+| `npm run typecheck` | TypeScript checks (Vite's build does not typecheck) |
+| `npm test` | Unit tests (Vitest) |
+| `supabase/tests/run.sh` | Database tests for the access rules, against a local Postgres |
 
-1. Go to [supabase.com](https://supabase.com) and create a new project
-2. Note your project URL and anon key from Settings > API
+CI runs lint, typecheck, unit tests, the database tests and a build on every pull request.
 
-#### Run Database Migrations
+A `docker-compose.yml` is included for running a local Supabase-compatible stack; its default secrets are public demo values, so change them before exposing it anywhere.
 
-All migrations are in `supabase/migrations/`. These are **schema-only** migrations that create the database structure without any test data.
+## Self-hosting
 
-1. Go to your Supabase Dashboard > SQL Editor
-2. Run each migration file in chronological order (files are timestamped)
+Peoplo runs on a single [Supabase](https://supabase.com) project, [Resend](https://resend.com) for email, and any static host for the website. **[The self-hosting guide](docs/self-hosting.md)** walks through every step:
 
-The migrations will create:
-- All required tables (employees, departments, leaves, payroll, etc.)
-- Row Level Security (RLS) policies
-- Database functions and triggers
-- Storage buckets for documents
+1. Create a Supabase project, enable `pg_cron` and `pg_net`, and apply the migrations (`supabase db push`).
+2. Verify a sending domain in Resend and create an API key.
+3. Set the function secrets (`RESEND_API_KEY`, `RESEND_FROM_EMAIL`, `APP_URL`, `CRON_SECRET`, optional VAPID keys) and deploy the edge functions.
+4. Configure Supabase Auth: site and redirect URLs, custom SMTP through Resend, and turn off public sign-up.
+5. Schedule the reminder and payroll jobs.
+6. Build the frontend with the variables from [`.env.example`](.env.example) and deploy it (Vercel works out of the box with `vercel.json`).
+7. Invite yourself as the first admin.
 
-#### Seed Data (Optional)
+It also covers checking that everything works, updating to a new version and troubleshooting.
 
-For development/testing, you can optionally run the seed file to populate sample data:
-
-```bash
-# Using Make (recommended)
-make seed
-
-# Or manually via Supabase SQL Editor
-# Copy contents of supabase/seed.sql and run in SQL Editor
-```
-
-The seed file (`supabase/seed.sql`) includes:
-- Sample departments (Engineering, HR, Finance, etc.)
-- Leave types (Annual, Sick, Casual, etc.)
-- Company holidays (adjust dates as needed)
-- Sample assets for testing
-
-**Note:** Do NOT run seed data on production databases. It's meant for development only.
-
-#### Enable Required Extensions
-
-In SQL Editor, run:
-```sql
-CREATE EXTENSION IF NOT EXISTS pg_cron;
-CREATE EXTENSION IF NOT EXISTS pg_net;
-```
-
-#### Configure Authentication
-
-1. Go to Authentication > Providers
-2. Enable Email provider (enabled by default)
-3. (Optional) Configure OAuth providers (Google, GitHub, etc.)
-4. Turn off **Allow new users to sign up**. Accounts are invite-only: a database
-   trigger rejects any account without a pending invitation regardless, but
-   turning this off avoids confusing errors.
-5. Go to Authentication > URL Configuration:
-   - Set Site URL to your deployment URL
-   - Add redirect URLs for your domains
-
-#### Storage Setup
-
-The migrations create an `employee-documents` bucket. Verify it exists:
-1. Go to Storage in your Supabase dashboard
-2. Confirm `employee-documents` bucket exists with proper policies
-
-### 3. Environment Variables
-
-Create a `.env` file in the project root:
-
-```env
-VITE_SUPABASE_PROJECT_ID="your-project-id"
-VITE_SUPABASE_PUBLISHABLE_KEY="your-anon-key"
-VITE_SUPABASE_URL="https://your-project-id.supabase.co"
-```
-
-**Where to find these values:**
-1. Go to your [Supabase Dashboard](https://supabase.com/dashboard)
-2. Select your project
-3. Navigate to **Settings > API** (or **Project Settings > API**)
-4. You'll find:
-   - **Project URL** → Use for `VITE_SUPABASE_URL`
-   - **Project Reference ID** → Use for `VITE_SUPABASE_PROJECT_ID` (the alphanumeric string in your project URL)
-   - **anon/public key** → Use for `VITE_SUPABASE_PUBLISHABLE_KEY`
-
-### 4. Edge Functions Setup
-
-Edge functions are in `supabase/functions/`. Deploy them using Supabase CLI:
-
-```bash
-# Install Supabase CLI
-npm install -g supabase
-
-# Login to Supabase
-supabase login
-
-# Link to your project
-supabase link --project-ref your-project-id
-
-# Deploy all functions
-supabase functions deploy
-```
-
-#### Edge Function Secrets
-
-Set these secrets in your Supabase dashboard (**Settings > Edge Functions > Secrets**):
-
-| Secret Name | Description | Where to Find |
-|-------------|-------------|---------------|
-| `RESEND_API_KEY` | API key for email notifications | [resend.com](https://resend.com) → API Keys |
-| `SUPABASE_URL` | Your Supabase project URL | Settings > API → Project URL |
-| `SUPABASE_ANON_KEY` | Your Supabase anon/public key | Settings > API → anon/public key |
-| `SUPABASE_SERVICE_ROLE_KEY` | Your Supabase service role key | Settings > API → service_role key (keep secret!) |
-| `CRON_SECRET` | Random string for cron security, sent by cron jobs in the `x-cron-secret` header. Cron functions refuse every request while it is unset | Generate your own (e.g., `openssl rand -hex 32`) |
-| `APP_URL` | Public URL of the web app, used for links in emails. `invite-employee` only accepts invite redirect URLs on this host or its subdomains (plus `localhost`/`127.0.0.1`) | Your deployment URL, e.g. `https://hr.example.com` |
-| `EXTRA_REDIRECT_HOSTS` | Optional. Comma-separated extra hosts allowed as invite redirect targets, e.g. a preview domain. Entries match exactly; prefix with `*.` to allow subdomains (`*.preview.example.com`) | Your own hosting setup |
-
-> **Note:** The `service_role` key has full database access and bypasses RLS. Never expose it in client-side code.
-
-### 5. Cron Jobs (Optional)
-
-For automated reminders and notifications, set up cron jobs manually via the SQL Editor. 
-
-> **Important:** Cron jobs are NOT included in migrations because they contain project-specific URLs and secrets. You must set these up manually after deployment.
-
-#### Prerequisites
-First, enable the required extensions (if not already enabled):
-```sql
-CREATE EXTENSION IF NOT EXISTS pg_cron;
-CREATE EXTENSION IF NOT EXISTS pg_net;
-```
-
-#### Available Cron Jobs
-
-Replace `your-project-id` with your actual Supabase project ID and `YOUR_CRON_SECRET` with your cron secret.
-
-The cron functions authenticate the caller with the `x-cron-secret` header (compared against the `CRON_SECRET` function secret); an `Authorization: Bearer ...` header is not accepted in its place. The weekly event notification can also be sent manually from the Company Calendar by users with **manage** access to the calendar module.
-
-```sql
--- 1. Attendance reminders (every 10 min during work hours, Mon-Sat)
-SELECT cron.schedule(
-  'attendance-reminders-job',
-  '*/10 8-19 * * 1-6',
-  $$
-  SELECT net.http_post(
-    url:='https://your-project-id.supabase.co/functions/v1/attendance-reminders',
-    headers:=jsonb_build_object(
-      'Content-Type', 'application/json',
-      'x-cron-secret', 'YOUR_CRON_SECRET'
-    ),
-    body:='{}'::jsonb
-  );
-  $$
-);
-
--- 2. Goal reminders (daily at 9 AM UTC)
-SELECT cron.schedule(
-  'daily-goal-reminders',
-  '0 9 * * *',
-  $$
-  SELECT net.http_post(
-    url:='https://your-project-id.supabase.co/functions/v1/goal-reminders',
-    headers:=jsonb_build_object(
-      'Content-Type', 'application/json',
-      'x-cron-secret', 'YOUR_CRON_SECRET'
-    ),
-    body:='{}'::jsonb
-  );
-  $$
-);
-
--- 3. Onboarding reminders (daily at 9 AM UTC)
-SELECT cron.schedule(
-  'onboarding-reminders-daily',
-  '0 9 * * *',
-  $$
-  SELECT net.http_post(
-    url:='https://your-project-id.supabase.co/functions/v1/onboarding-reminders',
-    headers:=jsonb_build_object(
-      'Content-Type', 'application/json',
-      'x-cron-secret', 'YOUR_CRON_SECRET'
-    ),
-    body:='{}'::jsonb
-  );
-  $$
-);
-
--- 4. Weekly event notifications (every Monday at 8 AM UTC)
-SELECT cron.schedule(
-  'weekly-event-notifications',
-  '0 8 * * 1',
-  $$
-  SELECT net.http_post(
-    url:='https://your-project-id.supabase.co/functions/v1/event-notification',
-    headers:=jsonb_build_object(
-      'Content-Type', 'application/json',
-      'x-cron-secret', 'YOUR_CRON_SECRET'
-    ),
-    body:='{}'::jsonb
-  );
-  $$
-);
-
--- 5. Monthly payroll generation (27th of every month at 2 AM UTC)
-SELECT cron.schedule(
-  'generate-monthly-payroll',
-  '0 2 27 * *',
-  $$
-  SELECT net.http_post(
-    url:='https://your-project-id.supabase.co/functions/v1/generate-monthly-payroll',
-    headers:=jsonb_build_object(
-      'Content-Type', 'application/json',
-      'x-cron-secret', 'YOUR_CRON_SECRET'
-    ),
-    body:='{}'::jsonb
-  );
-  $$
-);
-```
-
-#### Managing Cron Jobs
-```sql
--- View all scheduled jobs
-SELECT * FROM cron.job;
-
--- Unschedule a job by name
-SELECT cron.unschedule('job-name');
-```
-
-### 6. Run Locally
-
-```bash
-npm run dev
-```
-
-Open [http://localhost:5173](http://localhost:5173)
-
-### 7. Create Initial Admin User
-
-There is no public sign-up, so the first admin is created by invitation:
-
-1. In the Supabase SQL Editor, invite yourself as admin:
-
-   ```sql
-   INSERT INTO public.user_invitations (email, roles)
-   VALUES ('you@company.com', '{admin}');
-   ```
-
-2. In the Supabase Dashboard go to Authentication > Users > **Invite user** and
-   enter the same email. Open the email, set a password, and sign in.
-
-After that, invite everyone else from the app (Onboarding page). The last
-admin can't be removed, so the organisation can't lock itself out.
-
-## Deployment
-
-### Automatic Version Sync
-
-When deploying, the `APP_VERSION` is automatically updated from the latest git tag. This ensures your deployed instance shows the correct version in the changelog.
-
-**How it works:**
-- The CI/CD workflows (Vercel, Netlify) run `scripts/update-version.sh` before building
-- The script reads the latest git tag (e.g., `v1.0.1`) and updates `src/lib/version.ts`
-- The version is then baked into the build
-
-**For manual deployments:**
-```bash
-# Ensure you have the latest tags
-git fetch --tags
-
-# Update version before building
-chmod +x scripts/update-version.sh
-./scripts/update-version.sh
-
-# Then build
-npm run build
-```
-
-### Vercel / Netlify
-
-1. Connect your repository
-2. Set environment variables in the platform's dashboard
-3. Build command: `npm run build`
-4. Output directory: `dist`
-
-> **Note:** The GitHub Actions workflows already handle version syncing automatically.
-
-### Docker
-
-```dockerfile
-FROM node:18-alpine AS builder
-WORKDIR /app
-COPY package*.json ./
-RUN npm ci
-COPY . .
-RUN npm run build
-
-FROM nginx:alpine
-COPY --from=builder /app/dist /usr/share/nginx/html
-EXPOSE 80
-```
-
-## Project Structure
+## Project structure
 
 ```
-├── src/
-│   ├── components/      # React components
-│   │   ├── ui/          # shadcn/ui components
-│   │   ├── dashboard/   # Dashboard widgets
-│   │   ├── employees/   # Employee management
-│   │   ├── leaves/      # Leave management
-│   │   ├── payroll/     # Payroll components
-│   │   └── ...
-│   ├── contexts/        # React contexts (Auth)
-│   ├── hooks/           # Custom React hooks
-│   ├── pages/           # Page components
-│   ├── lib/             # Utility functions
-│   └── integrations/    # Supabase client & types
-├── supabase/
-│   ├── functions/       # Edge functions
-│   └── migrations/      # Database migrations
-└── public/              # Static assets
+src/
+  pages/            Route components
+  components/       Feature components by module, shadcn/ui in ui/, marketing pages in landing/
+  hooks/            Data hooks (TanStack Query), usePermissions, ...
+  lib/              Permissions, payroll proration, payslip PDFs, status styles, ...
+  integrations/     Generated Supabase client and database types
+supabase/
+  migrations/       SQL migrations, applied in timestamp order
+  functions/        Deno edge functions (_shared/ holds auth, CORS, HTML-escaping and secret helpers)
+  tests/            Database tests for row-level security and triggers
+docs/               Self-hosting guide and roadmap
 ```
 
-## Roles and Permissions
-
-Everyone gets self-service access to their own profile, leave, attendance,
-payslips, reimbursements and goals. Managers also approve and review their
-direct reports. Organisation-wide access is granted **per module**, at one of
-two levels:
-
-- **View**: read the module's data for the whole organisation
-- **Manage**: create, edit and delete, and approve requests
-
-Modules: Employees, Onboarding, Attendance, Leaves, Reimbursements,
-Performance, Assets, Payroll, Calendar, Settings.
-
-| Role | Default access |
-|------|----------------|
-| `admin` | Everything, including roles and permissions (not configurable) |
-| `hr` | Manage on every module (editable) |
-| `manager` | Their team only (editable) |
-| `employee` | Self-service only (editable) |
-
-Admins can change each role's defaults and give individual users extra
-modules in **Settings > Users & Access** (for example, give one employee
-Manage on Assets only). The same rules are enforced by row-level security in
-the database, not just in the UI.
-
-### Testing the security rules
-
-`supabase/tests/run.sh` applies every migration to a throwaway Postgres
-database (with a small stand-in for Supabase's auth and storage schemas) and
-runs the RLS and permission tests. It runs in CI; locally:
-
-```bash
-PGHOST=localhost PGPORT=5432 PGUSER=postgres PGPASSWORD=postgres supabase/tests/run.sh
-```
+[`CLAUDE.md`](CLAUDE.md) documents the architecture in more depth: the permission model, invite-only accounts and the security conventions every change must follow.
 
 ## Contributing
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Submit a pull request
+Contributions are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request, and see [docs/ROADMAP.md](docs/ROADMAP.md) for what's planned. Please follow the [code of conduct](CODE_OF_CONDUCT.md).
+
+## Security
+
+Please don't report vulnerabilities in public issues. See [SECURITY.md](SECURITY.md).
 
 ## License
 
-MIT License - feel free to use this for your own projects.
+Peoplo is licensed under the [GNU Affero General Public License v3.0](LICENSE) (AGPL-3.0-only). You may use, modify and self-host it freely, including for your own company's staff. If you run a modified version as a service for others, you must make your modified source code available to its users; the app's **Source code** link (set `VITE_REPO_URL` to your fork) is the easiest way to do that.
+
+Versions released before the license change remain available under the MIT license they were released with.

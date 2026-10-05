@@ -20,7 +20,7 @@ const plans = [
   {
     name: "Open Source",
     price: "Free",
-    description: "Self-host on your own infrastructure. Full access to all features.",
+    description: "Self-host on your own infrastructure. Every feature, licensed under AGPL-3.0.",
     icon: <Github className="h-6 w-6" />,
     features: [
       "Unlimited employees",
@@ -49,8 +49,8 @@ const plans = [
       "Email support",
       "99.9% uptime SLA"
     ],
-    cta: "Get started",
-    ctaLink: "/auth",
+    cta: "Request access",
+    ctaLink: DEMO_URL,
     variant: "default" as const,
     highlight: true
   },
@@ -77,15 +77,15 @@ const plans = [
 const faqs = [
   {
     question: "Is Peoplo really free?",
-    answer: "Yes! Peoplo is 100% open source. You can self-host it on your own infrastructure at no cost. The cloud-hosted option is a paid service for those who prefer managed hosting."
+    answer: "Yes. Peoplo is open source under the AGPL-3.0 license, so you can self-host every feature on your own infrastructure at no cost. The cloud-hosted option is a paid service for teams that prefer managed hosting."
   },
   {
     question: "Can I migrate from self-hosted to cloud?",
-    answer: "Absolutely. We provide migration tools to help you move your data between self-hosted and cloud-hosted versions seamlessly."
+    answer: "Yes. Both run the same open-source app and database schema, so we can move your data across in either direction."
   },
   {
-    question: "What's included in the free trial?",
-    answer: "The 14-day free trial includes full access to all Cloud Hosted features. No credit card required to start."
+    question: "How do I get a hosted workspace?",
+    answer: "Book a demo and we'll set up a workspace for your company. Accounts are invite-only, so once it's ready you invite your team from inside Peoplo."
   },
   {
     question: "Do you offer discounts for NGOs?",
@@ -201,7 +201,7 @@ const Pricing = () => {
 
       <PublicCtaSection
         title="Start for free today"
-        description="No credit card required. Get started in minutes and see the difference."
+        description="Self-host it free under AGPL-3.0, or book a demo and we'll run it for you."
       />
 
       <Footer />

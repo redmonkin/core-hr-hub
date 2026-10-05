@@ -1,177 +1,37 @@
 # Security Policy
 
-## Supported Versions
+## Reporting a vulnerability
 
-We actively support the following versions of CoreHR Hub with security updates:
+Please **do not** report security vulnerabilities through public GitHub issues, discussions or pull requests.
 
-| Version | Supported          |
-| ------- | ------------------ |
-| 1.x.x   | :white_check_mark: |
-| < 1.0   | :x:                |
+Report them privately through GitHub: go to the repository's **Security** tab and choose **Report a vulnerability**. Include:
 
-## Reporting a Vulnerability
+- what the issue is and where it lives (file, edge function, table or page),
+- steps to reproduce, or a proof of concept,
+- the impact you believe it has (for example, which data another user could read or change).
 
-We take security vulnerabilities seriously. If you discover a security issue, please report it responsibly.
+We aim to acknowledge reports within 3 business days and will keep you updated as we investigate. Once a fix ships, we're happy to credit you in the release notes unless you'd rather stay anonymous.
 
-### How to Report
+## Supported versions
 
-**DO NOT** create a public GitHub issue for security vulnerabilities.
+Security fixes land on `main` and in the next release. Self-hosted deployments should update to the latest release and apply any new migrations and edge functions (see [Updating to a new version](docs/self-hosting.md#updating-to-a-new-version)).
 
-Instead, please report security vulnerabilities by emailing:
+## Scope
 
-📧 **security@corehr-hub.example.com**
+In scope: this repository's frontend, SQL migrations (row-level security policies, database functions and triggers) and Supabase edge functions. Examples: one employee reading another's salary or documents, a user acting on a module they have no permission for, a blocked or uninvited account getting access, or an email template that renders unescaped input.
 
-Please include the following information in your report:
+Out of scope: vulnerabilities in Supabase, Resend or other third-party services themselves (report those to the vendor), findings that require an already-compromised admin account or device, and missing hardening headers without a demonstrated impact.
 
-1. **Description**: A clear description of the vulnerability
-2. **Impact**: What an attacker could potentially achieve
-3. **Steps to Reproduce**: Detailed steps to reproduce the issue
-4. **Affected Components**: Which parts of the application are affected
-5. **Suggested Fix**: If you have ideas on how to fix the issue (optional)
-6. **Your Contact Information**: So we can follow up with questions
+## How Peoplo protects data
 
-### What to Expect
+- Access is enforced by Postgres row-level security using per-module permissions, not just by the UI.
+- Accounts are invite-only, can be restricted to approved email domains, and blocked users are denied everywhere by a restrictive policy.
+- Triggers guard sensitive changes: no self-approval of leave or reimbursements, no backdated attendance, ratings only by their owner, bank details in a separate table.
+- Edge functions verify the caller, check module permissions, and escape all values in email HTML. Scheduled functions require a secret header.
 
-- **Acknowledgment**: We will acknowledge receipt of your report within 48 hours
-- **Initial Assessment**: We will provide an initial assessment within 7 days
-- **Regular Updates**: We will keep you informed of our progress
-- **Resolution Timeline**: We aim to resolve critical vulnerabilities within 30 days
-- **Credit**: We will credit you in our security acknowledgments (unless you prefer to remain anonymous)
+## Notes for self-hosters
 
-### Scope
-
-The following are in scope for security reports:
-
-- CoreHR Hub application code
-- Supabase Edge Functions
-- Authentication and authorization mechanisms
-- Data exposure vulnerabilities
-- SQL injection vulnerabilities
-- Cross-site scripting (XSS)
-- Cross-site request forgery (CSRF)
-- Insecure direct object references (IDOR)
-- Row Level Security (RLS) bypass
-
-The following are **out of scope**:
-
-- Vulnerabilities in third-party dependencies (report these to the maintainers)
-- Social engineering attacks
-- Denial of service attacks
-- Issues in the Supabase platform itself (report to Supabase)
-- Issues requiring physical access to a user's device
-
-## Security Best Practices
-
-### For Self-Hosted Deployments
-
-1. **Environment Variables**
-   - Never commit secrets to version control
-   - Use strong, unique values for `JWT_SECRET` and database passwords
-   - Rotate secrets regularly
-   - Use a secrets manager in production
-
-2. **Database Security**
-   - Enable Row Level Security (RLS) on all tables containing user data
-   - Review and audit RLS policies regularly
-   - Use the principle of least privilege for database roles
-   - Enable SSL for database connections
-
-3. **Authentication**
-   - Enforce strong password policies
-   - Consider enabling multi-factor authentication
-   - Set appropriate session timeouts
-   - Monitor for unusual authentication patterns
-
-4. **Network Security**
-   - Use HTTPS in production
-   - Configure proper CORS policies
-   - Use a Web Application Firewall (WAF) if possible
-   - Keep all services behind a reverse proxy
-
-5. **Monitoring**
-   - Enable logging for authentication events
-   - Monitor for suspicious activity
-   - Set up alerts for failed login attempts
-   - Regularly review access logs
-
-### For Developers Contributing Code
-
-1. **Input Validation**
-   - Validate all user inputs on both client and server
-   - Use schema validation (e.g., Zod) for TypeScript
-   - Sanitize data before database operations
-   - Encode output to prevent XSS
-
-2. **Authentication & Authorization**
-   - Never store roles in the profiles table (use `user_roles` table)
-   - Never trust client-side role checks for authorization
-   - Always verify permissions server-side
-   - Use Supabase's `auth.uid()` for user identification
-
-3. **Database Queries**
-   - Use parameterized queries (Supabase client handles this)
-   - Implement proper RLS policies for new tables
-   - Avoid exposing internal IDs where possible
-   - Limit query results with pagination
-
-4. **Sensitive Data**
-   - Never log sensitive information
-   - Use secure methods for handling passwords
-   - Encrypt sensitive data at rest
-   - Be careful with error messages (don't leak information)
-
-5. **Dependencies**
-   - Keep dependencies updated
-   - Review security advisories regularly
-   - Use `npm audit` to check for vulnerabilities
-   - Pin dependency versions in production
-
-## Security Features
-
-CoreHR Hub includes the following security features:
-
-### Row Level Security (RLS)
-
-All database tables are protected with RLS policies that ensure:
-- Users can only access their own data
-- Managers can access their team's data
-- HR and Admin roles have appropriate elevated access
-- Public data is explicitly marked as such
-
-### Role-Based Access Control
-
-- Roles are stored in a separate `user_roles` table
-- Role checking is done via `SECURITY DEFINER` functions
-- No client-side role storage or verification
-- Four role levels: `admin`, `hr`, `manager`, `employee`
-
-### Authentication
-
-- Powered by Supabase Auth (GoTrue)
-- Secure session management with JWT tokens
-- Password hashing with bcrypt
-- Configurable password policies
-
-### API Security
-
-- All API calls authenticated via JWT
-- CORS configured for specific origins
-- Rate limiting on authentication endpoints
-- Request validation on Edge Functions
-
-## Security Acknowledgments
-
-We would like to thank the following individuals for responsibly disclosing security vulnerabilities:
-
-*No acknowledgments yet. Be the first to report a vulnerability!*
-
-## Contact
-
-For security-related inquiries that are not vulnerability reports, you can reach us at:
-
-- Email: security@corehr-hub.example.com
-- GitHub Discussions: [Security Category](https://github.com/your-org/corehr-hub/discussions/categories/security)
-
----
-
-*This security policy is based on industry best practices and will be updated as needed.*
+- The Supabase **anon/publishable key** is public by design and is embedded in the website. Never expose the **service role key** to the browser; it belongs only in edge function secrets.
+- Keep `CRON_SECRET` long and random, and rotate it (function secret and scheduled jobs together) if it may have leaked.
+- Turn off public sign-up in Supabase Auth and set **Settings → Domain whitelist** to your company's domains.
+- Keep `RESEND_FROM_EMAIL` on a domain you control and have verified in Resend.

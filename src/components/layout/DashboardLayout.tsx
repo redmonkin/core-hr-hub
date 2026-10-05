@@ -8,6 +8,7 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { useEmployeeStatus } from "@/hooks/useEmployeeStatus";
 import { AppModule, Permissions, canAccessReports, canAccessSettings, hasModuleAccess } from "@/lib/permissions";
 import { useCompanyBranding } from "@/hooks/useCompanyBranding";
+import { REPO_URL } from "@/lib/site";
 import {
   Users,
   Calendar,
@@ -225,16 +226,27 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                 <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
               </div>
             </Link>
-            {/* Version info */}
-            <Link
-              to="/changelog"
-              onClick={() => setSidebarOpen(false)}
-              className="mt-3 flex items-center justify-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors"
-            >
-              <span>v{displayVersion}</span>
+            {/* Version info, and the source link AGPL-3.0 §13 asks network services to offer */}
+            <div className="mt-3 flex items-center justify-center gap-2 text-xs text-muted-foreground">
+              <Link
+                to="/changelog"
+                onClick={() => setSidebarOpen(false)}
+                className="flex items-center gap-2 transition-colors hover:text-foreground"
+              >
+                <span>v{displayVersion}</span>
+                <span className="text-border">•</span>
+                <span className="hover:underline">What's New</span>
+              </Link>
               <span className="text-border">•</span>
-              <span className="hover:underline">What's New</span>
-            </Link>
+              <a
+                href={REPO_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="transition-colors hover:text-foreground hover:underline"
+              >
+                Source code
+              </a>
+            </div>
           </div>
         </div>
       </aside>

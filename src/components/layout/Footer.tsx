@@ -1,55 +1,97 @@
 import { Link } from "react-router-dom";
-import { Github } from "lucide-react";
+import { Github, Heart } from "lucide-react";
 import logo from "@/assets/hr-hub-logo.svg";
+import { CONTRIBUTING_URL, ISSUES_URL, LICENSE_URL, REPO_URL, SECURITY_POLICY_URL, SELF_HOST_GUIDE_URL } from "@/lib/site";
+
+const linkClass = "inline-block py-1 transition-colors hover:text-foreground";
+
+function ExternalLink({ href, children }: { href: string; children: React.ReactNode }) {
+  return (
+    <a href={href} target="_blank" rel="noopener noreferrer" className={linkClass}>
+      {children}
+    </a>
+  );
+}
+
 const Footer = () => {
-  return <footer className="bg-background border-t py-16">
-      <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-12">
-          <div className="col-span-2 md:col-span-1">
-            <Link to="/" className="flex items-center gap-2 mb-4">
-              <img src={logo} alt="Peoplo home" className="h-8 w-auto" />
-            </Link>
-            <p className="text-sm text-muted-foreground">
-              Modern HR management for growing teams. Streamline your workforce operations.
-            </p>
-          </div>
-          <div>
-            <h4 className="font-semibold mb-4 text-sm">Product</h4>
-            <ul className="space-y-3 text-sm text-muted-foreground">
-              <li><Link to="/features" className="hover:text-foreground transition-colors">Features</Link></li>
-              <li><Link to="/pricing" className="hover:text-foreground transition-colors">Pricing</Link></li>
-              <li><Link to="/how-it-works" className="hover:text-foreground transition-colors">How it works</Link></li>
-            </ul>
-          </div>
-          <div>
-            <h4 className="font-semibold mb-4 text-sm">Company</h4>
-            <ul className="space-y-3 text-sm text-muted-foreground">
-              <li><a href="https://redmonk.in/" target="_blank" rel="noopener noreferrer" className="hover:text-foreground transition-colors">About Us</a></li>
-              <li><a href="https://in.linkedin.com/company/redmonkin" target="_blank" rel="noopener noreferrer" className="hover:text-foreground transition-colors">Careers</a></li>
-              <li><a href="https://redmonk.in/contact-us/" target="_blank" rel="noopener noreferrer" className="hover:text-foreground transition-colors">Contact Us</a></li>
-            </ul>
-          </div>
-          <div>
-            <h4 className="font-semibold mb-4 text-sm">Legal</h4>
-            <ul className="space-y-3 text-sm text-muted-foreground">
-              <li><Link to="/privacy-policy" className="hover:text-foreground transition-colors">Privacy Policy</Link></li>
-              <li><Link to="/terms-of-service" className="hover:text-foreground transition-colors">Terms of Service</Link></li>
-              <li><Link to="/security" className="hover:text-foreground transition-colors">Security</Link></li>
-            </ul>
-          </div>
+  return (
+    <footer className="border-t bg-card/60">
+      <div className="container mx-auto grid grid-cols-2 gap-8 px-4 py-14 md:grid-cols-5">
+        <div className="col-span-2">
+          <Link to="/" className="mb-3 inline-flex items-center gap-2.5" aria-label="Peoplo home">
+            <img src={logo} alt="" className="h-8 w-auto" />
+            <span className="text-lg font-semibold text-foreground">Peoplo</span>
+          </Link>
+          <p className="max-w-sm text-sm text-muted-foreground">
+            Open-source HR for growing teams: people, attendance, leave, payroll and performance. Host it yourself or let us run it.
+          </p>
+          <a
+            href={LICENSE_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-4 inline-flex items-center gap-2 rounded-full border border-border bg-background px-3 py-1 text-xs font-medium text-foreground transition-colors hover:border-primary/40"
+          >
+            <span className="h-1.5 w-1.5 rounded-full bg-primary" aria-hidden="true" />
+            Licensed under AGPL-3.0
+          </a>
         </div>
-        <div className="border-t pt-8 flex flex-col md:flex-row justify-between items-center gap-4">
-          <p className="text-sm text-muted-foreground">
-            © {new Date().getFullYear()} Peoplo. All rights reserved.
+        <div>
+          <h4 className="mb-3 text-sm font-semibold">Product</h4>
+          <ul className="space-y-1 text-sm text-muted-foreground">
+            <li><Link to="/features" className={linkClass}>Features</Link></li>
+            <li><Link to="/how-it-works" className={linkClass}>How it works</Link></li>
+            <li><Link to="/pricing" className={linkClass}>Pricing</Link></li>
+            <li><Link to="/security" className={linkClass}>Security</Link></li>
+          </ul>
+        </div>
+        <div>
+          <h4 className="mb-3 text-sm font-semibold">Open source</h4>
+          <ul className="space-y-1 text-sm text-muted-foreground">
+            <li><ExternalLink href={REPO_URL}>GitHub</ExternalLink></li>
+            <li><ExternalLink href={SELF_HOST_GUIDE_URL}>Self-hosting guide</ExternalLink></li>
+            <li><ExternalLink href={CONTRIBUTING_URL}>Contributing</ExternalLink></li>
+            <li><ExternalLink href={ISSUES_URL}>Report an issue</ExternalLink></li>
+            <li><ExternalLink href={SECURITY_POLICY_URL}>Security policy</ExternalLink></li>
+          </ul>
+        </div>
+        <div>
+          <h4 className="mb-3 text-sm font-semibold">Company</h4>
+          <ul className="space-y-1 text-sm text-muted-foreground">
+            <li><ExternalLink href="https://redmonk.in/">About us</ExternalLink></li>
+            <li><ExternalLink href="https://redmonk.in/contact-us/">Contact us</ExternalLink></li>
+            <li><Link to="/privacy-policy" className={linkClass}>Privacy policy</Link></li>
+            <li><Link to="/terms-of-service" className={linkClass}>Terms of service</Link></li>
+          </ul>
+        </div>
+      </div>
+      <div className="border-t">
+        <div className="container mx-auto flex flex-col items-center justify-between gap-3 px-4 py-6 text-sm text-muted-foreground sm:flex-row">
+          <p className="text-center sm:text-left">
+            © {new Date().getFullYear()} Peoplo by Redmonk. Open source under the{" "}
+            <a href={LICENSE_URL} target="_blank" rel="noopener noreferrer" className="underline underline-offset-4 hover:text-foreground">
+              AGPL-3.0
+            </a>{" "}
+            license.
           </p>
           <div className="flex items-center gap-4">
-            
-            <a href="https://github.com/redmonkin/core-hr-hub" target="_blank" rel="noopener noreferrer" aria-label="Peoplo on GitHub" title="Peoplo on GitHub" className="text-muted-foreground hover:text-foreground transition-colors">
+            <p className="flex items-center gap-1.5">
+              Made with <Heart className="h-3.5 w-3.5 fill-primary text-primary" aria-hidden="true" />
+              <span className="sr-only">love</span> in the open
+            </p>
+            <a
+              href={REPO_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Peoplo on GitHub"
+              className="text-muted-foreground transition-colors hover:text-foreground"
+            >
               <Github className="h-5 w-5" aria-hidden="true" />
             </a>
           </div>
         </div>
       </div>
-    </footer>;
+    </footer>
+  );
 };
+
 export default Footer;

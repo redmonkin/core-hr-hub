@@ -1,330 +1,51 @@
-# Contributing to CoreHR Hub
+# Contributing to Peoplo
 
-Thank you for your interest in contributing to CoreHR Hub! This document provides guidelines and instructions for contributing.
+Thanks for helping improve Peoplo. This guide covers how to get set up and what a good pull request looks like. Please follow the [code of conduct](CODE_OF_CONDUCT.md).
 
-## Table of Contents
+## Before you start
 
-- [Code of Conduct](#code-of-conduct)
-- [Getting Started](#getting-started)
-- [Development Workflow](#development-workflow)
-- [Code Style Guidelines](#code-style-guidelines)
-- [Commit Message Guidelines](#commit-message-guidelines)
-- [Pull Request Process](#pull-request-process)
-- [Issue Guidelines](#issue-guidelines)
+- **Bugs**: search existing issues first, then open one using the bug report template.
+- **Features**: open an issue to discuss the idea before writing a lot of code, and check [docs/ROADMAP.md](docs/ROADMAP.md) to see if it's already planned.
+- **Security issues**: don't open a public issue. Follow [SECURITY.md](SECURITY.md).
 
-## Code of Conduct
+## Development setup
 
-By participating in this project, you agree to maintain a respectful and inclusive environment. Please:
+Follow [Local development](README.md#local-development) in the README. You'll need your own Supabase project; the [self-hosting guide](docs/self-hosting.md) covers applying the migrations and deploying the edge functions to it. Never point a development copy at a production project.
 
-- Be respectful and constructive in discussions
-- Welcome newcomers and help them get started
-- Focus on what is best for the community
-- Show empathy towards other community members
+## Making changes
 
-## Getting Started
+1. Fork the repo and create a branch from `main`.
+2. Keep each pull request focused on one change.
+3. Run the same checks CI runs before pushing:
 
-### Prerequisites
-
-- Node.js 18+ and npm
-- Git
-- A Supabase account (free tier works)
-- Basic knowledge of React, TypeScript, and Tailwind CSS
-
-### Setting Up Your Development Environment
-
-1. **Fork the repository** on GitHub
-
-2. **Clone your fork**
-   ```bash
-   git clone https://github.com/YOUR_USERNAME/corehr-hub.git
-   cd corehr-hub
-   ```
-
-3. **Add upstream remote**
-   ```bash
-   git remote add upstream https://github.com/ORIGINAL_OWNER/corehr-hub.git
-   ```
-
-4. **Install dependencies**
-   ```bash
-   npm install
-   ```
-
-5. **Set up environment variables**
-   ```bash
-   cp .env.example .env
-   # Edit .env with your Supabase credentials
-   ```
-
-6. **Start the development server**
-   ```bash
-   npm run dev
-   ```
-
-## Development Workflow
-
-### Branching Strategy
-
-We use a feature branch workflow:
-
-- `main` - Production-ready code
-- `develop` - Integration branch for features (if applicable)
-- `feature/*` - New features (e.g., `feature/add-employee-export`)
-- `fix/*` - Bug fixes (e.g., `fix/leave-calculation-error`)
-- `docs/*` - Documentation updates
-
-### Creating a Feature Branch
-
-```bash
-# Sync with upstream
-git fetch upstream
-git checkout main
-git merge upstream/main
-
-# Create your feature branch
-git checkout -b feature/your-feature-name
-```
-
-## Code Style Guidelines
-
-### TypeScript
-
-- Use TypeScript for all new code
-- Define proper types/interfaces - avoid `any`
-- Use type inference where obvious
-- Export types from dedicated files when shared
-
-```typescript
-// ✅ Good
-interface Employee {
-  id: string;
-  firstName: string;
-  lastName: string;
-  email: string;
-}
-
-const getFullName = (employee: Employee): string => {
-  return `${employee.firstName} ${employee.lastName}`;
-};
-
-// ❌ Avoid
-const getFullName = (employee: any) => {
-  return employee.firstName + ' ' + employee.lastName;
-};
-```
-
-### React Components
-
-- Use functional components with hooks
-- Keep components focused and small (under 200 lines ideally)
-- Extract reusable logic into custom hooks
-- Use proper prop typing
-
-```typescript
-// ✅ Good - Typed props, focused component
-interface EmployeeCardProps {
-  employee: Employee;
-  onEdit?: (id: string) => void;
-}
-
-export const EmployeeCard = ({ employee, onEdit }: EmployeeCardProps) => {
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{employee.firstName} {employee.lastName}</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <p>{employee.email}</p>
-        {onEdit && (
-          <Button onClick={() => onEdit(employee.id)}>Edit</Button>
-        )}
-      </CardContent>
-    </Card>
-  );
-};
-```
-
-### Tailwind CSS & Styling
-
-- **Use design system tokens** - never use direct colors
-- Use semantic class names from the design system
-- Keep responsive design in mind (`sm:`, `md:`, `lg:` prefixes)
-- Use shadcn/ui components as the foundation
-
-```tsx
-// ✅ Good - Using design tokens
-<div className="bg-background text-foreground border-border">
-  <Button variant="primary">Submit</Button>
-</div>
-
-// ❌ Avoid - Direct colors
-<div className="bg-white text-black border-gray-200">
-  <button className="bg-blue-500">Submit</button>
-</div>
-```
-
-### File Organization
-
-```
-src/
-├── components/
-│   ├── ui/              # shadcn/ui base components
-│   ├── employees/       # Feature-specific components
-│   └── layout/          # Layout components
-├── hooks/               # Custom React hooks
-├── pages/               # Page components
-├── contexts/            # React contexts
-├── lib/                 # Utility functions
-└── integrations/        # External service integrations
-```
-
-### Naming Conventions
-
-| Type | Convention | Example |
-|------|------------|---------|
-| Components | PascalCase | `EmployeeCard.tsx` |
-| Hooks | camelCase with `use` prefix | `useEmployees.ts` |
-| Utilities | camelCase | `formatCurrency.ts` |
-| Types/Interfaces | PascalCase | `Employee`, `LeaveRequest` |
-| Constants | SCREAMING_SNAKE_CASE | `MAX_FILE_SIZE` |
-
-### Best Practices
-
-1. **Keep components pure** - Avoid side effects in render
-2. **Use React Query** for data fetching and caching
-3. **Handle loading and error states** properly
-4. **Write meaningful variable names** - code should be self-documenting
-5. **Avoid prop drilling** - use context or composition
-6. **Optimize re-renders** - use `useMemo` and `useCallback` appropriately
-
-## Commit Message Guidelines
-
-We follow [Conventional Commits](https://www.conventionalcommits.org/):
-
-```
-<type>(<scope>): <description>
-
-[optional body]
-
-[optional footer]
-```
-
-### Types
-
-- `feat`: New feature
-- `fix`: Bug fix
-- `docs`: Documentation changes
-- `style`: Code style changes (formatting, semicolons, etc.)
-- `refactor`: Code refactoring without feature changes
-- `perf`: Performance improvements
-- `test`: Adding or updating tests
-- `chore`: Build process or auxiliary tool changes
-
-### Examples
-
-```bash
-feat(employees): add bulk export functionality
-
-fix(leaves): correct leave balance calculation for part-time employees
-
-docs(readme): update deployment instructions
-
-refactor(payroll): extract salary calculation into separate hook
-```
-
-## Pull Request Process
-
-### Before Submitting
-
-1. **Sync with upstream**
-   ```bash
-   git fetch upstream
-   git rebase upstream/main
-   ```
-
-2. **Run linting and type checks**
-   ```bash
+   ```sh
    npm run lint
-   npm run type-check
+   npm run typecheck
+   npm test
+   npm run build
    ```
 
-3. **Test your changes** manually in the browser
+   If you change migrations, also run the database tests against a local Postgres 15+ (`supabase/tests/run.sh`; set `PGHOST`, `PGPORT`, `PGUSER`, `PGPASSWORD` as needed).
 
-4. **Self-review your code** - check for:
-   - Unused imports or variables
-   - Console.log statements
-   - Proper error handling
-   - Accessibility concerns
+4. Open a pull request and fill in the template. Include desktop and phone screenshots for UI changes.
 
-### Submitting a PR
+## Conventions
 
-1. Push your branch to your fork
-   ```bash
-   git push origin feature/your-feature-name
-   ```
+[CLAUDE.md](CLAUDE.md) describes the architecture in detail. The rules that matter most:
 
-2. Open a Pull Request against the `main` branch
+- **Access is decided in the database.** Every table has row-level security. Organisation-wide access goes through `public.can('<module>', 'view' | 'manage')`; your own rows through `get_my_employee_id()` / `auth.uid()`; your team's through `is_manager_of()`. Never rely on hiding something in the UI.
+- **New tables ship with RLS** and a restrictive `"Deny blocked users"` policy in the same migration. CI rejects migrations containing `USING (true)`; if a table is genuinely public, explain why in a comment and ask for explicit review.
+- **New modules or permission levels** go into the `app_module` enum, `src/lib/permissions.ts` and the settings matrix together, with database tests in `supabase/tests/permissions.test.sql`.
+- **Migrations are append-only.** Add a new timestamped file in `supabase/migrations/` rather than editing one that has already been released.
+- **Sensitive changes are guarded by triggers** (for example, employees can't approve their own leave). If you add a workflow with approval or financial impact, add a guard trigger and a test.
+- **Edge functions** handle CORS `OPTIONS` preflight, authenticate callers with `authenticateCaller()` from `_shared/auth.ts` (or `verifyCronSecret()` for scheduled functions), check permissions with `userCan()`, load data from the database rather than trusting the request body, and escape every value put into email HTML with `escapeHtml()`.
+- **UI** uses the shadcn/ui components in `src/components/ui/` and the Tailwind tokens in `src/index.css`. Don't hardcode colours. Status badges use `statusBadgeClass()` / `formatStatus()` from `src/lib/statusStyles.ts`. Every screen must work at 390px wide; tables get a card layout below `sm`, and icon-only buttons need an `aria-label`.
+- **Currency** is ₹ formatted with the `en-IN` locale; dates are shown as `MMM d, yyyy`.
 
-3. Fill out the PR template with:
-   - **Description**: What does this PR do?
-   - **Related Issues**: Link any related issues
-   - **Testing**: How was this tested?
-   - **Screenshots**: For UI changes
+## Commit messages
 
-### PR Review Criteria
+Write a short imperative subject line (for example, "Add half-day leave to the leave calendar"), followed by a body explaining *why* when it isn't obvious.
 
-Your PR will be reviewed for:
+## License
 
-- [ ] Code follows the style guidelines
-- [ ] No TypeScript errors or warnings
-- [ ] Proper error handling implemented
-- [ ] UI is responsive and accessible
-- [ ] No breaking changes (or documented if necessary)
-- [ ] Performance considerations addressed
-
-### After Review
-
-- Address feedback promptly
-- Push fixes as new commits (don't force-push during review)
-- Once approved, maintainers will merge your PR
-
-## Issue Guidelines
-
-### Reporting Bugs
-
-Use the bug report template and include:
-
-- **Description**: Clear description of the bug
-- **Steps to Reproduce**: Numbered steps to reproduce
-- **Expected Behavior**: What should happen
-- **Actual Behavior**: What actually happens
-- **Environment**: Browser, OS, Node version
-- **Screenshots**: If applicable
-
-### Requesting Features
-
-Use the feature request template and include:
-
-- **Problem Statement**: What problem does this solve?
-- **Proposed Solution**: How should it work?
-- **Alternatives Considered**: Other approaches you've thought of
-- **Additional Context**: Mockups, examples, etc.
-
-### Issue Labels
-
-- `bug` - Something isn't working
-- `enhancement` - New feature or request
-- `documentation` - Documentation improvements
-- `good first issue` - Good for newcomers
-- `help wanted` - Extra attention needed
-- `priority: high` - Critical issues
-
-## Questions?
-
-If you have questions, feel free to:
-
-- Open a discussion on GitHub
-- Comment on relevant issues
-- Reach out to maintainers
-
-Thank you for contributing! 🎉
+By contributing, you agree that your contributions are licensed under the [AGPL-3.0](LICENSE), the same license as the project.
