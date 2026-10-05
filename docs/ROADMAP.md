@@ -5,7 +5,6 @@ Status: as of 2026-10-06. Nothing below is a permanent commitment; the maintaine
 ## Next
 
 - **v1.2.0 release**: tag the work listed under [Unreleased](../CHANGELOG.md#unreleased) and publish it on GitHub Releases, so self-hosters get the update notice.
-- **Features page screenshots**: re-capture them from a demo workspace (the current ones show a cookie banner and real email addresses).
 - **Branded auth emails**: customise Supabase's invitation and password-reset templates (**Authentication → Emails → Templates**) to match Peoplo.
 
 ## To do: hosted instance and operations

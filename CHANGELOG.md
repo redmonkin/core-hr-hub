@@ -16,7 +16,7 @@ When you update a self-hosted copy, read the **Upgrade notes** of every version 
 - **Invite-only accounts**: nobody can sign up without an invitation. Invitations are managed from **Onboarding**, can be revoked or extended, and can be limited to approved email domains.
 - **Payroll**: choose the month when generating payroll; mid-month joiners are prorated. Payslip PDFs follow a standard salary-slip layout. The Payroll page has a pay-period picker that opens on the latest month with records.
 - **Colleague directory** for employees, showing only safe fields.
-- **New landing page** presenting Peoplo as open source, with a self-hosting guide.
+- **New landing and features pages** presenting Peoplo as open source, with recreated 3D product previews instead of screenshots, and a self-hosting guide.
 
 ### Fixes
 

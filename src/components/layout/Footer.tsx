@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { Github, Heart } from "lucide-react";
+import { Heart } from "lucide-react";
 import logo from "@/assets/hr-hub-logo.svg";
 import { CONTRIBUTING_URL, ISSUES_URL, LICENSE_URL, REPO_URL, SECURITY_POLICY_URL, SELF_HOST_GUIDE_URL } from "@/lib/site";
 
@@ -55,10 +55,8 @@ const Footer = () => {
           </ul>
         </div>
         <div>
-          <h4 className="mb-3 text-sm font-semibold">Company</h4>
+          <h4 className="mb-3 text-sm font-semibold">Legal</h4>
           <ul className="space-y-1 text-sm text-muted-foreground">
-            <li><ExternalLink href="https://redmonk.in/">About us</ExternalLink></li>
-            <li><ExternalLink href="https://redmonk.in/contact-us/">Contact us</ExternalLink></li>
             <li><Link to="/privacy-policy" className={linkClass}>Privacy policy</Link></li>
             <li><Link to="/terms-of-service" className={linkClass}>Terms of service</Link></li>
           </ul>
@@ -73,21 +71,10 @@ const Footer = () => {
             </a>{" "}
             license.
           </p>
-          <div className="flex items-center gap-4">
-            <p className="flex items-center gap-1.5">
-              Made with <Heart className="h-3.5 w-3.5 fill-primary text-primary" aria-hidden="true" />
-              <span className="sr-only">love</span> in the open
-            </p>
-            <a
-              href={REPO_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label="Peoplo on GitHub"
-              className="text-muted-foreground transition-colors hover:text-foreground"
-            >
-              <Github className="h-5 w-5" aria-hidden="true" />
-            </a>
-          </div>
+          <p className="flex items-center gap-1.5">
+            Made with <Heart className="h-3.5 w-3.5 fill-primary text-primary" aria-hidden="true" />
+            <span className="sr-only">love</span> in the open
+          </p>
         </div>
       </div>
     </footer>
