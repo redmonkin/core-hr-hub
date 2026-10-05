@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import { Receipt, Plus, Clock, CheckCircle, XCircle, Banknote, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
@@ -138,27 +139,28 @@ const Reimbursements = () => {
     { label: "Pending", value: stats?.pending || 0, icon: <Clock className="h-5 w-5" />, color: "text-amber-600" },
     { label: "Approved", value: stats?.approved || 0, icon: <CheckCircle className="h-5 w-5" />, color: "text-emerald-600" },
     { label: "Rejected", value: stats?.rejected || 0, icon: <XCircle className="h-5 w-5" />, color: "text-destructive" },
-    { label: "Paid", value: stats?.paid || 0, icon: <Banknote className="h-5 w-5" />, color: "text-sky-600" },
+    { label: "Paid", value: stats?.paid || 0, icon: <Banknote className="h-5 w-5" />, color: "text-primary" },
   ];
 
   return (
     <DashboardLayout>
       <div className="space-y-6">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h2 className="text-2xl font-bold text-foreground">Reimbursements</h2>
+            <h1 className="text-2xl font-bold text-foreground sm:text-3xl">Reimbursements</h1>
             <p className="text-muted-foreground">Submit and track expense claims</p>
           </div>
+          <div className="flex gap-2">
           <Dialog open={isNewRequestOpen} onOpenChange={setIsNewRequestOpen}>
             <DialogTrigger asChild>
-              <Button>
+              <Button className="flex-1 sm:flex-none">
                 <Plus className="mr-2 h-4 w-4" />
-                New Claim
+                New claim
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-2xl">
+            <DialogContent className="max-w-xl">
               <DialogHeader>
-                <DialogTitle>New Expense Claim</DialogTitle>
+                <DialogTitle>New expense claim</DialogTitle>
                 <DialogDescription>Submit a reimbursement request for approval.</DialogDescription>
               </DialogHeader>
 
@@ -169,19 +171,24 @@ const Reimbursements = () => {
                   We couldn't find an employee profile linked to your account. Please contact HR to link your profile.
                 </div>
               ) : (
-                <ReimbursementRequestForm employeeId={myEmployeeId} onSubmitted={() => setIsNewRequestOpen(false)} />
+                <ReimbursementRequestForm
+                  employeeId={myEmployeeId}
+                  onSubmitted={() => setIsNewRequestOpen(false)}
+                  onCancel={() => setIsNewRequestOpen(false)}
+                />
               )}
             </DialogContent>
           </Dialog>
+          </div>
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
           {reimbursementStats.map((stat) => (
             <Card key={stat.label}>
-              <CardContent className="flex items-center gap-4 p-6">
-                <div className={`rounded-xl bg-muted p-3 ${stat.color}`}>{stat.icon}</div>
-                <div>
-                  <p className="text-2xl font-bold text-foreground">{stat.value}</p>
+              <CardContent className="flex items-center gap-3 p-4 sm:gap-4 sm:p-6">
+                <div className={`shrink-0 rounded-xl bg-muted p-2.5 sm:p-3 ${stat.color}`}>{stat.icon}</div>
+                <div className="min-w-0">
+                  <p className="text-xl font-bold text-foreground sm:text-2xl">{stat.value}</p>
                   <p className="text-sm text-muted-foreground">{stat.label}</p>
                 </div>
               </CardContent>
@@ -205,7 +212,7 @@ const Reimbursements = () => {
                 </Badge>
               </TabsTrigger>
             )}
-            <TabsTrigger value="processed">History</TabsTrigger>
+            <TabsTrigger value="processed">Processed</TabsTrigger>
           </TabsList>
 
           <TabsContent value="pending" className="mt-6 space-y-4">
@@ -219,7 +226,7 @@ const Reimbursements = () => {
               <Card>
                 <CardContent className="flex flex-col items-center justify-center py-12">
                   <Receipt className="mb-4 h-12 w-12 text-muted-foreground" />
-                  <h3 className="text-lg font-semibold text-foreground">No Pending Claims</h3>
+                  <h3 className="text-lg font-semibold text-foreground">No pending claims</h3>
                   <p className="text-muted-foreground">All expense claims have been processed</p>
                 </CardContent>
               </Card>
@@ -252,7 +259,7 @@ const Reimbursements = () => {
                 <Card>
                   <CardContent className="flex flex-col items-center justify-center py-12">
                     <Banknote className="mb-4 h-12 w-12 text-muted-foreground" />
-                    <h3 className="text-lg font-semibold text-foreground">Nothing Awaiting Payment</h3>
+                    <h3 className="text-lg font-semibold text-foreground">Nothing awaiting payment</h3>
                     <p className="text-muted-foreground">Approved claims awaiting disbursement will appear here</p>
                   </CardContent>
                 </Card>
@@ -280,7 +287,7 @@ const Reimbursements = () => {
               <Card>
                 <CardContent className="flex flex-col items-center justify-center py-12">
                   <Receipt className="mb-4 h-12 w-12 text-muted-foreground" />
-                  <h3 className="text-lg font-semibold text-foreground">No History Yet</h3>
+                  <h3 className="text-lg font-semibold text-foreground">No processed claims</h3>
                   <p className="text-muted-foreground">Rejected and paid claims will appear here</p>
                 </CardContent>
               </Card>
@@ -305,7 +312,11 @@ const Reimbursements = () => {
           <DialogContent>
             <DialogHeader>
               <DialogTitle>
-                {actionType === "approve" ? "Approve" : actionType === "reject" ? "Reject" : "Mark as Paid"} Reimbursement Request
+                {actionType === "approve"
+                  ? "Approve reimbursement"
+                  : actionType === "reject"
+                  ? "Reject reimbursement"
+                  : "Mark reimbursement as paid"}
               </DialogTitle>
               <DialogDescription>
                 {actionType === "approve"
@@ -318,7 +329,7 @@ const Reimbursements = () => {
 
             {selectedRequest && (
               <div className="space-y-4">
-                <div className="rounded-lg bg-muted p-4 space-y-2">
+                <div className="space-y-1.5 rounded-lg border bg-muted/50 p-4">
                   <p className="font-medium">{selectedRequest.employee.name}</p>
                   <p className="text-sm text-muted-foreground">
                     {formatCurrency(selectedRequest.amount, true)} • {selectedRequest.expenseDate}
@@ -330,8 +341,9 @@ const Reimbursements = () => {
 
                 {actionType !== "paid" && (
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Notes (Optional)</label>
+                    <Label htmlFor="reimb-review-notes">Notes (optional)</Label>
                     <Textarea
+                      id="reimb-review-notes"
                       value={reviewNotes}
                       onChange={(e) => setReviewNotes(e.target.value)}
                       placeholder="Add any notes for the employee..."
@@ -359,7 +371,7 @@ const Reimbursements = () => {
                 variant={actionType === "reject" ? "destructive" : "default"}
               >
                 {updateStatusMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                {actionType === "approve" ? "Approve" : actionType === "reject" ? "Reject" : "Mark as Paid"}
+                {actionType === "approve" ? "Approve" : actionType === "reject" ? "Reject" : "Mark as paid"}
               </Button>
             </DialogFooter>
           </DialogContent>

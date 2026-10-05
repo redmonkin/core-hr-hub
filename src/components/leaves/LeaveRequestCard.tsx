@@ -3,6 +3,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Check, X, Calendar, Clock, UserCheck } from "lucide-react";
+import { statusBadgeClass, formatStatus, pluralizeDays } from "@/lib/statusStyles";
+import { leaveTypeBadgeClass } from "./typeBadgeStyles";
 
 export interface LeaveRequest {
   id: string;
@@ -15,6 +17,9 @@ export interface LeaveRequest {
   type: string;
   startDate: string;
   endDate: string;
+  /** Raw yyyy-MM-dd values, for sorting/filtering */
+  startDateISO?: string;
+  endDateISO?: string;
   days: number;
   reason: string;
   status: "pending" | "approved" | "rejected" | "cancelled";
@@ -32,83 +37,52 @@ interface LeaveRequestCardProps {
   onReject?: (id: string) => void;
 }
 
-const statusStyles: Record<string, string> = {
-  pending: "bg-amber-500/10 text-amber-600 border-amber-500/20",
-  approved: "bg-emerald-500/10 text-emerald-600 border-emerald-500/20",
-  rejected: "bg-destructive/10 text-destructive border-destructive/20",
-  cancelled: "bg-muted text-muted-foreground border-muted",
-};
-
-const leaveTypeStyles: Record<string, string> = {
-  Annual: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
-  Sick: "bg-rose-500/10 text-rose-600 dark:text-rose-400",
-  Casual: "bg-sky-500/10 text-sky-600 dark:text-sky-400",
-  Unpaid: "bg-slate-500/10 text-slate-600 dark:text-slate-400",
-  Maternity: "bg-pink-500/10 text-pink-600 dark:text-pink-400",
-  Paternity: "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400",
-  Bereavement: "bg-violet-500/10 text-violet-600 dark:text-violet-400",
-  Compensatory: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
-  "Work From Home": "bg-cyan-500/10 text-cyan-600 dark:text-cyan-400",
-  Marriage: "bg-fuchsia-500/10 text-fuchsia-600 dark:text-fuchsia-400",
-};
-
-// Fallback colors for leave types not in the map
-const fallbackColors = [
-  "bg-teal-500/10 text-teal-600 dark:text-teal-400",
-  "bg-orange-500/10 text-orange-600 dark:text-orange-400",
-  "bg-lime-500/10 text-lime-600 dark:text-lime-400",
-  "bg-purple-500/10 text-purple-600 dark:text-purple-400",
-];
-
-const getLeaveTypeStyle = (type: string): string => {
-  if (leaveTypeStyles[type]) return leaveTypeStyles[type];
-  // Generate consistent color based on type name hash
-  const hash = type.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0);
-  return fallbackColors[hash % fallbackColors.length];
-};
-
 export function LeaveRequestCard({ request, onApprove, onReject }: LeaveRequestCardProps) {
   return (
     <Card className="overflow-hidden transition-all duration-300 hover:shadow-lg">
-      <CardContent className="p-6">
+      <CardContent className="p-4 sm:p-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div className="flex items-start gap-4">
-            <Avatar className="h-12 w-12">
+          <div className="flex min-w-0 flex-1 items-start gap-3 sm:gap-4">
+            <Avatar className="h-10 w-10 shrink-0 sm:h-12 sm:w-12">
               <AvatarImage src={request.employee.avatar} />
               <AvatarFallback>
                 {request.employee.name.split(" ").map((n) => n[0]).join("")}
               </AvatarFallback>
             </Avatar>
-            <div>
-              <div className="flex items-center gap-2">
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                 <h3 className="font-semibold text-foreground">{request.employee.name}</h3>
                 <Badge
-                  variant="secondary"
-                  className={getLeaveTypeStyle(request.type)}
+                  variant="outline"
+                  className={leaveTypeBadgeClass(request.type)}
                 >
                   {request.type}
                 </Badge>
               </div>
               <p className="text-sm text-muted-foreground">{request.employee.department}</p>
-              <div className="mt-2 flex items-center gap-2 text-sm text-muted-foreground">
-                <Calendar className="h-4 w-4" />
-                <span>
-                  {request.startDate} - {request.endDate}
-                </span>
-                <span className="text-foreground font-medium">({request.days} days)</span>
+              <div className="mt-2 flex items-start gap-2 text-sm text-muted-foreground">
+                <Calendar className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+                <div className="flex flex-wrap items-baseline gap-x-2">
+                  <span className="whitespace-nowrap">
+                    {request.startDate === request.endDate
+                      ? request.startDate
+                      : <>{request.startDate} – {request.endDate}</>}
+                  </span>
+                  <span className="whitespace-nowrap font-medium text-foreground">{pluralizeDays(request.days)}</span>
+                </div>
               </div>
               {request.submittedAt && (
                 <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
-                  <Clock className="h-3 w-3" />
+                  <Clock className="h-3 w-3 shrink-0" aria-hidden="true" />
                   <span>Submitted: {request.submittedAt}</span>
                 </div>
               )}
               {request.reason && <p className="mt-2 text-sm text-muted-foreground">{request.reason}</p>}
               {request.status !== "pending" && request.reviewedBy && (
                 <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
-                  <UserCheck className="h-3 w-3" />
+                  <UserCheck className="h-3 w-3 shrink-0" aria-hidden="true" />
                   <span>
-                    {request.status === "approved" ? "Approved" : request.status === "rejected" ? "Rejected" : "Reviewed"} by{" "}
+                    Reviewed by{" "}
                     <span className="font-medium text-foreground">{request.reviewedBy.name}</span>
                     {request.reviewedAt && <span> on {request.reviewedAt}</span>}
                   </span>
@@ -121,14 +95,14 @@ export function LeaveRequestCard({ request, onApprove, onReject }: LeaveRequestC
               )}
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex shrink-0 items-center gap-2 pl-[52px] sm:pl-0">
             {request.status === "pending" && (onApprove || onReject) ? (
               <>
                 {onApprove && (
                   <Button
                     size="sm"
                     variant="outline"
-                    className="border-emerald-500/20 text-emerald-600 hover:bg-emerald-500/10"
+                    className="h-10 border-emerald-500/30 text-emerald-700 hover:bg-emerald-500/10 sm:h-9"
                     onClick={() => onApprove(request.id)}
                   >
                     <Check className="mr-1 h-4 w-4" />
@@ -139,7 +113,7 @@ export function LeaveRequestCard({ request, onApprove, onReject }: LeaveRequestC
                   <Button
                     size="sm"
                     variant="outline"
-                    className="border-destructive/20 text-destructive hover:bg-destructive/10"
+                    className="h-10 border-destructive/30 text-red-700 hover:bg-destructive/10 dark:text-red-400 sm:h-9"
                     onClick={() => onReject(request.id)}
                   >
                     <X className="mr-1 h-4 w-4" />
@@ -148,8 +122,8 @@ export function LeaveRequestCard({ request, onApprove, onReject }: LeaveRequestC
                 )}
               </>
             ) : (
-              <Badge variant="outline" className={statusStyles[request.status] || ""}>
-                {request.status}
+              <Badge variant="outline" className={statusBadgeClass(request.status)}>
+                {formatStatus(request.status)}
               </Badge>
             )}
           </div>

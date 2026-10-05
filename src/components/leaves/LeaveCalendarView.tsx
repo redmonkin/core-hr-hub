@@ -17,8 +17,9 @@ import {
   eachDayOfInterval, 
   parseISO, 
   isWithinInterval,
-  isSameDay
 } from "date-fns";
+import { leaveTypeBadgeClass, leaveTypeDotClass } from "./typeBadgeStyles";
+import { pluralizeDays } from "@/lib/statusStyles";
 
 interface LeaveData {
   id: string;
@@ -34,27 +35,6 @@ interface LeaveData {
     name: string;
   } | null;
 }
-
-const leaveTypeColors: Record<string, string> = {
-  Annual: "bg-emerald-500",
-  Sick: "bg-rose-500",
-  Casual: "bg-sky-500",
-  Unpaid: "bg-slate-500",
-  Maternity: "bg-pink-500",
-  Paternity: "bg-indigo-500",
-  Bereavement: "bg-violet-500",
-  Compensatory: "bg-amber-500",
-  "Work From Home": "bg-cyan-500",
-  Marriage: "bg-fuchsia-500",
-};
-
-const fallbackColors = ["bg-teal-500", "bg-orange-500", "bg-lime-500", "bg-purple-500"];
-
-const getLeaveColor = (type: string): string => {
-  if (leaveTypeColors[type]) return leaveTypeColors[type];
-  const hash = type.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0);
-  return fallbackColors[hash % fallbackColors.length];
-};
 
 export function LeaveCalendarView() {
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -115,11 +95,9 @@ export function LeaveCalendarView() {
     hasLeave: leaveDates,
   };
 
-  const modifiersStyles = {
-    hasLeave: {
-      backgroundColor: "hsl(var(--primary) / 0.15)",
-      borderRadius: "50%",
-    },
+  // Class names (not inline styles) so the selected/today states can still win over the leave tint
+  const modifiersClassNames = {
+    hasLeave: "bg-primary/15 font-semibold text-foreground aria-selected:bg-primary aria-selected:text-primary-foreground",
   };
 
   if (isLoading) {
@@ -151,17 +129,17 @@ export function LeaveCalendarView() {
     <div className="grid gap-6 lg:grid-cols-2">
       {/* Calendar */}
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between pb-2">
+        <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 space-y-0 pb-2">
           <CardTitle className="text-lg flex items-center gap-2">
             <CalendarDays className="h-5 w-5 text-primary" />
             Leave Calendar
           </CardTitle>
           <div className="flex items-center gap-1">
-            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handlePrevMonth}>
+            <Button variant="ghost" size="icon" className="h-9 w-9" onClick={handlePrevMonth} aria-label="Previous month" title="Previous month">
               <ChevronLeft className="h-4 w-4" />
             </Button>
-            <span className="text-sm font-medium min-w-[120px] text-center">{monthName}</span>
-            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleNextMonth}>
+            <span className="min-w-[110px] text-center text-sm font-medium" aria-live="polite">{monthName}</span>
+            <Button variant="ghost" size="icon" className="h-9 w-9" onClick={handleNextMonth} aria-label="Next month" title="Next month">
               <ChevronRight className="h-4 w-4" />
             </Button>
           </div>
@@ -174,7 +152,7 @@ export function LeaveCalendarView() {
             month={currentDate}
             onMonthChange={setCurrentDate}
             modifiers={modifiers}
-            modifiersStyles={modifiersStyles}
+            modifiersClassNames={modifiersClassNames}
             className="rounded-md border-0 p-0"
             classNames={{
               months: "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0",
@@ -188,18 +166,18 @@ export function LeaveCalendarView() {
               day: "h-full w-full p-0 font-normal aria-selected:opacity-100 hover:bg-muted rounded-md transition-colors",
               day_selected: "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground",
               day_today: "ring-2 ring-primary ring-offset-2 ring-offset-background",
-              day_outside: "text-muted-foreground opacity-50",
+              day_outside: "text-muted-foreground aria-selected:text-primary-foreground",
             }}
           />
           
           {/* Legend */}
           <div className="mt-4 flex items-center gap-4 text-xs text-muted-foreground border-t pt-4">
             <div className="flex items-center gap-1.5">
-              <div className="h-3 w-3 rounded-full bg-primary/20" />
+              <div className="h-3 w-3 rounded-sm bg-primary/15 ring-1 ring-primary/30" />
               <span>Has leaves</span>
             </div>
             <div className="flex items-center gap-1.5">
-              <div className="h-3 w-3 rounded-full ring-2 ring-primary" />
+              <div className="h-3 w-3 rounded-sm ring-2 ring-primary" />
               <span>Today</span>
             </div>
           </div>
@@ -242,26 +220,17 @@ export function LeaveCalendarView() {
                         <AvatarFallback>{initials}</AvatarFallback>
                       </Avatar>
                       <div 
-                        className={`absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-background ${getLeaveColor(leaveType)}`}
+                        className={`absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-background ${leaveTypeDotClass(leaveType)}`}
                       />
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium truncate">{fullName}</p>
                       <p className="text-xs text-muted-foreground">
                         {format(parseISO(leave.start_date), "MMM d")} - {format(parseISO(leave.end_date), "MMM d")}
-                        <span className="ml-1">({leave.days_count} day{leave.days_count > 1 ? "s" : ""})</span>
+                        <span className="ml-1">· {pluralizeDays(leave.days_count)}</span>
                       </p>
                     </div>
-                    <Badge 
-                      variant="secondary"
-                      className={`shrink-0 ${
-                        leaveType === "Annual" ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" :
-                        leaveType === "Sick" ? "bg-rose-500/10 text-rose-600 dark:text-rose-400" :
-                        leaveType === "Casual" ? "bg-sky-500/10 text-sky-600 dark:text-sky-400" :
-                        leaveType === "Unpaid" ? "bg-slate-500/10 text-slate-600 dark:text-slate-400" :
-                        "bg-primary/10 text-primary"
-                      }`}
-                    >
+                    <Badge variant="outline" className={`shrink-0 ${leaveTypeBadgeClass(leaveType)}`}>
                       {leaveType}
                     </Badge>
                   </div>
