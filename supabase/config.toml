@@ -30,9 +30,6 @@ verify_jwt = false
 [functions.event-notification]
 verify_jwt = false
 
-[functions.onboarding-request-notification]
-verify_jwt = false
-
 [functions.attendance-reminders]
 verify_jwt = false
 

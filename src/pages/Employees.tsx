@@ -35,6 +35,8 @@ import { EmployeeEditDialog } from "@/components/employees/EmployeeEditDialog";
 import { BulkDeleteDialog } from "@/components/employees/BulkDeleteDialog";
 import { BulkAssignManagerDialog } from "@/components/employees/BulkAssignManagerDialog";
 import { toast } from "sonner";
+import { useQueryClient } from "@tanstack/react-query";
+import { sendInvitation } from "@/components/onboarding/inviteEmployee";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { useCompanyBranding } from "@/hooks/useCompanyBranding";
@@ -65,6 +67,7 @@ const Employees = () => {
   const [employeesToAssignManager, setEmployeesToAssignManager] = useState<Employee[]>([]);
 
   const { can, isLoading: isLoadingRole } = usePermissions();
+  const queryClient = useQueryClient();
   // Full records for people with access to the Employees module; everyone
   // else gets the directory (name, contact, designation, department).
   const canViewEmployees = can("employees", "view");
@@ -221,6 +224,23 @@ const Employees = () => {
     const dateRange = startDate || endDate ? `-${startDate ? format(startDate, "yyyy-MM-dd") : "start"}-to-${endDate ? format(endDate, "yyyy-MM-dd") : "end"}` : "";
     doc.save(`employee-directory${dateRange}-${new Date().toISOString().split("T")[0]}.pdf`);
     toast.success(`${dataToExport.length} employees exported to PDF`);
+  };
+
+  const handleInvite = async (employee: Employee) => {
+    const pending = toast.loading(`Sending an invitation to ${employee.email}…`);
+    try {
+      const result = await sendInvitation(employee.id);
+      toast.success(
+        result.status === "linked"
+          ? `${employee.email} already had an account, so it's now linked to ${employee.name}.`
+          : `Invitation sent. ${employee.name} will get an email to set up their account.`,
+        { id: pending },
+      );
+      queryClient.invalidateQueries({ queryKey: ["employees"] });
+      queryClient.invalidateQueries({ queryKey: ["user-invitations"] });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "The invitation couldn't be sent", { id: pending });
+    }
   };
 
   const handleBulkAction = (action: string, ids: string[]) => {
@@ -404,6 +424,7 @@ const Employees = () => {
               onView={(employee) => setViewEmployee(employee)}
               onEdit={canManageEmployees ? (employee) => setEditEmployee(employee) : undefined}
               onManageDocuments={canManageEmployees ? (employee) => setDocumentsEmployee(employee) : undefined}
+              onInvite={can("onboarding", "manage") ? handleInvite : undefined}
               canManage={canManageEmployees}
               sortKey={sortConfig.key}
               sortDirection={sortConfig.direction}

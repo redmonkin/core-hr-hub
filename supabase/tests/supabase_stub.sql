@@ -32,6 +32,7 @@ CREATE TABLE auth.users (
   raw_app_meta_data jsonb DEFAULT '{}'::jsonb,
   email_confirmed_at timestamptz,
   invited_at timestamptz,
+  last_sign_in_at timestamptz,
   created_at timestamptz DEFAULT now(),
   updated_at timestamptz DEFAULT now()
 );

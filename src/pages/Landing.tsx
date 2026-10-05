@@ -54,7 +54,7 @@ const features = [
   {
     icon: UserPlus,
     title: "Invite-only Onboarding",
-    description: "Invite people by email. They fill in their details, HR approves, and their account is ready on day one.",
+    description: "Add a new hire once and they get an email to set up their account. They're active, with leave balances, the moment they do.",
   },
   {
     icon: Clock,
@@ -95,7 +95,7 @@ const features = [
 
 const howItWorks = [
   { step: 1, title: "Set up your company", description: "Add departments, leave types, office locations and your branding." },
-  { step: 2, title: "Invite your team", description: "Send invitations. Only invited people can create an account." },
+  { step: 2, title: "Add your team", description: "Adding someone invites them. Only invited people can create an account." },
   { step: 3, title: "Run the day to day", description: "Attendance, leave and reimbursements flow to the right approver." },
   { step: 4, title: "Pay and grow", description: "Run payroll, share payslips and review performance each cycle." },
 ];

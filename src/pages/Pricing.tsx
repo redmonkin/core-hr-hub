@@ -102,7 +102,7 @@ const faqs = [
   },
   {
     question: "Can employees sign up on their own?",
-    answer: "No. Accounts are invite-only. HR sends an invitation, the person completes their onboarding details, and HR approves them."
+    answer: "No. Accounts are invite-only. HR adds each new hire, which emails them a link to set up their account; they become active as soon as they do."
   },
   {
     question: "Can several companies share one Peoplo?",

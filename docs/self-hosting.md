@@ -252,15 +252,17 @@ There's no public sign-up, so the first admin is invited from the database:
    values ('you@example.com', '{admin}');
    ```
 
-2. In **Authentication → Users**, click **Invite user** and enter the same address.
-3. Open the email, set a password and sign in.
+2. In **Authentication → Users**, click **Add user → Create new user**, enter the same address and a password, and tick **Auto Confirm User**.
+3. Sign in to Peoplo with that email and password.
 
-Then set up your company in **Settings** (departments, leave types, employee IDs, domain whitelist, office locations and branding) and invite everyone else from **Onboarding**. Roles set default access per module; **Settings → Users & access → Extra access** grants one person more. The last admin can't be removed, so you can't lock yourself out.
+If you add yourself as an employee later (**Onboarding → Add employee** with your own email), the record is linked to your existing account automatically.
+
+Then set up your company in **Settings** (departments, leave types, employee IDs, domain whitelist, office locations and branding) and add everyone else from **Onboarding → Add employee**. Adding someone creates their employee record and emails them a link to choose a password; they wait in **Pending** until they do, then become active with their leave balances set up. Roles set default access per module; **Settings → Users & access → Extra access** grants one person more. The last admin can't be removed, so you can't lock yourself out.
 
 ## Part 9: Check everything works
 
 1. Use **Forgot password?** on the sign-in page; the reset email should arrive from your sender address.
-2. Invite a second email address you own from **Onboarding**, accept it, submit the onboarding form, and approve it as admin.
+2. Add a test employee with a second email address you own from **Onboarding → Add employee**. Open the invitation email, choose a password, and check the person moved from **Pending** to active.
 3. As that employee, clock in and apply for a day's leave. The manager (or admin) should get an email and an in-app notification.
 4. Approve the leave; the employee should be notified.
 5. The next day, check the scheduled jobs ran: `select * from cron.job_run_details order by start_time desc limit 20;`.
@@ -282,7 +284,9 @@ Then redeploy the website (Vercel does this when you push). Read [`CHANGELOG.md`
 
 **"Only email addresses from approved domains..."** The address isn't covered by **Settings → Domain whitelist**. Add its domain there.
 
-**"Sign-ups are invite-only".** There's no pending invitation for that address. Invite it from **Onboarding** (or, for the first admin, [Part 8](#part-8-create-the-first-admin)).
+**"Sign-ups are invite-only".** There's no pending invitation for that address. Add the person from **Onboarding** (or, for the first admin, [Part 8](#part-8-create-the-first-admin)).
+
+**A new hire says their invitation link doesn't work.** Links are valid for 24 hours. Use **Resend** on their row in **Onboarding → Pending**; each resend makes the earlier links stop working.
 
 **No approval or reminder emails.** Open **Edge Functions → (function) → Logs**. Usually `RESEND_API_KEY` or `RESEND_FROM_EMAIL` isn't set, or the domain isn't verified yet. Resend's **Emails** page shows what it accepted.
 
