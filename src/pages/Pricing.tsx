@@ -10,9 +10,11 @@ import {
   Zap,
   HeartHandshake
 } from "lucide-react";
-import hrHubLogo from "@/assets/hr-hub-logo.svg";
 import Footer from "@/components/layout/Footer";
-import { isProductionDomain } from "@/lib/domain";
+import PublicHeader from "@/components/layout/PublicHeader";
+import PublicCtaSection from "@/components/layout/PublicCtaSection";
+import PublicPageBadge from "@/components/layout/PublicPageBadge";
+import { DEMO_URL } from "@/components/layout/publicSite";
 
 const plans = [
   {
@@ -29,7 +31,7 @@ const plans = [
       "Your data, your servers"
     ],
     cta: "View on GitHub",
-    ctaLink: "https://github.com",
+    ctaLink: "https://github.com/redmonkin/core-hr-hub",
     variant: "outline" as const,
     highlight: false
   },
@@ -47,7 +49,7 @@ const plans = [
       "Email support",
       "99.9% uptime SLA"
     ],
-    cta: "Start Free Trial",
+    cta: "Get started",
     ctaLink: "/auth",
     variant: "default" as const,
     highlight: true
@@ -65,8 +67,8 @@ const plans = [
       "SSO & advanced security",
       "Onboarding assistance"
     ],
-    cta: "Contact Sales",
-    ctaLink: "https://cal.com/littlemissbot/business-consultancy",
+    cta: "Talk to sales",
+    ctaLink: DEMO_URL,
     variant: "outline" as const,
     highlight: false
   }
@@ -92,51 +94,17 @@ const faqs = [
 ];
 
 const Pricing = () => {
-  const isProduction = isProductionDomain();
-
   return (
     <div className="min-h-screen bg-background">
-      {/* Navigation */}
-      <nav className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-2">
-            <img src={hrHubLogo} alt="Peoplo" className="h-8 w-auto" />
-            <span className="text-xl font-bold">Peoplo</span>
-          </Link>
-          <div className="hidden md:flex items-center gap-8">
-            <Link to="/features" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
-              Features
-            </Link>
-            <Link to="/how-it-works" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
-              How It Works
-            </Link>
-            <Link to="/pricing" className="text-sm font-medium text-foreground transition-colors">
-              Pricing
-            </Link>
-          </div>
-          <div className="flex items-center gap-3">
-            <Link to="/auth">
-              <Button variant="ghost" size="sm">Sign In</Button>
-            </Link>
-            {isProduction && (
-              <a href="https://cal.com/littlemissbot/business-consultancy" target="_blank" rel="noopener noreferrer">
-                <Button size="sm">Request Demo</Button>
-              </a>
-            )}
-          </div>
-        </div>
-      </nav>
+      <PublicHeader />
 
       {/* Hero */}
       <section className="relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-primary/5" />
         <div className="container mx-auto px-4 py-20 lg:py-28 relative">
           <div className="max-w-4xl mx-auto text-center space-y-6">
-            <Badge variant="secondary" className="px-4 py-1.5 text-sm font-medium">
-              <HeartHandshake className="h-3.5 w-3.5 mr-2" />
-              Open Source First
-            </Badge>
-            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight leading-relaxed">
+            <PublicPageBadge icon={<HeartHandshake />}>Open source first</PublicPageBadge>
+            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight leading-tight">
               Simple, <span className="text-primary">Transparent</span> Pricing
             </h1>
             <p className="text-lg md:text-xl text-muted-foreground max-w-3xl mx-auto leading-relaxed">
@@ -186,19 +154,19 @@ const Pricing = () => {
                   ))}
                 </ul>
                 {plan.ctaLink.startsWith('http') ? (
-                  <a href={plan.ctaLink} target="_blank" rel="noopener noreferrer" className="block">
-                    <Button variant={plan.variant} className="w-full gap-2 h-12">
+                  <Button asChild variant={plan.variant} className="w-full gap-2 h-12">
+                    <a href={plan.ctaLink} target="_blank" rel="noopener noreferrer">
                       {plan.name === "Open Source" && <Github className="h-4 w-4" />}
                       {plan.cta}
                       {plan.name !== "Open Source" && <ArrowRight className="h-4 w-4" />}
-                    </Button>
-                  </a>
+                    </a>
+                  </Button>
                 ) : (
-                  <Link to={plan.ctaLink} className="block">
-                    <Button variant={plan.variant} className="w-full gap-2 h-12">
+                  <Button asChild variant={plan.variant} className="w-full gap-2 h-12">
+                    <Link to={plan.ctaLink}>
                       {plan.cta} <ArrowRight className="h-4 w-4" />
-                    </Button>
-                  </Link>
+                    </Link>
+                  </Button>
                 )}
               </CardContent>
             </Card>
@@ -231,31 +199,10 @@ const Pricing = () => {
         </div>
       </section>
 
-      {/* CTA Section */}
-      <section className="bg-primary text-primary-foreground py-20">
-        <div className="container mx-auto px-4 text-center">
-          <div className="max-w-3xl mx-auto space-y-6">
-            <h2 className="text-3xl md:text-4xl font-bold">
-              Start for Free Today
-            </h2>
-            <p className="text-primary-foreground/80 text-lg">
-              No credit card required. Get started in minutes and see the difference.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center pt-4">
-              <Link to="/auth">
-                <Button size="lg" variant="secondary" className="gap-2 px-8 h-12">
-                  Start Free Trial <ArrowRight className="h-4 w-4" />
-                </Button>
-              </Link>
-              <a href="https://cal.com/littlemissbot/business-consultancy" target="_blank" rel="noopener noreferrer">
-                <Button size="lg" variant="secondary" className="gap-2 px-8 h-12">
-                  Talk to Sales
-                </Button>
-              </a>
-            </div>
-          </div>
-        </div>
-      </section>
+      <PublicCtaSection
+        title="Start for free today"
+        description="No credit card required. Get started in minutes and see the difference."
+      />
 
       <Footer />
     </div>

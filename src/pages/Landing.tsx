@@ -20,8 +20,11 @@ import {
   HeadphonesIcon,
   Award
 } from "lucide-react";
-import hrHubLogo from "@/assets/hr-hub-logo.svg";
 import Footer from "@/components/layout/Footer";
+import PublicHeader from "@/components/layout/PublicHeader";
+import PublicCtaSection from "@/components/layout/PublicCtaSection";
+import PublicPageBadge from "@/components/layout/PublicPageBadge";
+import { DEMO_URL } from "@/components/layout/publicSite";
 import { isProductionDomain } from "@/lib/domain";
 
 const Landing = () => {
@@ -75,9 +78,9 @@ const Landing = () => {
   ];
 
   const stats = [
-    { value: "99.9%", label: "Uptime SLA", icon: <Zap className="h-5 w-5" /> },
-    { value: "50K+", label: "Employees Managed", icon: <Users className="h-5 w-5" /> },
-    { value: "24/7", label: "Enterprise Support", icon: <HeadphonesIcon className="h-5 w-5" /> }
+    { value: "99.9%", label: "Uptime SLA", icon: <Zap className="h-4 w-4 sm:h-5 sm:w-5" /> },
+    { value: "50K+", label: "Employees managed", icon: <Users className="h-4 w-4 sm:h-5 sm:w-5" /> },
+    { value: "24/7", label: "Enterprise support", icon: <HeadphonesIcon className="h-4 w-4 sm:h-5 sm:w-5" /> }
   ];
 
   const testimonials = [
@@ -103,48 +106,16 @@ const Landing = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Navigation */}
-      <nav className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-2">
-            <img src={hrHubLogo} alt="Peoplo" className="h-8 w-auto" />
-            <span className="text-xl font-bold">Peoplo</span>
-          </Link>
-          <div className="hidden md:flex items-center gap-8">
-            <Link to="/features" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
-              Features
-            </Link>
-            <Link to="/how-it-works" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
-              How It Works
-            </Link>
-            <Link to="/pricing" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
-              Pricing
-            </Link>
-          </div>
-          <div className="flex items-center gap-3">
-            <Link to="/auth">
-              <Button variant="ghost" size="sm">Sign In</Button>
-            </Link>
-            {isProduction && (
-              <a href="https://cal.com/littlemissbot/business-consultancy" target="_blank" rel="noopener noreferrer">
-                <Button size="sm">Request Demo</Button>
-              </a>
-            )}
-          </div>
-        </div>
-      </nav>
+      <PublicHeader />
 
       {/* Hero Section */}
       <section className="relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-primary/5" />
-        <div className="container mx-auto px-4 py-24 lg:py-32 relative">
+        <div className="container mx-auto px-4 py-16 sm:py-24 lg:py-32 relative">
           <div className="max-w-5xl mx-auto text-center space-y-8">
-            <Badge variant="secondary" className="px-4 py-1.5 text-sm font-medium">
-              <Building2 className="h-3.5 w-3.5 mr-2" />
-              Enterprise-Grade HR Platform
-            </Badge>
+            <PublicPageBadge icon={<Building2 />}>Enterprise-grade HR platform</PublicPageBadge>
             
-            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight leading-relaxed">
+            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight leading-tight">
               The Complete HR Platform for{" "}
               <span className="text-primary">Modern Enterprises</span>
             </h1>
@@ -158,23 +129,23 @@ const Landing = () => {
             <div className="flex flex-col sm:flex-row gap-4 justify-center pt-4">
               {isProduction ? (
                 <>
-                  <Link to="/auth">
-                    <Button size="lg" className="gap-2 px-8 h-12 text-base">
-                      Start Free Trial <ArrowRight className="h-4 w-4" />
-                    </Button>
-                  </Link>
-                  <a href="https://cal.com/littlemissbot/business-consultancy" target="_blank" rel="noopener noreferrer">
-                    <Button size="lg" variant="outline" className="gap-2 px-8 h-12 text-base">
-                      Schedule Demo
-                    </Button>
-                  </a>
+                  <Button asChild size="lg" className="gap-2 px-8 h-12 text-base">
+                    <Link to="/auth">
+                      Start free trial <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                    </Link>
+                  </Button>
+                  <Button asChild size="lg" variant="outline" className="gap-2 px-8 h-12 text-base">
+                    <a href={DEMO_URL} target="_blank" rel="noopener noreferrer">
+                      Schedule demo
+                    </a>
+                  </Button>
                 </>
               ) : (
-                <Link to="/auth">
-                  <Button size="lg" className="gap-2 px-8 h-12 text-base">
-                    Sign In <ArrowRight className="h-4 w-4" />
-                  </Button>
-                </Link>
+                <Button asChild size="lg" className="gap-2 px-8 h-12 text-base">
+                  <Link to="/auth">
+                    Get started <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                  </Link>
+                </Button>
               )}
             </div>
 
@@ -200,15 +171,15 @@ const Landing = () => {
 
       {/* Stats Section */}
       <section className="border-y bg-muted/30">
-        <div className="container mx-auto px-4 py-12">
-          <div className="grid grid-cols-3 gap-8 max-w-3xl mx-auto">
-            {stats.map((stat, index) => (
-              <div key={index} className="text-center">
-                <div className="flex items-center justify-center gap-2 mb-2">
-                  <span className="text-primary">{stat.icon}</span>
-                  <span className="text-3xl md:text-4xl font-bold">{stat.value}</span>
-                </div>
-                <div className="text-sm text-muted-foreground font-medium">{stat.label}</div>
+        <div className="container mx-auto px-4 py-8 sm:py-12">
+          <div className="grid grid-cols-3 gap-3 sm:gap-8 max-w-3xl mx-auto">
+            {stats.map((stat) => (
+              <div key={stat.label} className="flex flex-col items-center text-center">
+                <span className="mb-2 flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-primary sm:h-10 sm:w-10" aria-hidden="true">
+                  {stat.icon}
+                </span>
+                <span className="text-2xl font-bold sm:text-3xl md:text-4xl">{stat.value}</span>
+                <span className="mt-1 text-xs font-medium leading-snug text-muted-foreground sm:text-sm">{stat.label}</span>
               </div>
             ))}
           </div>
@@ -331,42 +302,7 @@ const Landing = () => {
         </div>
       </section>
 
-      {/* CTA Section */}
-      <section className="bg-primary text-primary-foreground py-20">
-        <div className="container mx-auto px-4 text-center">
-          <div className="max-w-3xl mx-auto space-y-6">
-            <h2 className="text-3xl md:text-4xl font-bold">
-              Ready to Transform Your HR Operations?
-            </h2>
-            <p className="text-primary-foreground/80 text-lg">
-              Join thousands of companies that have modernized their HR with Peoplo. 
-              Start your free trial today — no credit card required.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center pt-4">
-              {isProduction ? (
-                <>
-                  <Link to="/auth">
-                    <Button size="lg" variant="secondary" className="gap-2 px-8 h-12">
-                      Start Free Trial <ArrowRight className="h-4 w-4" />
-                    </Button>
-                  </Link>
-                  <a href="https://cal.com/littlemissbot/business-consultancy" target="_blank" rel="noopener noreferrer">
-                    <Button size="lg" variant="secondary" className="gap-2 px-8 h-12">
-                      Talk to Sales
-                    </Button>
-                  </a>
-                </>
-              ) : (
-                <Link to="/auth">
-                  <Button size="lg" variant="secondary" className="gap-2 px-8 h-12">
-                    Sign In <ArrowRight className="h-4 w-4" />
-                  </Button>
-                </Link>
-              )}
-            </div>
-          </div>
-        </div>
-      </section>
+      <PublicCtaSection />
 
       {/* Footer */}
       <Footer />

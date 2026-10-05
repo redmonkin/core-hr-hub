@@ -139,8 +139,8 @@ export function UpcomingCelebrations() {
                   variant="outline" 
                   className={`text-xs shrink-0 gap-1 ${
                     celebration.type === "birthday" 
-                      ? "border-pink-500/50 text-pink-600" 
-                      : "border-amber-500/50 text-amber-600"
+                      ? "border-pink-200 bg-pink-50 text-pink-800 dark:border-pink-800 dark:bg-pink-950 dark:text-pink-300" 
+                      : "border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-300"
                   }`}
                 >
                   {celebration.type === "birthday" ? (

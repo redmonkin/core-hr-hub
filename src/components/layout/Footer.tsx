@@ -7,7 +7,7 @@ const Footer = () => {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-12">
           <div className="col-span-2 md:col-span-1">
             <Link to="/" className="flex items-center gap-2 mb-4">
-              <img src={logo} alt="Peoplo" className="h-8 w-auto" />
+              <img src={logo} alt="Peoplo home" className="h-8 w-auto" />
             </Link>
             <p className="text-sm text-muted-foreground">
               Modern HR management for growing teams. Streamline your workforce operations.
@@ -18,7 +18,7 @@ const Footer = () => {
             <ul className="space-y-3 text-sm text-muted-foreground">
               <li><Link to="/features" className="hover:text-foreground transition-colors">Features</Link></li>
               <li><Link to="/pricing" className="hover:text-foreground transition-colors">Pricing</Link></li>
-              <li><Link to="/how-it-works" className="hover:text-foreground transition-colors">How It Works</Link></li>
+              <li><Link to="/how-it-works" className="hover:text-foreground transition-colors">How it works</Link></li>
             </ul>
           </div>
           <div>
@@ -44,8 +44,8 @@ const Footer = () => {
           </p>
           <div className="flex items-center gap-4">
             
-            <a href="https://github.com/redmonkin/core-hr-hub" target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-foreground transition-colors">
-              <Github className="h-5 w-5" />
+            <a href="https://github.com/redmonkin/core-hr-hub" target="_blank" rel="noopener noreferrer" aria-label="Peoplo on GitHub" title="Peoplo on GitHub" className="text-muted-foreground hover:text-foreground transition-colors">
+              <Github className="h-5 w-5" aria-hidden="true" />
             </a>
           </div>
         </div>

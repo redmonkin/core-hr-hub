@@ -1,10 +1,10 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Lock } from "lucide-react";
 import hrHubLogo from "@/assets/hr-hub-logo.svg";
@@ -56,7 +56,7 @@ const ResetPassword = () => {
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } else {
-      toast({ title: "Password Updated", description: "Your password has been reset successfully." });
+      toast({ title: "Password updated", description: "Your password has been reset successfully." });
       navigate("/dashboard", { replace: true });
     }
   };
@@ -74,12 +74,14 @@ const ResetPassword = () => {
       <div className="flex min-h-screen items-center justify-center bg-background p-6">
         <Card className="w-full max-w-md border-border">
           <CardHeader className="text-center">
-            <img src={hrHubLogo} alt="Peoplo" className="mx-auto mb-4 h-12 w-auto" />
-            <CardTitle className="text-2xl">Invalid or Expired Link</CardTitle>
+            <Link to="/" className="mx-auto mb-4 block w-fit" aria-label="Peoplo home">
+              <img src={hrHubLogo} alt="" className="h-12 w-auto" />
+            </Link>
+            <h1 className="text-2xl font-semibold leading-none tracking-tight">Invalid or expired link</h1>
             <CardDescription>This password reset link is invalid or has expired. Please request a new one.</CardDescription>
           </CardHeader>
           <CardContent>
-            <Button className="w-full" onClick={() => navigate("/auth")}>Back to Login</Button>
+            <Button className="w-full" onClick={() => navigate("/auth")}>Back to sign in</Button>
           </CardContent>
         </Card>
       </div>
@@ -90,25 +92,27 @@ const ResetPassword = () => {
     <div className="flex min-h-screen items-center justify-center bg-background p-6">
       <Card className="w-full max-w-md border-border">
         <CardHeader className="text-center">
-          <img src={hrHubLogo} alt="Peoplo" className="mx-auto mb-4 h-12 w-auto" />
+          <Link to="/" className="mx-auto mb-4 block w-fit" aria-label="Peoplo home">
+              <img src={hrHubLogo} alt="" className="h-12 w-auto" />
+            </Link>
           <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
-            <Lock className="h-6 w-6 text-primary" />
+            <Lock className="h-6 w-6 text-primary" aria-hidden="true" />
           </div>
-          <CardTitle className="text-2xl">Set New Password</CardTitle>
+          <h1 className="text-2xl font-semibold leading-none tracking-tight">Set a new password</h1>
           <CardDescription>Enter your new password below.</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleReset} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="new-password">New Password</Label>
-              <Input id="new-password" type="password" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} disabled={isLoading} />
+              <Label htmlFor="new-password">New password</Label>
+              <Input id="new-password" type="password" autoComplete="new-password" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} disabled={isLoading} />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="confirm-password">Confirm Password</Label>
-              <Input id="confirm-password" type="password" placeholder="••••••••" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} disabled={isLoading} />
+              <Label htmlFor="confirm-password">Confirm password</Label>
+              <Input id="confirm-password" type="password" autoComplete="new-password" placeholder="••••••••" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} disabled={isLoading} />
             </div>
             <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" />Updating...</>) : "Update Password"}
+              {isLoading ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" />Updating...</>) : "Update password"}
             </Button>
           </form>
         </CardContent>

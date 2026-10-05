@@ -89,11 +89,11 @@ export function LeaveCalendar() {
       <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <CardTitle className="text-lg font-semibold">Who's Out</CardTitle>
         <div className="flex items-center gap-1">
-          <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={handlePrevMonth}>
+          <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={handlePrevMonth} aria-label="Previous month" title="Previous month">
             <ChevronLeft className="h-4 w-4" />
           </Button>
           <span className="text-sm font-medium min-w-[100px] text-center truncate">{monthName}</span>
-          <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={handleNextMonth}>
+          <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={handleNextMonth} aria-label="Next month" title="Next month">
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>

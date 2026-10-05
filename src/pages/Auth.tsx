@@ -1,12 +1,12 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Shield, Users, Calendar, Eye, EyeOff } from "lucide-react";
+import { Loader2, Shield, Users, Calendar, Eye, EyeOff, ArrowLeft } from "lucide-react";
 import { z } from "zod";
 import hrHubLogo from "@/assets/hr-hub-logo.svg";
 import hrHubLogoLight from "@/assets/hr-hub-logo-light.svg";
@@ -93,7 +93,7 @@ const Auth = () => {
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } else {
-      toast({ title: "Email Sent", description: "Check your email for the password reset link." });
+      toast({ title: "Email sent", description: "Check your email for the password reset link." });
       setShowForgotPassword(false);
     }
   };
@@ -109,23 +109,23 @@ const Auth = () => {
       {/* Left side - Branding */}
       <div className="hidden lg:flex lg:w-1/2 flex-col justify-between bg-primary p-12 text-primary-foreground">
         <div>
-          <div className="flex items-center gap-3">
-            <img src={hrHubLogoLight} alt="Peoplo" className="h-12 w-auto" />
-            <h1 className="text-3xl font-bold">Peoplo</h1>
-          </div>
+          <Link to="/" className="inline-flex items-center gap-3" aria-label="Peoplo home">
+            <img src={hrHubLogoLight} alt="" className="h-12 w-auto" />
+            <span className="text-3xl font-bold">Peoplo</span>
+          </Link>
         </div>
         
         <div className="space-y-6">
           <h2 className="text-4xl font-bold leading-tight">
             Streamline Your HR Operations
           </h2>
-          <p className="text-lg opacity-90">
+          <p className="text-lg">
             Manage employees, track leaves, handle payroll, and more — all in one powerful platform.
           </p>
           <div className="space-y-4">
             {features.map((feature, i) => (
               <div key={i} className="flex items-center gap-3">
-                <div className="rounded-lg bg-primary-foreground/10 p-2">
+                <div className="rounded-lg bg-primary-foreground/10 p-2" aria-hidden="true">
                   {feature.icon}
                 </div>
                 <span className="text-lg">{feature.text}</span>
@@ -134,48 +134,113 @@ const Auth = () => {
           </div>
         </div>
 
-        <p className="text-sm opacity-70">
-          © 2025 Peoplo. All rights reserved.
+        <p className="text-sm text-primary-foreground/90">
+          © {new Date().getFullYear()} Peoplo. All rights reserved.
         </p>
       </div>
 
       {/* Right side - Auth Forms */}
-      <div className="flex w-full lg:w-1/2 items-center justify-center bg-background p-6">
+      <div className="flex w-full flex-col bg-background p-4 sm:p-6 lg:w-1/2">
+        <div className="w-full">
+          <Button asChild variant="ghost" size="sm" className="gap-2 text-muted-foreground">
+            <Link to="/">
+              <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+              Back to home
+            </Link>
+          </Button>
+        </div>
+        <div className="flex flex-1 items-center justify-center py-6">
         <Card className="w-full max-w-md border-border">
           <CardHeader className="text-center">
-            <div className="mx-auto mb-4 lg:hidden">
-              <img src={hrHubLogo} alt="Peoplo" className="h-12 w-auto" />
-            </div>
-            <CardTitle className="text-2xl">Welcome to Peoplo</CardTitle>
-            <CardDescription>Sign in to your account</CardDescription>
+            <Link to="/" className="mx-auto mb-4 lg:hidden" aria-label="Peoplo home">
+              <img src={hrHubLogo} alt="" className="h-12 w-auto" />
+            </Link>
+            <h1 className="text-2xl font-semibold leading-none tracking-tight">
+              {showForgotPassword ? "Reset your password" : "Welcome to Peoplo"}
+            </h1>
+            <CardDescription>
+              {showForgotPassword
+                ? "Enter your work email and we'll send you a link to set a new password."
+                : "Sign in to your account"}
+            </CardDescription>
           </CardHeader>
           <CardContent>
+            {showForgotPassword ? (
+              <form onSubmit={handleForgotPassword} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="reset-email">Email</Label>
+                  <Input
+                    id="reset-email"
+                    type="email"
+                    autoComplete="email"
+                    placeholder="name@company.com"
+                    value={resetEmail}
+                    onChange={(e) => setResetEmail(e.target.value)}
+                    disabled={isLoading}
+                    autoFocus
+                  />
+                </div>
+                <Button type="submit" className="w-full" disabled={isLoading}>
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Sending...
+                    </>
+                  ) : (
+                    "Send reset link"
+                  )}
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="w-full gap-2"
+                  onClick={() => setShowForgotPassword(false)}
+                >
+                  <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+                  Back to sign in
+                </Button>
+              </form>
+            ) : (
             <form onSubmit={handleLogin} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="login-email">Email</Label>
                 <Input
                   id="login-email"
                   type="email"
+                  autoComplete="email"
                   placeholder="name@company.com"
                   value={loginEmail}
                   onChange={(e) => setLoginEmail(e.target.value)}
                   disabled={isLoading}
+                  aria-invalid={!!errors.login_email}
                 />
                 {errors.login_email && (
                   <p className="text-sm text-destructive">{errors.login_email}</p>
                 )}
               </div>
               <div className="space-y-2">
-                <Label htmlFor="login-password">Password</Label>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="login-password">Password</Label>
+                  <Button
+                    type="button"
+                    variant="link"
+                    className="h-auto p-0 text-sm"
+                    onClick={() => { setShowForgotPassword(true); setResetEmail(loginEmail); }}
+                  >
+                    Forgot password?
+                  </Button>
+                </div>
                 <div className="relative">
                   <Input
                     id="login-password"
                     type={showLoginPassword ? "text" : "password"}
+                    autoComplete="current-password"
                     placeholder="••••••••"
                     value={loginPassword}
                     onChange={(e) => setLoginPassword(e.target.value)}
                     disabled={isLoading}
                     className="pr-10"
+                    aria-invalid={!!errors.login_password}
                   />
                   <Button
                     type="button"
@@ -183,7 +248,8 @@ const Auth = () => {
                     size="sm"
                     className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
                     onClick={() => setShowLoginPassword(!showLoginPassword)}
-                    tabIndex={-1}
+                    aria-label={showLoginPassword ? "Hide password" : "Show password"}
+                    aria-pressed={showLoginPassword}
                   >
                     {showLoginPassword ? <EyeOff className="h-4 w-4 text-muted-foreground" /> : <Eye className="h-4 w-4 text-muted-foreground" />}
                   </Button>
@@ -192,11 +258,6 @@ const Auth = () => {
                   <p className="text-sm text-destructive">{errors.login_password}</p>
                 )}
               </div>
-              <div className="flex justify-end">
-                <Button type="button" variant="link" className="h-auto p-0 text-sm" onClick={() => { setShowForgotPassword(true); setResetEmail(loginEmail); }}>
-                  Forgot password?
-                </Button>
-              </div>
               <Button type="submit" className="w-full" disabled={isLoading}>
                 {isLoading ? (
                   <>
@@ -204,30 +265,20 @@ const Auth = () => {
                     Signing in...
                   </>
                 ) : (
-                  "Sign In"
+                  "Sign in"
                 )}
               </Button>
             </form>
-
-            {showForgotPassword && (
-              <div className="mt-6 border-t pt-6">
-                <h3 className="mb-2 text-sm font-medium">Reset Password</h3>
-                <form onSubmit={handleForgotPassword} className="space-y-3">
-                  <Input type="email" placeholder="Enter your email" value={resetEmail} onChange={(e) => setResetEmail(e.target.value)} disabled={isLoading} />
-                  <div className="flex gap-2">
-                    <Button type="submit" className="flex-1" disabled={isLoading}>
-                      {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Send Reset Link"}
-                    </Button>
-                    <Button type="button" variant="outline" onClick={() => setShowForgotPassword(false)}>Cancel</Button>
-                  </div>
-                </form>
-              </div>
             )}
             <p className="mt-6 text-center text-sm text-muted-foreground">
               Accounts are by invitation only. If you're joining the team, ask HR to send you an invite.
             </p>
           </CardContent>
         </Card>
+        </div>
+        <p className="text-center text-xs text-muted-foreground lg:hidden">
+          © {new Date().getFullYear()} Peoplo. All rights reserved.
+        </p>
       </div>
     </div>
   );

@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { Loader2 } from "lucide-react";
 import { usePermissions } from "@/hooks/usePermissions";
+import { useEmployeeStatus } from "@/hooks/useEmployeeStatus";
 import { AppModule, Permissions, canAccessReports, canAccessSettings, hasModuleAccess } from "@/lib/permissions";
 import { useCompanyBranding } from "@/hooks/useCompanyBranding";
 import {
@@ -88,7 +89,13 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const { data: versionData } = useVersionCheck();
   const { data: branding } = useCompanyBranding();
 
-  const filteredNavItems = navItems.filter(item => !item.visible || item.visible(permissions));
+  const { data: employeeStatus } = useEmployeeStatus();
+  // Invited people who aren't linked to an employee record yet and have no module
+  // access can only use the dashboard (where they finish onboarding).
+  const isPendingInvitee = employeeStatus?.isEmployee === false && !permissions.hasAnyModuleAccess;
+  const filteredNavItems = isPendingInvitee
+    ? navItems.filter((item) => item.href === "/dashboard")
+    : navItems.filter((item) => !item.visible || item.visible(permissions));
 
   // Close the mobile menu whenever the page changes, however that happens
   // (menu link, back/forward, a link in the page, a redirect).
@@ -275,7 +282,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
             )}
 
             {/* User menu */}
-            <DropdownMenu>
+            <DropdownMenu modal={false}>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="flex items-center gap-2 pl-2 pr-3" aria-label="Account menu">
                   <Avatar className="h-8 w-8">

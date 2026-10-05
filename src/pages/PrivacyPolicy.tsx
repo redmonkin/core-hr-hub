@@ -1,10 +1,11 @@
-import { Link } from "react-router-dom";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Shield, Eye, Lock, UserCheck, Database, Mail } from "lucide-react";
-import hrHubLogo from "@/assets/hr-hub-logo.svg";
 import Footer from "@/components/layout/Footer";
-import { isProductionDomain } from "@/lib/domain";
+import PublicHeader from "@/components/layout/PublicHeader";
+import PublicPageBadge from "@/components/layout/PublicPageBadge";
+
+/** Update this whenever the policy text below changes. */
+const LAST_UPDATED = "March 6, 2026";
 
 const PrivacyPolicy = () => {
   const sections = [
@@ -77,42 +78,14 @@ const PrivacyPolicy = () => {
     }
   ];
 
-  const isProduction = isProductionDomain();
-
   return (
     <div className="min-h-screen bg-background">
-      {/* Navigation */}
-      <nav className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-2">
-            <img src={hrHubLogo} alt="Peoplo" className="h-8 w-auto" />
-            <span className="text-xl font-bold">Peoplo</span>
-          </Link>
-          <div className="hidden md:flex items-center gap-8">
-            <Link to="/features" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Features</Link>
-            <Link to="/how-it-works" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">How It Works</Link>
-            <Link to="/pricing" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Pricing</Link>
-          </div>
-          <div className="flex items-center gap-3">
-            <Link to="/auth">
-              <Button variant="ghost" size="sm">Sign In</Button>
-            </Link>
-            {isProduction && (
-              <a href="https://cal.com/littlemissbot/business-consultancy" target="_blank" rel="noopener noreferrer">
-                <Button size="sm">Request Demo</Button>
-              </a>
-            )}
-          </div>
-        </div>
-      </nav>
+      <PublicHeader />
 
       {/* Hero Section */}
       <section className="py-20 md:py-28">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 text-primary text-sm font-medium mb-6">
-            <Shield className="h-4 w-4" />
-            Your Privacy Matters
-          </div>
+          <PublicPageBadge icon={<Shield />} className="mb-6">Your privacy matters</PublicPageBadge>
           <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight mb-6">
             Privacy Policy
           </h1>
@@ -120,7 +93,7 @@ const PrivacyPolicy = () => {
             We are committed to protecting your privacy and ensuring the security of your personal information.
           </p>
           <p className="text-sm text-muted-foreground">
-            Last updated: {new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+            Last updated: {LAST_UPDATED}
           </p>
         </div>
       </section>

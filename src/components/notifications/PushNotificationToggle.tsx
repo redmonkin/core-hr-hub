@@ -31,17 +31,17 @@ export function PushNotificationToggle() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <BellRing className="h-5 w-5" />
-          Push Notifications
+        <CardTitle className="flex items-center gap-2 text-lg sm:text-2xl">
+          <BellRing className="h-5 w-5 shrink-0" aria-hidden="true" />
+          Push notifications
         </CardTitle>
         <CardDescription>
           Get instant alerts on your device for leave approvals, new requests, and attendance reminders
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="flex items-center justify-between">
-          <div className="space-y-1">
+        <div className="flex items-center justify-between gap-4">
+          <div className="min-w-0 space-y-1">
             <p className="text-sm font-medium">
               {isSubscribed ? "Notifications are enabled" : "Notifications are disabled"}
             </p>
@@ -56,7 +56,7 @@ export function PushNotificationToggle() {
             size="sm"
             onClick={handleToggle}
             disabled={isLoading}
-            className="gap-2"
+            className="shrink-0 gap-2"
           >
             {isLoading ? (
               <Loader2 className="h-4 w-4 animate-spin" />

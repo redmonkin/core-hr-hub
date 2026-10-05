@@ -1,4 +1,4 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -11,11 +11,13 @@ import { useOnboardingRequest } from "@/hooks/useOnboardingRequest";
 import { useAuth } from "@/contexts/AuthContext";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
+import { format } from "date-fns";
+import { formatStatus, statusBadgeClass } from "@/lib/statusStyles";
 
 const DOCUMENT_FIELDS = [
   { key: "resume" as const, label: "Resume", accept: ".pdf,.doc,.docx" },
-  { key: "offerLetter" as const, label: "Offer Letter", accept: ".pdf,.doc,.docx" },
-  { key: "idProof" as const, label: "ID Proof", accept: ".pdf,.jpg,.jpeg,.png" },
+  { key: "offerLetter" as const, label: "Offer letter", accept: ".pdf,.doc,.docx" },
+  { key: "idProof" as const, label: "ID proof", accept: ".pdf,.jpg,.jpeg,.png" },
 ];
 
 interface FormState {
@@ -90,41 +92,27 @@ export function NonEmployeeDashboard() {
   }
 
   const getStatusBadge = (status: string) => {
-    switch (status) {
-      case "pending":
-        return (
-          <Badge variant="secondary" className="gap-1">
-            <Clock className="h-3 w-3" />
-            Pending Review
-          </Badge>
-        );
-      case "approved":
-        return (
-          <Badge variant="default" className="gap-1 bg-green-500">
-            <CheckCircle className="h-3 w-3" />
-            Approved
-          </Badge>
-        );
-      case "rejected":
-        return (
-          <Badge variant="destructive" className="gap-1">
-            <XCircle className="h-3 w-3" />
-            Rejected
-          </Badge>
-        );
-      default:
-        return null;
-    }
+    const icon =
+      status === "approved" ? <CheckCircle className="h-3 w-3" aria-hidden="true" />
+      : status === "rejected" ? <XCircle className="h-3 w-3" aria-hidden="true" />
+      : <Clock className="h-3 w-3" aria-hidden="true" />;
+    const label = status === "pending" ? "Pending review" : formatStatus(status);
+    return (
+      <Badge variant="outline" className={`shrink-0 gap-1 whitespace-nowrap ${statusBadgeClass(status)}`}>
+        {icon}
+        {label}
+      </Badge>
+    );
   };
 
   return (
-    <div className="flex min-h-[60vh] items-center justify-center p-4">
+    <div className="flex min-h-[60vh] items-center justify-center sm:p-4">
       <Card className="w-full max-w-2xl">
         <CardHeader className="text-center">
           <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
-            <UserPlus className="h-8 w-8 text-primary" />
+            <UserPlus className="h-8 w-8 text-primary" aria-hidden="true" />
           </div>
-          <CardTitle className="text-2xl">Welcome to HR Hub!</CardTitle>
+          <h1 className="text-2xl font-semibold leading-none tracking-tight">Welcome to Peoplo</h1>
           <CardDescription>
             {request
               ? "Your onboarding request has been submitted."
@@ -135,17 +123,13 @@ export function NonEmployeeDashboard() {
           {request ? (
             <div className="space-y-4">
               <div className="rounded-lg border p-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">Request Status</span>
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-sm text-muted-foreground">Request status</span>
                   {getStatusBadge(request.status)}
                 </div>
                 <p className="mt-2 text-sm">
                   Submitted on{" "}
-                  {new Date(request.created_at).toLocaleDateString("en-US", {
-                    year: "numeric",
-                    month: "long",
-                    day: "numeric",
-                  })}
+                  {format(new Date(request.created_at), "MMM d, yyyy")}
                 </p>
                 {request.message && (
                   <div className="mt-3 rounded bg-muted p-3">
@@ -199,7 +183,7 @@ export function NonEmployeeDashboard() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="date_of_birth">Date of Birth *</Label>
+                  <Label htmlFor="date_of_birth">Date of birth *</Label>
                   <Input
                     id="date_of_birth"
                     type="date"
@@ -223,7 +207,7 @@ export function NonEmployeeDashboard() {
                   </Select>
                 </div>
                 <div className="space-y-2 sm:col-span-2">
-                  <Label htmlFor="joining_date">Preferred Joining Date *</Label>
+                  <Label htmlFor="joining_date">Preferred joining date *</Label>
                   <Input
                     id="joining_date"
                     type="date"
@@ -277,8 +261,8 @@ export function NonEmployeeDashboard() {
                 disabled={submitRequest.isPending}
                 className="w-full gap-2"
               >
-                <Send className="h-4 w-4" />
-                {submitRequest.isPending ? "Submitting..." : "Request Onboarding"}
+                <Send className="h-4 w-4" aria-hidden="true" />
+                {submitRequest.isPending ? "Submitting..." : "Request onboarding"}
               </Button>
             </div>
           )}
