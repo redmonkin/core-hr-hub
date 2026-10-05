@@ -21,7 +21,7 @@ const BASE_TILT = { x: 10, y: -16 };
 const stats = [
   { label: "Headcount", value: "48", trend: "+2 this month" },
   { label: "On leave today", value: "3", trend: "2 approved" },
-  { label: "October payroll", value: "₹18.4L", trend: "Runs on the 27th" },
+  { label: "October payroll", value: "₹18.4L", trend: "Runs on the 31st" },
 ];
 
 // Share of the team clocked in, Monday to Saturday.

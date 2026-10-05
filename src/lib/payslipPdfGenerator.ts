@@ -85,6 +85,21 @@ function amountToWords(amount: number): string {
   return parts.join(" ");
 }
 
+const MONTH_NAMES = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
+];
+
+/**
+ * The date printed on a payslip: the last day of the pay month, so a payslip
+ * downloaded later still carries its pay period's date rather than today's.
+ */
+export function payslipDate(monthName: string, year: number): Date | null {
+  const month = MONTH_NAMES.findIndex((m) => m.toLowerCase() === monthName.trim().toLowerCase());
+  if (month === -1) return null;
+  return new Date(year, month + 1, 0);
+}
+
 const BOLD_LABELS = new Set(["Total Gross Salary", "Total CTC", "Total Deductions", "Net Take Home"]);
 
 export function generatePayslipPDF(data: PayslipData): jsPDF {
@@ -287,7 +302,7 @@ export function generatePayslipPDF(data: PayslipData): jsPDF {
     { align: "center" }
   );
   doc.text(
-    `Generated on ${new Date().toLocaleDateString("en-IN", {
+    `Generated on ${(payslipDate(data.monthName, data.year) ?? new Date()).toLocaleDateString("en-IN", {
       day: "numeric",
       month: "long",
       year: "numeric"

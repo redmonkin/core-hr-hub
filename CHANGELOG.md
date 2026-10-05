@@ -19,6 +19,15 @@ When you update a self-hosted copy, read the **Upgrade notes** of every version 
 
 - Apply `20261006100000_onboarding_invites.sql` and redeploy `invite-employee` and `onboarding-reminders`. The `onboarding-request-notification` function is no longer used and can be deleted from your project.
 
+### Payroll at month end
+
+- Payroll is now generated automatically on the **last day of each month** (previously the 27th).
+- Payslip PDFs are dated to the **last day of their pay month** ("Generated on 30 September 2026"), not the day they were downloaded.
+
+### Upgrade notes (payroll)
+
+- Reschedule the payroll job: `select cron.schedule('monthly-payroll-generation', '0 9 $ * *', ...)` with the same command as before (see [Scheduled jobs](docs/self-hosting.md)). Scheduling a job with an existing name replaces it.
+
 ### License
 
 - Peoplo is now licensed under the **AGPL-3.0** (previously MIT). Versions released before this change remain available under MIT. The app shows a **Source code** link, configurable with `VITE_REPO_URL`.
