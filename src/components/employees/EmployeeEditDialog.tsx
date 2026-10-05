@@ -33,6 +33,7 @@ import {
 } from "@/components/ui/collapsible";
 import { WorkingDaysPicker } from "./WorkingDaysPicker";
 import { EmployeeLeaveEligibility, type EmployeeLeaveEligibilityHandle } from "./EmployeeLeaveEligibility";
+import { normalizeIfsc, isValidIfsc } from "@/lib/ifsc";
 
 interface EmployeeEditDialogProps {
   employee: Employee | null;
@@ -53,6 +54,7 @@ interface EditFormData {
   gender: string;
   bank_name: string;
   bank_account_number: string;
+  ifsc_code: string;
   designation: string;
   department_id: string;
   manager_id: string;
@@ -98,6 +100,7 @@ export function EmployeeEditDialog({ employee, open, onOpenChange }: EmployeeEdi
     gender: "",
     bank_name: "",
     bank_account_number: "",
+    ifsc_code: "",
     designation: "",
     department_id: "",
     manager_id: "",
@@ -204,7 +207,7 @@ export function EmployeeEditDialog({ employee, open, onOpenChange }: EmployeeEdi
           country,
           date_of_birth,
           gender,
-          bank:employee_bank_details(bank_name, bank_account_number),
+          bank:employee_bank_details(bank_name, bank_account_number, ifsc_code),
           designation,
           department_id,
           manager_id,
@@ -279,6 +282,7 @@ export function EmployeeEditDialog({ employee, open, onOpenChange }: EmployeeEdi
         gender: employeeDetails.gender || "",
         bank_name: employeeDetails.bank?.bank_name || "",
         bank_account_number: employeeDetails.bank?.bank_account_number || "",
+        ifsc_code: employeeDetails.bank?.ifsc_code || "",
         designation: employeeDetails.designation || "",
         department_id: employeeDetails.department_id || "",
         manager_id: employeeDetails.manager_id || "",
@@ -325,15 +329,22 @@ export function EmployeeEditDialog({ employee, open, onOpenChange }: EmployeeEdi
       // payroll and HR); only write when something changed.
       const bankName = data.bank_name.trim() || null;
       const bankAccountNumber = data.bank_account_number.trim() || null;
+      const ifscCode = normalizeIfsc(data.ifsc_code) || null;
       const previousBank = employeeDetails?.bank;
       if (
         employee?.id &&
         (bankName !== (previousBank?.bank_name ?? null) ||
-          bankAccountNumber !== (previousBank?.bank_account_number ?? null))
+          bankAccountNumber !== (previousBank?.bank_account_number ?? null) ||
+          ifscCode !== (previousBank?.ifsc_code ?? null))
       ) {
         const { error: bankError } = await supabase
           .from("employee_bank_details")
-          .upsert({ employee_id: employee.id, bank_name: bankName, bank_account_number: bankAccountNumber });
+          .upsert({
+            employee_id: employee.id,
+            bank_name: bankName,
+            bank_account_number: bankAccountNumber,
+            ifsc_code: ifscCode,
+          });
         if (bankError) throw bankError;
       }
 
@@ -405,6 +416,10 @@ export function EmployeeEditDialog({ employee, open, onOpenChange }: EmployeeEdi
     }
     if (!formData.first_name || !formData.last_name || !formData.email || !formData.designation) {
       toast.error("Please fill in all required fields");
+      return;
+    }
+    if (formData.ifsc_code.trim() && !isValidIfsc(formData.ifsc_code)) {
+      toast.error("IFSC code must be 11 characters, like HDFC0001234");
       return;
     }
     if (!isDepartmentManager && !formData.manager_id) {
@@ -608,6 +623,21 @@ export function EmployeeEditDialog({ employee, open, onOpenChange }: EmployeeEdi
                       value={formData.bank_account_number}
                       onChange={(e) => setFormData({ ...formData, bank_account_number: e.target.value })}
                     />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="ifsc_code">IFSC Code</Label>
+                    <Input
+                      id="ifsc_code"
+                      value={formData.ifsc_code}
+                      onChange={(e) => setFormData({ ...formData, ifsc_code: e.target.value.toUpperCase() })}
+                      placeholder="e.g. HDFC0001234"
+                      maxLength={11}
+                      autoCapitalize="characters"
+                      aria-describedby="ifsc_code_hint"
+                    />
+                    <p id="ifsc_code_hint" className="text-xs text-muted-foreground">
+                      11 characters, printed on the cheque book or passbook
+                    </p>
                   </div>
                 </div>
               </TabsContent>

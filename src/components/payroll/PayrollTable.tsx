@@ -188,7 +188,7 @@ export function PayrollTable({
 
       const { data: bankDetails } = await supabase
         .from("employee_bank_details")
-        .select("bank_name, bank_account_number")
+        .select("bank_name, bank_account_number, ifsc_code")
         .eq("employee_id", record.employeeId)
         .maybeSingle();
 
@@ -224,6 +224,7 @@ export function PayrollTable({
         workedDays: workedDays ?? undefined,
         bankName: bankDetails?.bank_name ?? undefined,
         bankAccountNumber: bankDetails?.bank_account_number ?? undefined,
+        ifscCode: bankDetails?.ifsc_code ?? undefined,
         daysInMonth,
         lossOfPayDays: record.lossOfPayDays,
         salaryBreakdown: salaryStructure ? {

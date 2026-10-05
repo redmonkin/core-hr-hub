@@ -35,6 +35,7 @@ interface PayslipData {
   workedDays?: number;
   bankName?: string;
   bankAccountNumber?: string;
+  ifscCode?: string;
   daysInMonth?: number;
   lossOfPayDays?: number;
 }
@@ -180,6 +181,7 @@ export function generatePayslipPDF(data: PayslipData): jsPDF {
     ["Date of Joining", data.dateOfJoining || "—"],
     ["Bank Name", data.bankName || "—"],
     ["Bank Account No", data.bankAccountNumber || "—"],
+    ["IFSC Code", data.ifscCode || "—"],
     ["Days in Month", data.daysInMonth !== undefined ? String(data.daysInMonth) : "—"],
     ["Days Payable", daysPayable !== undefined ? String(daysPayable) : "—"],
   ];

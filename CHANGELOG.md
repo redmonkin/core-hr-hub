@@ -19,6 +19,14 @@ When you update a self-hosted copy, read the **Upgrade notes** of every version 
 
 - Apply `20261006100000_onboarding_invites.sql` and redeploy `invite-employee` and `onboarding-reminders`. The `onboarding-request-notification` function is no longer used and can be deleted from your project.
 
+### Bank details
+
+- Employee bank details now include the **IFSC code** (Employees → Edit → Personal). It's checked for the standard 11-character format and shown on payslips.
+
+### Upgrade notes (bank details)
+
+- Apply `20261007100000_bank_ifsc.sql`.
+
 ### Payroll at month end
 
 - Payroll is now generated automatically on the **last day of each month** (previously the 27th).

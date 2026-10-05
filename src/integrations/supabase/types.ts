@@ -358,6 +358,7 @@ export type Database = {
           bank_account_number: string | null
           bank_name: string | null
           employee_id: string
+          ifsc_code: string | null
           updated_at: string
           updated_by: string | null
         }
@@ -365,6 +366,7 @@ export type Database = {
           bank_account_number?: string | null
           bank_name?: string | null
           employee_id: string
+          ifsc_code?: string | null
           updated_at?: string
           updated_by?: string | null
         }
@@ -372,6 +374,7 @@ export type Database = {
           bank_account_number?: string | null
           bank_name?: string | null
           employee_id?: string
+          ifsc_code?: string | null
           updated_at?: string
           updated_by?: string | null
         }

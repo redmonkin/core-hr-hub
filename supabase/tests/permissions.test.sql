@@ -405,6 +405,11 @@ SELECT tests.rows('employees cannot change their own bank details', 'alice',
 SELECT tests.after('bank detail changes record who made them', 'hr',
   $$UPDATE employee_bank_details SET bank_account_number = '3333' WHERE employee_id = '00000000-0000-0000-0000-00000000000a'$$,
   $$(SELECT updated_by FROM employee_bank_details WHERE employee_id = '00000000-0000-0000-0000-00000000000a') = tests.uid('hr')$$);
+SELECT tests.rows('HR can save an IFSC code', 'hr',
+  $$UPDATE employee_bank_details SET ifsc_code = 'HDFC0001234' WHERE employee_id = '00000000-0000-0000-0000-00000000000a'$$, 1);
+SELECT tests.fails('invalid IFSC codes are rejected', 'hr',
+  $$UPDATE employee_bank_details SET ifsc_code = 'HDFC1234' WHERE employee_id = '00000000-0000-0000-0000-00000000000a'$$,
+  'employee_bank_details_ifsc_code_format');
 
 -- ===========================================================================
 -- Employee self-service
