@@ -80,6 +80,11 @@ export default defineConfig(({ mode }) => ({
       },
     }),
   ].filter(Boolean),
+  build: {
+    // Not "assets": that's an app route (/assets), and hosts like Vercel answer
+    // /assets with a file from the assets folder instead of the app.
+    assetsDir: "static",
+  },
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
