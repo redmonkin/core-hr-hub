@@ -23,8 +23,7 @@ import {
   Edit, 
   FileText, 
   ChevronDown,
-  UserX,
-  UserCheck,
+  DoorOpen,
   Mail,
   Download,
   UserCog,
@@ -33,7 +32,7 @@ import {
 } from "lucide-react";
 import { SortableTableHead } from "@/components/ui/sortable-table-head";
 import { SortDirection } from "@/hooks/useSorting";
-import { statusBadgeClass, formatStatus } from "@/lib/statusStyles";
+import { statusBadgeClass, formatStatus, toneClass } from "@/lib/statusStyles";
 
 export interface Employee {
   id: string;
@@ -47,6 +46,8 @@ export interface Employee {
   joinDate: string;
   status: "active" | "inactive" | "onboarding" | "offboarded";
   hasAccount?: boolean;
+  /** Last working day while an offboarding is under way */
+  leavingOn?: string;
 }
 
 interface EmployeeTableProps {
@@ -57,6 +58,8 @@ interface EmployeeTableProps {
   onManageDocuments?: (employee: Employee) => void;
   /** Offered for people without a sign-in account (needs onboarding:manage). */
   onInvite?: (employee: Employee) => void;
+  /** Offered for active employees who aren't already leaving (needs onboarding:manage). */
+  onOffboard?: (employee: Employee) => void;
   /** Show edit/documents actions and bulk selection (employees:manage). */
   canManage?: boolean;
   sortKey?: keyof Employee | null;
@@ -75,6 +78,7 @@ export function EmployeeTable({
    
   onManageDocuments, 
   onInvite,
+  onOffboard,
   canManage = false,
   sortKey,
   sortDirection,
@@ -147,6 +151,15 @@ export function EmployeeTable({
             Invite to sign in
           </DropdownMenuItem>
         )}
+        {onOffboard && employee.status === "active" && !employee.leavingOn && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => onOffboard(employee)}>
+              <DoorOpen className="mr-2 h-4 w-4" />
+              Start offboarding
+            </DropdownMenuItem>
+          </>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   );
@@ -180,15 +193,6 @@ export function EmployeeTable({
                 <DropdownMenuItem onClick={() => onBulkAction?.('assign-manager', selectedIds)}>
                   <UserCog className="mr-2 h-4 w-4" />
                   Assign manager
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => onBulkAction?.('activate', selectedIds)}>
-                  <UserCheck className="mr-2 h-4 w-4" />
-                  Set as active
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => onBulkAction?.('deactivate', selectedIds)}>
-                  <UserX className="mr-2 h-4 w-4" />
-                  Set as inactive
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem 
@@ -328,8 +332,8 @@ export function EmployeeTable({
                 <TableCell className="text-muted-foreground">{employee.designation}</TableCell>
                 <TableCell className="whitespace-nowrap text-muted-foreground">{employee.joinDate}</TableCell>
                 <TableCell>
-                  <Badge variant="outline" className={statusBadgeClass(employee.status)}>
-                    {formatStatus(employee.status)}
+                  <Badge variant="outline" className={employee.leavingOn ? toneClass("warning") : statusBadgeClass(employee.status)}>
+                    {employee.leavingOn ? `Leaving ${employee.leavingOn}` : formatStatus(employee.status)}
                   </Badge>
                 </TableCell>
                 <TableCell className="text-right">
@@ -387,8 +391,8 @@ export function EmployeeTable({
                 {renderRowMenu(employee)}
               </div>
               <div className={`mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground ${showBulkActions ? "pl-[4.75rem]" : "pl-[3.25rem]"}`}>
-                <Badge variant="outline" className={statusBadgeClass(employee.status)}>
-                  {formatStatus(employee.status)}
+                <Badge variant="outline" className={employee.leavingOn ? toneClass("warning") : statusBadgeClass(employee.status)}>
+                  {employee.leavingOn ? `Leaving ${employee.leavingOn}` : formatStatus(employee.status)}
                 </Badge>
                 <span className="font-mono text-xs">{employee.employeeCode}</span>
                 {employee.designation && <span>{employee.designation}</span>}

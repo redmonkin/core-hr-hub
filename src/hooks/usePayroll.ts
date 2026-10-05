@@ -6,6 +6,7 @@ import {
   buildHolidaySet,
   calculatePayrollAmounts,
   getProrationRatio,
+  isEmployedDuringMonth,
   resolveWorkingDays,
 } from "@/lib/payrollProration";
 
@@ -188,7 +189,7 @@ export function useGeneratePayroll() {
           other_allowances,
           tax_deduction,
           pf_deduction,
-          employee:employees(hire_date, working_days)
+          employee:employees(hire_date, working_days, exit_date)
         `);
 
       if (salaryError) throw salaryError;
@@ -197,11 +198,12 @@ export function useGeneratePayroll() {
         throw new Error("No salary structures found. Please set up salary structures for employees first.");
       }
 
-      // Exclude employees who joined after the selected month
-      const eligible = salaryStructures.filter((s) => {
-        const hireDate = s.employee?.hire_date;
-        return !hireDate || hireDate <= monthEndStr;
-      });
+      // Only people employed during the selected month: joined by its end and
+      // not gone before its start
+      const monthStartStr = format(monthStart, "yyyy-MM-dd");
+      const eligible = salaryStructures.filter((s) =>
+        isEmployedDuringMonth(s.employee?.hire_date, s.employee?.exit_date, monthStartStr, monthEndStr)
+      );
 
       if (eligible.length === 0) {
         throw new Error("No employees were active during the selected month.");
@@ -220,7 +222,14 @@ export function useGeneratePayroll() {
       // employees whose hire date falls inside the selected month
       const payrollRecords = eligible.map((salary) => {
         const workingDays = resolveWorkingDays(salary.employee?.working_days);
-        const ratio = getProrationRatio(salary.employee?.hire_date, monthStart, monthEnd, workingDays, holidaySet);
+        const ratio = getProrationRatio(
+          salary.employee?.hire_date,
+          monthStart,
+          monthEnd,
+          workingDays,
+          holidaySet,
+          salary.employee?.exit_date
+        );
         const amounts = calculatePayrollAmounts(salary, ratio);
 
         return {

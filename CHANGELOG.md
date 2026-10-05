@@ -12,12 +12,34 @@ When you update a self-hosted copy, read the **Upgrade notes** of every version 
 - **Pending shows who hasn't joined yet**: each new hire's invitation state (sent, link expired, not sent, cancelled) with **Resend** and **Cancel invitation**, plus who joined in the last 30 days.
 - **Joining is automatic**: when the new hire opens the link and chooses a password (a new welcome screen), their invitation is accepted, their record becomes active, leave balances are created, and whoever invited them is notified. "Mark as joined" is still available for people who won't use the app.
 - **Invite anyone without an account** from their row in Employees.
+- The Add employee form no longer asks for a base salary; set pay in **Employees → Edit → Salary**, which covers the full structure (allowances and deductions).
 - **One invitation email**, with a working link: previously Supabase's email and ours were both sent, and the second made the first link invalid. Resending to someone who never set up their account now works.
 - The daily onboarding reminder only tells HR about new hires whose link expired or who were never invited, instead of emailing every pending hire a link they couldn't use.
 
 ### Upgrade notes (onboarding)
 
 - Apply `20261006100000_onboarding_invites.sql` and redeploy `invite-employee` and `onboarding-reminders`. The `onboarding-request-notification` function is no longer used and can be deleted from your project.
+
+### Offboarding
+
+- **Start offboarding** from an employee's row in Employees: reason, notice date and last working day. They stay active through their notice period and show as "Leaving <date>".
+- **Resignations**: employees can resign from their profile with a proposed last day; HR approves (confirming the date) or declines with a note. Employees can withdraw until it's approved.
+- **Leaving tab** in Onboarding: resignations to review, everyone leaving with a checklist (each assigned asset to return, which ticks itself when the asset is returned, plus reimbursements, leave, final payroll, handover and exit interview, and your own items), and who left in the last 90 days.
+- **Automatic on the last day**: the morning after the last working day the person is marked offboarded, their sign-in is blocked and pending leave is cancelled; HR and their manager are notified. HR can also complete it on the day, change the date, or cancel.
+- **Payroll** no longer pays people who have left, and prorates the final month to the last working day. Reports count leavers by their last working day.
+- Employee **status is now set by the workflows** (joining and offboarding) and shown read-only when editing; the unused **Inactive** status and the bulk "Set as active / inactive" actions are gone.
+
+### Upgrade notes (offboarding)
+
+- Apply `20261008100000_offboarding.sql`, redeploy `generate-monthly-payroll`, and schedule the daily job: `select cron.schedule('process-employee-exits', '30 0 * * *', $$select public.process_employee_exits()$$);`
+
+### Bank details
+
+- Employee bank details now include the **IFSC code** (Employees → Edit → Personal). It's checked for the standard 11-character format and shown on payslips.
+
+### Upgrade notes (bank details)
+
+- Apply `20261007100000_bank_ifsc.sql`.
 
 ### Payroll at month end
 

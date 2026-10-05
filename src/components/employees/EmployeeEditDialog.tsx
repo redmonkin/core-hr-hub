@@ -23,7 +23,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Employee } from "./EmployeeTable";
 import { Loader2, Hash, IndianRupee, History, ChevronDown, ChevronUp } from "lucide-react";
-import { format } from "date-fns";
+import { format, parseISO } from "date-fns";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Switch } from "@/components/ui/switch";
 import {
@@ -33,6 +33,9 @@ import {
 } from "@/components/ui/collapsible";
 import { WorkingDaysPicker } from "./WorkingDaysPicker";
 import { EmployeeLeaveEligibility, type EmployeeLeaveEligibilityHandle } from "./EmployeeLeaveEligibility";
+import { normalizeIfsc, isValidIfsc } from "@/lib/ifsc";
+import { Badge } from "@/components/ui/badge";
+import { formatStatus, statusBadgeClass, toneClass } from "@/lib/statusStyles";
 
 interface EmployeeEditDialogProps {
   employee: Employee | null;
@@ -53,6 +56,7 @@ interface EditFormData {
   gender: string;
   bank_name: string;
   bank_account_number: string;
+  ifsc_code: string;
   designation: string;
   department_id: string;
   manager_id: string;
@@ -98,6 +102,7 @@ export function EmployeeEditDialog({ employee, open, onOpenChange }: EmployeeEdi
     gender: "",
     bank_name: "",
     bank_account_number: "",
+    ifsc_code: "",
     designation: "",
     department_id: "",
     manager_id: "",
@@ -204,7 +209,7 @@ export function EmployeeEditDialog({ employee, open, onOpenChange }: EmployeeEdi
           country,
           date_of_birth,
           gender,
-          bank:employee_bank_details(bank_name, bank_account_number),
+          bank:employee_bank_details(bank_name, bank_account_number, ifsc_code),
           designation,
           department_id,
           manager_id,
@@ -213,7 +218,8 @@ export function EmployeeEditDialog({ employee, open, onOpenChange }: EmployeeEdi
           working_hours_start,
           working_hours_end,
           working_days,
-          status
+          status,
+          exit_date
         `)
         .eq("id", employee.id)
         .maybeSingle();
@@ -279,6 +285,7 @@ export function EmployeeEditDialog({ employee, open, onOpenChange }: EmployeeEdi
         gender: employeeDetails.gender || "",
         bank_name: employeeDetails.bank?.bank_name || "",
         bank_account_number: employeeDetails.bank?.bank_account_number || "",
+        ifsc_code: employeeDetails.bank?.ifsc_code || "",
         designation: employeeDetails.designation || "",
         department_id: employeeDetails.department_id || "",
         manager_id: employeeDetails.manager_id || "",
@@ -315,7 +322,6 @@ export function EmployeeEditDialog({ employee, open, onOpenChange }: EmployeeEdi
           working_hours_start: data.working_hours_start ? `${data.working_hours_start}:00` : '09:00:00',
           working_hours_end: data.working_hours_end ? `${data.working_hours_end}:00` : '18:00:00',
           working_days: data.working_days,
-          status: data.status as "active" | "inactive" | "onboarding" | "offboarded",
         })
         .eq("id", employee?.id);
 
@@ -325,15 +331,22 @@ export function EmployeeEditDialog({ employee, open, onOpenChange }: EmployeeEdi
       // payroll and HR); only write when something changed.
       const bankName = data.bank_name.trim() || null;
       const bankAccountNumber = data.bank_account_number.trim() || null;
+      const ifscCode = normalizeIfsc(data.ifsc_code) || null;
       const previousBank = employeeDetails?.bank;
       if (
         employee?.id &&
         (bankName !== (previousBank?.bank_name ?? null) ||
-          bankAccountNumber !== (previousBank?.bank_account_number ?? null))
+          bankAccountNumber !== (previousBank?.bank_account_number ?? null) ||
+          ifscCode !== (previousBank?.ifsc_code ?? null))
       ) {
         const { error: bankError } = await supabase
           .from("employee_bank_details")
-          .upsert({ employee_id: employee.id, bank_name: bankName, bank_account_number: bankAccountNumber });
+          .upsert({
+            employee_id: employee.id,
+            bank_name: bankName,
+            bank_account_number: bankAccountNumber,
+            ifsc_code: ifscCode,
+          });
         if (bankError) throw bankError;
       }
 
@@ -405,6 +418,10 @@ export function EmployeeEditDialog({ employee, open, onOpenChange }: EmployeeEdi
     }
     if (!formData.first_name || !formData.last_name || !formData.email || !formData.designation) {
       toast.error("Please fill in all required fields");
+      return;
+    }
+    if (formData.ifsc_code.trim() && !isValidIfsc(formData.ifsc_code)) {
+      toast.error("IFSC code must be 11 characters, like HDFC0001234");
       return;
     }
     if (!isDepartmentManager && !formData.manager_id) {
@@ -609,6 +626,21 @@ export function EmployeeEditDialog({ employee, open, onOpenChange }: EmployeeEdi
                       onChange={(e) => setFormData({ ...formData, bank_account_number: e.target.value })}
                     />
                   </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="ifsc_code">IFSC Code</Label>
+                    <Input
+                      id="ifsc_code"
+                      value={formData.ifsc_code}
+                      onChange={(e) => setFormData({ ...formData, ifsc_code: e.target.value.toUpperCase() })}
+                      placeholder="e.g. HDFC0001234"
+                      maxLength={11}
+                      autoCapitalize="characters"
+                      aria-describedby="ifsc_code_hint"
+                    />
+                    <p id="ifsc_code_hint" className="text-xs text-muted-foreground">
+                      11 characters, printed on the cheque book or passbook
+                    </p>
+                  </div>
                 </div>
               </TabsContent>
 
@@ -726,21 +758,21 @@ export function EmployeeEditDialog({ employee, open, onOpenChange }: EmployeeEdi
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="status">Status</Label>
-                  <Select
-                    value={formData.status}
-                    onValueChange={(value) => setFormData({ ...formData, status: value })}
-                  >
-                    <SelectTrigger id="status">
-                      <SelectValue placeholder="Select status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="active">Active</SelectItem>
-                      <SelectItem value="inactive">Inactive</SelectItem>
-                      <SelectItem value="onboarding">Onboarding</SelectItem>
-                      <SelectItem value="offboarded">Offboarded</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <span className="text-sm font-medium leading-none">Status</span>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge
+                      variant="outline"
+                      className={employeeDetails?.exit_date && formData.status === "active" ? toneClass("warning") : statusBadgeClass(formData.status)}
+                    >
+                      {employeeDetails?.exit_date && formData.status === "active"
+                        ? `Leaving ${format(parseISO(employeeDetails.exit_date), "MMM d, yyyy")}`
+                        : formatStatus(formData.status)}
+                    </Badge>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Set automatically: new hires become active when they set up their account, and people leave
+                    through <span className="font-medium">Start offboarding</span> in the Employees list.
+                  </p>
                 </div>
               </TabsContent>
 

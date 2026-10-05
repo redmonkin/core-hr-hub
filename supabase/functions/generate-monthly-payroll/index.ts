@@ -49,6 +49,7 @@ interface SalaryStructureRow {
   employee: {
     hire_date: string | null;
     working_days: number[] | null;
+    exit_date: string | null;
   } | null;
 }
 
@@ -137,7 +138,7 @@ serve(async (req) => {
         other_allowances,
         tax_deduction,
         pf_deduction,
-        employee:employees(hire_date, working_days)
+        employee:employees(hire_date, working_days, exit_date)
       `);
 
     if (salaryError) throw salaryError;
@@ -150,10 +151,14 @@ serve(async (req) => {
       );
     }
 
-    // Exclude employees who joined after the current month
-    const eligible = (salaryStructures as SalaryStructureRow[]).filter((s) => {
+    // Only people employed during the month: joined by its end, and not gone
+    // before its start (exit_date is the last working day, set as soon as an
+    // offboarding is under way)
+    const monthStartStr = `${year}-${String(month).padStart(2, "0")}-01`;
+    const eligible = (salaryStructures as unknown as SalaryStructureRow[]).filter((s) => {
       const hireDate = s.employee?.hire_date;
-      return !hireDate || hireDate <= monthEndStr;
+      const exitDate = s.employee?.exit_date;
+      return (!hireDate || hireDate <= monthEndStr) && (!exitDate || exitDate >= monthStartStr);
     });
 
     if (eligible.length === 0) {
@@ -188,12 +193,17 @@ serve(async (req) => {
           ? salary.employee.working_days
           : [1, 2, 3, 4, 5];
 
+      // Prorate by working days employed this month: from the hire date if they
+      // joined after the 1st, up to the last working day if they're leaving
       const hireDate = salary.employee?.hire_date ? new Date(`${salary.employee.hire_date}T00:00:00`) : null;
+      const exitDate = salary.employee?.exit_date ? new Date(`${salary.employee.exit_date}T00:00:00`) : null;
+      const from = hireDate && hireDate > monthStart ? hireDate : monthStart;
+      const to = exitDate && exitDate < monthEnd ? exitDate : monthEnd;
 
       let ratio = 1;
-      if (hireDate && hireDate > monthStart) {
+      if (from > monthStart || to < monthEnd) {
         const totalWorkingDaysInMonth = countWorkingDays(monthStart, monthEnd, workingDays, holidaySet);
-        const workedDays = countWorkingDays(hireDate, monthEnd, workingDays, holidaySet);
+        const workedDays = to < from ? 0 : countWorkingDays(from, to, workingDays, holidaySet);
         ratio = totalWorkingDaysInMonth > 0 ? workedDays / totalWorkingDaysInMonth : 1;
       }
 

@@ -25,7 +25,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { UserPlus, Search, Users } from "lucide-react";
 import { Link } from "react-router-dom";
-import { useEmployees, useEmployeeDirectory, useDepartments, useBulkDeleteEmployees, useBulkUpdateEmployeeStatus } from "@/hooks/useEmployees";
+import { useEmployees, useEmployeeDirectory, useDepartments, useBulkDeleteEmployees } from "@/hooks/useEmployees";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent } from "@/components/ui/card";
 import { EmployeeDocuments } from "@/components/documents/EmployeeDocuments";
@@ -37,6 +37,7 @@ import { BulkAssignManagerDialog } from "@/components/employees/BulkAssignManage
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 import { sendInvitation } from "@/components/onboarding/inviteEmployee";
+import { StartOffboardingDialog } from "@/components/offboarding/StartOffboardingDialog";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { useCompanyBranding } from "@/hooks/useCompanyBranding";
@@ -84,7 +85,7 @@ const Employees = () => {
   const { data: departments = [] } = useDepartments();
   const { data: branding } = useCompanyBranding();
   const bulkDeleteMutation = useBulkDeleteEmployees();
-  const bulkStatusMutation = useBulkUpdateEmployeeStatus();
+  const [offboardEmployee, setOffboardEmployee] = useState<Employee | null>(null);
 
   const filteredEmployees = employees.filter((employee) => {
     const matchesSearch =
@@ -283,36 +284,6 @@ const Employees = () => {
         break;
       }
         
-      case 'activate':
-        bulkStatusMutation.mutate(
-          { employeeIds: ids, status: 'active' },
-          {
-            onSuccess: ({ updatedCount }) => {
-              toast.success(`${updatedCount} employee${updatedCount > 1 ? 's' : ''} set to active`);
-              setSelectedEmployeeIds([]);
-            },
-            onError: (error) => {
-              toast.error(error.message);
-            },
-          }
-        );
-        break;
-        
-      case 'deactivate':
-        bulkStatusMutation.mutate(
-          { employeeIds: ids, status: 'inactive' },
-          {
-            onSuccess: ({ updatedCount }) => {
-              toast.success(`${updatedCount} employee${updatedCount > 1 ? 's' : ''} set to inactive`);
-              setSelectedEmployeeIds([]);
-            },
-            onError: (error) => {
-              toast.error(error.message);
-            },
-          }
-        );
-        break;
-        
       case 'delete':
         setEmployeesToDelete(selectedEmployees);
         setBulkDeleteOpen(true);
@@ -425,6 +396,7 @@ const Employees = () => {
               onEdit={canManageEmployees ? (employee) => setEditEmployee(employee) : undefined}
               onManageDocuments={canManageEmployees ? (employee) => setDocumentsEmployee(employee) : undefined}
               onInvite={can("onboarding", "manage") ? handleInvite : undefined}
+              onOffboard={can("onboarding", "manage") ? setOffboardEmployee : undefined}
               canManage={canManageEmployees}
               sortKey={sortConfig.key}
               sortDirection={sortConfig.direction}
@@ -572,6 +544,10 @@ const Employees = () => {
           }}
         />
       </div>
+      <StartOffboardingDialog
+        employee={offboardEmployee ? { id: offboardEmployee.id, name: offboardEmployee.name } : null}
+        onOpenChange={(open) => !open && setOffboardEmployee(null)}
+      />
     </DashboardLayout>
   );
 };

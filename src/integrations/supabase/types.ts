@@ -358,6 +358,7 @@ export type Database = {
           bank_account_number: string | null
           bank_name: string | null
           employee_id: string
+          ifsc_code: string | null
           updated_at: string
           updated_by: string | null
         }
@@ -365,6 +366,7 @@ export type Database = {
           bank_account_number?: string | null
           bank_name?: string | null
           employee_id: string
+          ifsc_code?: string | null
           updated_at?: string
           updated_by?: string | null
         }
@@ -372,6 +374,7 @@ export type Database = {
           bank_account_number?: string | null
           bank_name?: string | null
           employee_id?: string
+          ifsc_code?: string | null
           updated_at?: string
           updated_by?: string | null
         }
@@ -388,6 +391,65 @@ export type Database = {
             columns: ["employee_id"]
             isOneToOne: true
             referencedRelation: "employee_directory"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      employee_exits: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          decision_notes: string | null
+          employee_id: string
+          id: string
+          last_working_day: string
+          notes: string | null
+          notice_date: string
+          reason: Database["public"]["Enums"]["exit_reason"]
+          requested_by: string | null
+          status: Database["public"]["Enums"]["exit_status"]
+          updated_at: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_notes?: string | null
+          employee_id: string
+          id?: string
+          last_working_day: string
+          notes?: string | null
+          notice_date?: string
+          reason: Database["public"]["Enums"]["exit_reason"]
+          requested_by?: string | null
+          status?: Database["public"]["Enums"]["exit_status"]
+          updated_at?: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_notes?: string | null
+          employee_id?: string
+          id?: string
+          last_working_day?: string
+          notes?: string | null
+          notice_date?: string
+          reason?: Database["public"]["Enums"]["exit_reason"]
+          requested_by?: string | null
+          status?: Database["public"]["Enums"]["exit_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employee_exits_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
             referencedColumns: ["id"]
           },
         ]
@@ -469,6 +531,7 @@ export type Database = {
           department_id: string | null
           designation: string
           email: string
+          exit_date: string | null
           employee_code: string
           employment_type: string | null
           first_name: string
@@ -495,6 +558,7 @@ export type Database = {
           department_id?: string | null
           designation: string
           email: string
+          exit_date?: string | null
           employee_code: string
           employment_type?: string | null
           first_name: string
@@ -521,6 +585,7 @@ export type Database = {
           department_id?: string | null
           designation?: string
           email?: string
+          exit_date?: string | null
           employee_code?: string
           employment_type?: string | null
           first_name?: string
@@ -557,6 +622,50 @@ export type Database = {
             columns: ["manager_id"]
             isOneToOne: false
             referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      exit_tasks: {
+        Row: {
+          asset_assignment_id: string | null
+          category: string
+          created_at: string
+          done_at: string | null
+          done_by: string | null
+          exit_id: string
+          id: string
+          position: number
+          title: string
+        }
+        Insert: {
+          asset_assignment_id?: string | null
+          category?: string
+          created_at?: string
+          done_at?: string | null
+          done_by?: string | null
+          exit_id: string
+          id?: string
+          position?: number
+          title: string
+        }
+        Update: {
+          asset_assignment_id?: string | null
+          category?: string
+          created_at?: string
+          done_at?: string | null
+          done_by?: string | null
+          exit_id?: string
+          id?: string
+          position?: number
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exit_tasks_exit_id_fkey"
+            columns: ["exit_id"]
+            isOneToOne: false
+            referencedRelation: "employee_exits"
             referencedColumns: ["id"]
           },
         ]
@@ -1647,6 +1756,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      complete_employee_exit: { Args: { _exit_id: string }; Returns: undefined }
       get_my_employee_id: { Args: never; Returns: string }
       get_my_permissions: { Args: never; Returns: Json }
       has_any_module_access: { Args: never; Returns: boolean }
@@ -1671,6 +1781,18 @@ export type Database = {
       app_role: "admin" | "hr" | "manager" | "employee"
       asset_status: "available" | "assigned" | "maintenance" | "retired"
       employee_status: "active" | "inactive" | "onboarding" | "offboarded"
+      exit_reason:
+        | "resignation"
+        | "termination"
+        | "end_of_contract"
+        | "retirement"
+        | "other"
+      exit_status:
+        | "requested"
+        | "in_progress"
+        | "completed"
+        | "cancelled"
+        | "declined"
       expense_category:
         | "travel"
         | "food"
@@ -1823,6 +1945,20 @@ export const Constants = {
       app_role: ["admin", "hr", "manager", "employee"],
       asset_status: ["available", "assigned", "maintenance", "retired"],
       employee_status: ["active", "inactive", "onboarding", "offboarded"],
+      exit_reason: [
+        "resignation",
+        "termination",
+        "end_of_contract",
+        "retirement",
+        "other",
+      ],
+      exit_status: [
+        "requested",
+        "in_progress",
+        "completed",
+        "cancelled",
+        "declined",
+      ],
       expense_category: [
         "travel",
         "food",

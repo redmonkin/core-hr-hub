@@ -21,6 +21,7 @@ People, onboarding, attendance, leave, payroll, performance, reimbursements and 
 
 - **People & departments**: one record per person with job details, manager, documents, assets and history.
 - **Invite-only onboarding**: add a new hire once and they're emailed a link to set up their account; Pending shows who hasn't joined yet. Accounts can be limited to your company's email domains.
+- **Offboarding**: start it from the tool or let employees resign for HR approval; a checklist covers assets to return and final pay, and on the last day the person is offboarded and their sign-in blocked automatically.
 - **Attendance**: clock in and out with location and breaks, working schedules, and reminders.
 - **Leave & holidays**: leave types and balances, manager approvals, a team calendar and company holidays.
 - **Payroll & payslips**: salary structures, monthly payroll runs, PF and other deductions, and branded payslip PDFs.

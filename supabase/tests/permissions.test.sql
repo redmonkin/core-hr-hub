@@ -405,6 +405,11 @@ SELECT tests.rows('employees cannot change their own bank details', 'alice',
 SELECT tests.after('bank detail changes record who made them', 'hr',
   $$UPDATE employee_bank_details SET bank_account_number = '3333' WHERE employee_id = '00000000-0000-0000-0000-00000000000a'$$,
   $$(SELECT updated_by FROM employee_bank_details WHERE employee_id = '00000000-0000-0000-0000-00000000000a') = tests.uid('hr')$$);
+SELECT tests.rows('HR can save an IFSC code', 'hr',
+  $$UPDATE employee_bank_details SET ifsc_code = 'HDFC0001234' WHERE employee_id = '00000000-0000-0000-0000-00000000000a'$$, 1);
+SELECT tests.fails('invalid IFSC codes are rejected', 'hr',
+  $$UPDATE employee_bank_details SET ifsc_code = 'HDFC1234' WHERE employee_id = '00000000-0000-0000-0000-00000000000a'$$,
+  'employee_bank_details_ifsc_code_format');
 
 -- ===========================================================================
 -- Employee self-service
@@ -535,6 +540,108 @@ SELECT tests.rows('managers can open their reports'' receipts', 'manager',
   $$SELECT * FROM storage.objects WHERE bucket_id = 'reimbursement-receipts'$$, 1);
 SELECT tests.rows('others cannot open the receipt', 'bob',
   $$SELECT * FROM storage.objects WHERE bucket_id = 'reimbursement-receipts'$$, 0);
+
+-- ===========================================================================
+-- Offboarding
+-- ===========================================================================
+-- Fixtures: Bob holds the laptop and his exit's last working day was
+-- yesterday; Alice has resigned (awaiting approval).
+INSERT INTO public.asset_assignments (id, asset_id, employee_id) VALUES
+  ('80000000-0000-0000-0000-000000000001', '50000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-00000000000b');
+INSERT INTO public.employee_exits (id, employee_id, reason, status, notice_date, last_working_day) VALUES
+  ('90000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-00000000000a', 'resignation', 'requested', CURRENT_DATE, CURRENT_DATE + 30),
+  ('90000000-0000-0000-0000-000000000002', '00000000-0000-0000-0000-00000000000b', 'termination', 'in_progress', CURRENT_DATE - 30, CURRENT_DATE - 1);
+
+SELECT tests.after('HR starts an offboarding in progress', 'hr',
+  $$INSERT INTO employee_exits (employee_id, reason, status, last_working_day)
+    VALUES ('00000000-0000-0000-0000-00000000000c', 'end_of_contract', 'requested', CURRENT_DATE + 14)$$,
+  $$(SELECT status = 'in_progress' AND decided_by = tests.uid('hr')
+     FROM employee_exits WHERE employee_id = '00000000-0000-0000-0000-00000000000c')$$);
+SELECT tests.after('an offboarding gets a checklist', 'hr',
+  $$INSERT INTO employee_exits (employee_id, reason, last_working_day)
+    VALUES ('00000000-0000-0000-0000-00000000000c', 'other', CURRENT_DATE + 14)$$,
+  $$(SELECT count(*) >= 4 FROM exit_tasks t JOIN employee_exits x ON x.id = t.exit_id
+     WHERE x.employee_id = '00000000-0000-0000-0000-00000000000c')$$);
+SELECT tests.after('employees file resignations as requests', 'carol',
+  $$INSERT INTO employee_exits (employee_id, reason, status, last_working_day)
+    VALUES ('00000000-0000-0000-0000-00000000000c', 'termination', 'in_progress', CURRENT_DATE + 30)$$,
+  $$(SELECT status = 'requested' AND reason = 'resignation' AND requested_by = tests.uid('carol')
+     FROM employee_exits WHERE employee_id = '00000000-0000-0000-0000-00000000000c')$$);
+SELECT tests.fails('resignations cannot be backdated', 'carol',
+  $$INSERT INTO employee_exits (employee_id, reason, last_working_day)
+    VALUES ('00000000-0000-0000-0000-00000000000c', 'resignation', CURRENT_DATE - 1)$$, 'past');
+SELECT tests.fails('employees cannot offboard someone else', 'carol',
+  $$INSERT INTO employee_exits (employee_id, reason, last_working_day)
+    VALUES ('00000000-0000-0000-0000-000000000003', 'termination', CURRENT_DATE + 5)$$, 'permission');
+SELECT tests.fails('only one open offboarding per person', 'hr',
+  $$INSERT INTO employee_exits (employee_id, reason, last_working_day)
+    VALUES ('00000000-0000-0000-0000-00000000000a', 'other', CURRENT_DATE + 5)$$, 'employee_exits_one_open');
+SELECT tests.rows('employees see their own resignation', 'alice', $$SELECT * FROM employee_exits$$, 1);
+SELECT tests.rows('managers see their reports'' exits', 'manager', $$SELECT * FROM employee_exits$$, 1);
+SELECT tests.rows('colleagues cannot see exits', 'carol', $$SELECT * FROM employee_exits$$, 0);
+SELECT tests.rows('employees cannot see the checklist', 'bob', $$SELECT * FROM exit_tasks$$, 0);
+SELECT tests.rows('employees can withdraw their resignation', 'alice',
+  $$UPDATE employee_exits SET status = 'cancelled' WHERE id = '90000000-0000-0000-0000-000000000001'$$, 1);
+SELECT tests.fails('employees cannot approve their own resignation', 'alice',
+  $$UPDATE employee_exits SET status = 'in_progress' WHERE id = '90000000-0000-0000-0000-000000000001'$$, 'withdraw');
+SELECT tests.fails('employees cannot move their last working day', 'alice',
+  $$UPDATE employee_exits SET last_working_day = CURRENT_DATE + 90 WHERE id = '90000000-0000-0000-0000-000000000001'$$, 'withdraw');
+SELECT tests.after('HR approves a resignation and the checklist is created', 'hr',
+  $$UPDATE employee_exits SET status = 'in_progress' WHERE id = '90000000-0000-0000-0000-000000000001'$$,
+  $$(SELECT x.decided_by = tests.uid('hr') AND (SELECT count(*) FROM exit_tasks WHERE exit_id = x.id) >= 4
+     FROM employee_exits x WHERE x.id = '90000000-0000-0000-0000-000000000001')$$);
+SELECT tests.after('the planned last day is on the employee record', 'hr',
+  $$UPDATE employee_exits SET last_working_day = CURRENT_DATE + 20 WHERE id = '90000000-0000-0000-0000-000000000002'$$,
+  $$(SELECT exit_date = CURRENT_DATE + 20 AND status = 'active' FROM employees WHERE id = '00000000-0000-0000-0000-00000000000b')$$);
+SELECT tests.after('cancelling an offboarding clears the planned last day', 'hr',
+  $$UPDATE employee_exits SET status = 'cancelled' WHERE id = '90000000-0000-0000-0000-000000000002'$$,
+  $$(SELECT exit_date IS NULL FROM employees WHERE id = '00000000-0000-0000-0000-00000000000b')$$);
+SELECT tests.rows('the checklist lists assets to return', 'hr',
+  $$SELECT * FROM exit_tasks WHERE exit_id = '90000000-0000-0000-0000-000000000002' AND category = 'asset'$$, 1);
+SELECT tests.after('returning an asset ticks its checklist item', 'carol',
+  $$UPDATE asset_assignments SET returned_date = CURRENT_DATE WHERE id = '80000000-0000-0000-0000-000000000001'$$,
+  $$(SELECT done_at IS NOT NULL FROM exit_tasks WHERE asset_assignment_id = '80000000-0000-0000-0000-000000000001')$$);
+SELECT tests.fails('exits cannot be completed by editing the status', 'hr',
+  $$UPDATE employee_exits SET status = 'completed' WHERE id = '90000000-0000-0000-0000-000000000002'$$, 'last working day');
+SELECT tests.fails('employees without onboarding access cannot complete exits', 'alice',
+  $$SELECT complete_employee_exit('90000000-0000-0000-0000-000000000002')$$, 'permission');
+SELECT tests.fails('exits cannot be completed before the last working day', 'hr',
+  $$INSERT INTO employee_exits (employee_id, reason, last_working_day)
+      VALUES ('00000000-0000-0000-0000-00000000000c', 'other', CURRENT_DATE + 14);
+    SELECT complete_employee_exit((SELECT id FROM employee_exits WHERE employee_id = '00000000-0000-0000-0000-00000000000c'))$$,
+  'on or after');
+SELECT tests.after('completing an exit offboards the employee and blocks sign-in', 'hr',
+  $$SELECT complete_employee_exit('90000000-0000-0000-0000-000000000002')$$,
+  $$(SELECT e.status = 'offboarded' AND e.exit_date = CURRENT_DATE - 1 AND p.blocked
+       AND (SELECT status = 'completed' FROM employee_exits WHERE id = '90000000-0000-0000-0000-000000000002')
+     FROM employees e JOIN profiles p ON p.id = e.user_id
+     WHERE e.id = '00000000-0000-0000-0000-00000000000b')$$);
+SELECT tests.after('the daily job completes exits and cancels pending leave', 'system',
+  $$UPDATE employee_exits SET status = 'in_progress', notice_date = CURRENT_DATE - 10, last_working_day = CURRENT_DATE - 1
+      WHERE id = '90000000-0000-0000-0000-000000000001';
+    SELECT process_employee_exits()$$,
+  $$(SELECT count(*) = 2 FROM employees WHERE status = 'offboarded')
+    AND (SELECT status = 'cancelled' FROM leave_requests WHERE id = '30000000-0000-0000-0000-000000000001')
+    AND (SELECT blocked FROM profiles WHERE id = tests.uid('alice'))$$);
+SELECT tests.fails('users cannot run the daily job', 'hr',
+  $$SELECT process_employee_exits()$$, 'permission denied');
+SELECT tests.fails('the only admin cannot be offboarded', 'hr',
+  $$INSERT INTO employees (id, user_id, employee_code, first_name, last_name, email, designation, hire_date, status)
+      VALUES ('00000000-0000-0000-0000-0000000000ad', tests.uid('admin'), 'E-AD', 'Ada', 'A', 'admin@acme.test', 'Admin', '2024-01-01', 'active');
+    INSERT INTO employee_exits (employee_id, reason, last_working_day)
+      VALUES ('00000000-0000-0000-0000-0000000000ad', 'other', CURRENT_DATE + 5)$$, 'only admin');
+SELECT tests.fails('employee status changes go through offboarding', 'hr',
+  $$UPDATE employees SET status = 'offboarded' WHERE id = '00000000-0000-0000-0000-00000000000b'$$, 'Start offboarding');
+SELECT tests.fails('employees cannot be set inactive', 'hr',
+  $$UPDATE employees SET status = 'inactive' WHERE id = '00000000-0000-0000-0000-00000000000b'$$, 'Start offboarding');
+SELECT tests.fails('new employees cannot start as offboarded', 'hr',
+  $$INSERT INTO employees (employee_code, first_name, last_name, email, designation, hire_date, status)
+      VALUES ('E-X', 'X', 'X', 'x@acme.test', 'X', '2026-01-01', 'offboarded')$$, 'start as onboarding');
+SELECT tests.after('new hires can still be marked as joined', 'hr',
+  $$INSERT INTO employees (id, employee_code, first_name, last_name, email, designation, hire_date, status)
+      VALUES ('00000000-0000-0000-0000-0000000000aa', 'E-N', 'Nia', 'N', 'nia@acme.test', 'X', '2026-01-01', 'onboarding');
+    UPDATE employees SET status = 'active' WHERE id = '00000000-0000-0000-0000-0000000000aa'$$,
+  $$(SELECT status = 'active' FROM employees WHERE id = '00000000-0000-0000-0000-0000000000aa')$$);
 
 -- ===========================================================================
 -- Blocked users

@@ -23,6 +23,7 @@ const STATUS_TONE: Record<string, Tone> = {
   accepted: "success",
   // waiting on someone
   pending: "warning",
+  requested: "warning",
   submitted: "warning",
   in_progress: "info",
   processing: "info",
@@ -34,6 +35,7 @@ const STATUS_TONE: Record<string, Tone> = {
   half_day: "warning",
   // negative
   rejected: "danger",
+  declined: "danger",
   cancelled: "danger",
   terminated: "danger",
   offboarded: "danger",
