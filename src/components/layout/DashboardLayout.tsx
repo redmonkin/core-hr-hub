@@ -1,4 +1,4 @@
-import { ReactNode, useState } from "react";
+import { ReactNode, useEffect, useState } from "react";
 import { PWAInstallBanner } from "@/components/layout/PWAInstallBanner";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
@@ -89,6 +89,28 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const { data: branding } = useCompanyBranding();
 
   const filteredNavItems = navItems.filter(item => !item.visible || item.visible(permissions));
+
+  // Close the mobile menu whenever the page changes, however that happens
+  // (menu link, back/forward, a link in the page, a redirect).
+  useEffect(() => {
+    setSidebarOpen(false);
+  }, [location.key]);
+
+  // While the mobile menu is open: Escape closes it and the page behind
+  // doesn't scroll.
+  useEffect(() => {
+    if (!sidebarOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setSidebarOpen(false);
+    };
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [sidebarOpen]);
   
   // For auto-updating environments, show the latest version from GitHub
   // For self-hosted: if there's no update (up to date), show the latest from GitHub
@@ -131,7 +153,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         <div className="flex h-full flex-col">
           {/* Logo */}
           <div className="flex h-20 items-center justify-between border-b border-border px-6">
-            <Link to="/dashboard" className="flex items-center gap-3">
+            <Link to="/dashboard" className="flex items-center gap-3" onClick={() => setSidebarOpen(false)}>
               <img src={branding?.iconUrl || hrHubLogo} alt="Peoplo" className="h-10 w-auto" />
               <span className="text-xl font-bold text-foreground">Peoplo</span>
             </Link>
@@ -140,6 +162,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               size="icon"
               className="lg:hidden"
               onClick={() => setSidebarOpen(false)}
+              aria-label="Close menu"
             >
               <X className="h-5 w-5" />
             </Button>
@@ -219,6 +242,8 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               size="icon"
               className="lg:hidden"
               onClick={() => setSidebarOpen(true)}
+              aria-label="Open menu"
+              aria-expanded={sidebarOpen}
             >
               <Menu className="h-5 w-5" />
             </Button>
