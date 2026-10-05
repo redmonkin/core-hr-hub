@@ -140,7 +140,6 @@ interface FormData {
   designation: string;
   managerId: string;
   joinDate: string;
-  salary: string;
   isDepartmentManager: boolean;
   sendInvite: boolean;
   workingHoursStart: string;
@@ -161,7 +160,6 @@ const initialFormData: FormData = {
   designation: '',
   managerId: '',
   joinDate: '',
-  salary: '',
   isDepartmentManager: false,
   sendInvite: true,
   workingHoursStart: '09:00',
@@ -216,8 +214,6 @@ const Onboarding = () => {
   const { can, isLoading: roleLoading } = usePermissions();
   const canView = can('onboarding', 'view');
   const canManage = can('onboarding', 'manage');
-  // salary_structures inserts need payroll:manage (RLS)
-  const canSetSalary = can('payroll', 'manage');
   
   const { data: departments = [], isLoading: loadingDepartments } = useDepartments();
   const { data: managers = [], isLoading: loadingManagers } = useManagers();
@@ -369,18 +365,6 @@ const Onboarding = () => {
           console.error(`Failed to upload ${docType}:`, err);
           warnings.push(`${doc.file.name} couldn't be uploaded`);
         }
-      }
-
-      // Salary structure (payroll:manage only)
-      if (canSetSalary && data.salary && parseFloat(data.salary) > 0) {
-        const { error: salaryError } = await supabase
-          .from('salary_structures')
-          .insert({
-            employee_id: employee.id,
-            basic_salary: parseFloat(data.salary),
-            effective_from: data.joinDate,
-          });
-        if (salaryError) warnings.push(`The salary couldn't be saved (${salaryError.message})`);
       }
 
       // Tell the manager and HR about the new joiner (fire and forget)
@@ -897,7 +881,7 @@ const Onboarding = () => {
                         </p>
                       )}
                     </div>
-                    <div className={`grid gap-4 ${canSetSalary ? 'sm:grid-cols-2' : ''}`}>
+                    <div className="grid gap-4 sm:grid-cols-2">
                       <div className="space-y-2">
                         <Label htmlFor="joinDate">Join Date *</Label>
                         <Input 
@@ -908,19 +892,6 @@ const Onboarding = () => {
                           disabled={isSubmitting}
                         />
                       </div>
-                      {canSetSalary && (
-                        <div className="space-y-2">
-                          <Label htmlFor="salary">Base Salary</Label>
-                          <Input 
-                            id="salary" 
-                            type="number" 
-                            placeholder="50000" 
-                            value={formData.salary}
-                            onChange={(e) => handleInputChange('salary', e.target.value)}
-                            disabled={isSubmitting}
-                          />
-                        </div>
-                      )}
                     </div>
                     
                     {/* Working Hours Section */}
