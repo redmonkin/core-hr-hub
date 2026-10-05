@@ -146,8 +146,8 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       {/* Sidebar */}
       <aside
         className={cn(
-          "fixed left-0 top-0 z-50 h-full w-72 transform bg-card shadow-xl transition-transform duration-300 ease-in-out lg:translate-x-0",
-          sidebarOpen ? "translate-x-0" : "-translate-x-full"
+          "fixed left-0 top-0 z-50 h-full w-72 transform border-r border-border bg-card transition-transform duration-300 ease-in-out lg:translate-x-0",
+          sidebarOpen ? "translate-x-0 shadow-xl" : "-translate-x-full"
         )}
       >
         <div className="flex h-full flex-col">
@@ -233,9 +233,9 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       </aside>
 
       {/* Main content */}
-      <div className="lg:pl-72">
+      <div className="min-w-0 overflow-x-clip lg:pl-72">
         {/* Header */}
-        <header className="sticky top-0 z-30 flex h-20 items-center justify-between border-b border-border bg-card/80 px-4 backdrop-blur-lg lg:px-8">
+        <header className="sticky top-0 z-30 flex h-20 items-center justify-between border-b border-border bg-card/95 px-4 backdrop-blur-lg lg:px-8">
           <div className="flex items-center gap-4">
             <Button
               variant="ghost"
@@ -268,7 +268,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
             {/* Settings - only for people who can manage something there */}
             {showSettings && (
               <Button variant="ghost" size="icon" asChild>
-                <Link to="/settings">
+                <Link to="/settings" aria-label="Settings">
                   <Settings className="h-5 w-5" />
                 </Link>
               </Button>
@@ -277,7 +277,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
             {/* User menu */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="flex items-center gap-2 pl-2 pr-3">
+                <Button variant="ghost" className="flex items-center gap-2 pl-2 pr-3" aria-label="Account menu">
                   <Avatar className="h-8 w-8">
                     <AvatarImage src={user?.user_metadata?.avatar_url} />
                     <AvatarFallback>{getUserInitials()}</AvatarFallback>
