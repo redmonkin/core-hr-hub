@@ -20,6 +20,19 @@ When you update a self-hosted copy, read the **Upgrade notes** of every version 
 
 - Apply `20261006100000_onboarding_invites.sql` and redeploy `invite-employee` and `onboarding-reminders`. The `onboarding-request-notification` function is no longer used and can be deleted from your project.
 
+### Offboarding
+
+- **Start offboarding** from an employee's row in Employees: reason, notice date and last working day. They stay active through their notice period and show as "Leaving <date>".
+- **Resignations**: employees can resign from their profile with a proposed last day; HR approves (confirming the date) or declines with a note. Employees can withdraw until it's approved.
+- **Leaving tab** in Onboarding: resignations to review, everyone leaving with a checklist (each assigned asset to return, which ticks itself when the asset is returned, plus reimbursements, leave, final payroll, handover and exit interview, and your own items), and who left in the last 90 days.
+- **Automatic on the last day**: the morning after the last working day the person is marked offboarded, their sign-in is blocked and pending leave is cancelled; HR and their manager are notified. HR can also complete it on the day, change the date, or cancel.
+- **Payroll** no longer pays people who have left, and prorates the final month to the last working day. Reports count leavers by their last working day.
+- Employee **status is now set by the workflows** (joining and offboarding) and shown read-only when editing; the unused **Inactive** status and the bulk "Set as active / inactive" actions are gone.
+
+### Upgrade notes (offboarding)
+
+- Apply `20261008100000_offboarding.sql`, redeploy `generate-monthly-payroll`, and schedule the daily job: `select cron.schedule('process-employee-exits', '30 0 * * *', $$select public.process_employee_exits()$$);`
+
 ### Bank details
 
 - Employee bank details now include the **IFSC code** (Employees → Edit → Personal). It's checked for the standard 11-character format and shown on payslips.

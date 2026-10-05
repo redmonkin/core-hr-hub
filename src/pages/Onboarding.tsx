@@ -34,6 +34,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { usePermissions } from "@/hooks/usePermissions";
 import { PendingHires } from "@/components/onboarding/PendingHires";
+import { LeavingList } from "@/components/offboarding/LeavingList";
+import { useEmployeeExits } from "@/hooks/useOffboarding";
 import { sendInvitation } from "@/components/onboarding/inviteEmployee";
 import { useLocation } from "react-router-dom";
 import {
@@ -214,6 +216,7 @@ const Onboarding = () => {
   const { can, isLoading: roleLoading } = usePermissions();
   const canView = can('onboarding', 'view');
   const canManage = can('onboarding', 'manage');
+  const { data: exits = [] } = useEmployeeExits(canView);
   
   const { data: departments = [], isLoading: loadingDepartments } = useDepartments();
   const { data: managers = [], isLoading: loadingManagers } = useManagers();
@@ -640,9 +643,10 @@ const Onboarding = () => {
   const isSubmitting = createEmployeeMutation.isPending;
 
   // People with onboarding:view only can't create employees, so no Add tab
-  const availableTabs = canManage ? ['add', 'pending'] : ['pending'];
+  const availableTabs = canManage ? ['add', 'pending', 'leaving'] : ['pending', 'leaving'];
   const currentTab = availableTabs.includes(activeTab) ? activeTab : availableTabs[0];
   const pendingOnboardingCount = onboardingEmployees.length;
+  const leavingCount = exits.filter((x) => x.status === 'requested' || x.status === 'in_progress').length;
 
   return (
     <DashboardLayout>
@@ -656,7 +660,7 @@ const Onboarding = () => {
         <div>
           <h1 className="text-2xl font-bold text-foreground sm:text-3xl">Onboarding</h1>
           <p className="text-muted-foreground">
-            Add new hires and invite them to set up their account. They wait in Pending until they do.
+            Add new hires and invite them to set up their account, and see who's leaving.
           </p>
         </div>
         <Tabs value={currentTab} onValueChange={setActiveTab}>
@@ -671,6 +675,14 @@ const Onboarding = () => {
               {pendingOnboardingCount > 0 && (
                 <span className="ml-1 rounded-full bg-primary/10 px-1.5 text-xs font-semibold tabular-nums text-primary" aria-label={`${pendingOnboardingCount} pending`}>
                   {pendingOnboardingCount}
+                </span>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="leaving" className="shrink-0 px-2 sm:px-3">
+              Leaving
+              {leavingCount > 0 && (
+                <span className="ml-1 rounded-full bg-primary/10 px-1.5 text-xs font-semibold tabular-nums text-primary" aria-label={`${leavingCount} leaving`}>
+                  {leavingCount}
                 </span>
               )}
             </TabsTrigger>
@@ -1069,6 +1081,10 @@ const Onboarding = () => {
               onAddEmployee={canManage ? () => setActiveTab('add') : undefined}
               onOpenDetails={(id) => setSelectedEmployee(onboardingEmployees.find((e) => e.id === id) ?? null)}
             />
+          </TabsContent>
+
+          <TabsContent value="leaving" className="mt-6">
+            <LeavingList canManage={canManage} />
           </TabsContent>
         </Tabs>
 

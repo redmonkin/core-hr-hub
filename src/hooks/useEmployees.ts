@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { format } from "date-fns";
+import { format, parseISO } from "date-fns";
 import { toast } from "sonner";
 
 export interface Employee {
@@ -16,6 +16,8 @@ export interface Employee {
   status: "active" | "inactive" | "onboarding" | "offboarded";
   /** Whether a sign-in account is linked to this record */
   hasAccount?: boolean;
+  /** Last working day ("MMM d, yyyy") while an offboarding is under way */
+  leavingOn?: string;
 }
 
 export interface EmployeeWithDetails {
@@ -50,6 +52,7 @@ export function useEmployees(options?: { enabled?: boolean }) {
           status,
           avatar_url,
           user_id,
+          exit_date,
           department:departments!employees_department_id_fkey(name)
         `)
         .order("created_at", { ascending: false });
@@ -69,6 +72,8 @@ export function useEmployees(options?: { enabled?: boolean }) {
         joinDate: format(new Date(emp.hire_date), "MMM d, yyyy"),
         status: emp.status as Employee["status"],
         hasAccount: !!emp.user_id,
+        leavingOn:
+          emp.status === "active" && emp.exit_date ? format(parseISO(emp.exit_date), "MMM d, yyyy") : undefined,
       }));
     },
     enabled: options?.enabled,
@@ -187,32 +192,6 @@ export function useBulkDeleteEmployees() {
     },
     onError: (error) => {
       toast.error("Failed to delete employees: " + error.message);
-    },
-  });
-}
-
-export function useBulkUpdateEmployeeStatus() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async ({ employeeIds, status }: { employeeIds: string[]; status: "active" | "inactive" }) => {
-      const { error } = await supabase
-        .from("employees")
-        .update({ status })
-        .in("id", employeeIds);
-      
-      if (error) {
-        throw new Error(`Failed to update employee status: ${error.message}`);
-      }
-
-      return { updatedCount: employeeIds.length, status };
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["employees"] });
-      queryClient.invalidateQueries({ queryKey: ["employee-stats"] });
-    },
-    onError: (error) => {
-      toast.error("Failed to update employee status: " + error.message);
     },
   });
 }

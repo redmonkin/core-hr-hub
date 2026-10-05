@@ -63,22 +63,41 @@ export function resolveWorkingDays(workingDays: number[] | null | undefined): nu
 }
 
 /**
- * Fraction of the month's pay an employee earns: 1 unless they were hired after
- * the 1st, in which case it's working days from hire date / working days in month.
- * `hireDate` is a "yyyy-MM-dd" string.
+ * Fraction of the month's pay an employee earns: working days they were
+ * employed / working days in the month. That's 1 unless they joined after the
+ * 1st or their last working day (`exitDate`) falls before the month's end.
+ * Dates are "yyyy-MM-dd" strings.
  */
 export function getProrationRatio(
   hireDate: string | null | undefined,
   monthStart: Date,
   monthEnd: Date,
   workingDays: number[],
-  holidaySet: Set<string>
+  holidaySet: Set<string>,
+  exitDate?: string | null
 ): number {
   const hire = hireDate ? new Date(`${hireDate}T00:00:00`) : null;
-  if (!hire || hire <= monthStart) return 1;
+  const exit = exitDate ? new Date(`${exitDate}T00:00:00`) : null;
+  const from = hire && hire > monthStart ? hire : monthStart;
+  const to = exit && exit < monthEnd ? exit : monthEnd;
+  if (from.getTime() === monthStart.getTime() && to.getTime() === monthEnd.getTime()) return 1;
+  if (to < from) return 0;
   const totalWorkingDaysInMonth = countWorkingDays(monthStart, monthEnd, workingDays, holidaySet);
-  const workedDays = countWorkingDays(hire, monthEnd, workingDays, holidaySet);
+  const workedDays = countWorkingDays(from, to, workingDays, holidaySet);
   return totalWorkingDaysInMonth > 0 ? workedDays / totalWorkingDaysInMonth : 1;
+}
+
+/**
+ * Whether someone is paid at all for the month: they joined by its last day
+ * and hadn't left before its first day.
+ */
+export function isEmployedDuringMonth(
+  hireDate: string | null | undefined,
+  exitDate: string | null | undefined,
+  monthStartStr: string,
+  monthEndStr: string
+): boolean {
+  return (!hireDate || hireDate <= monthEndStr) && (!exitDate || exitDate >= monthStartStr);
 }
 
 /** Applies the proration ratio to basic, allowances and deductions and derives net salary. */

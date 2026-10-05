@@ -207,6 +207,13 @@ select cron.schedule('weekly-event-notifications', '0 8 * * 1', $$
     body := '{}'::jsonb);
 $$);
 
+-- Complete offboarding for people whose last working day has passed (status
+-- offboarded, sign-in blocked, pending leave cancelled): daily at 00:30 UTC.
+-- Runs inside the database, so no URL or secret is needed.
+select cron.schedule('process-employee-exits', '30 0 * * *', $$
+  select public.process_employee_exits();
+$$);
+
 -- Generate this month's payroll records: the last day of the month at 09:00 UTC
 -- ('$' means the last day of the month; needs pg_cron 1.5 or later)
 select cron.schedule('monthly-payroll-generation', '0 9 $ * *', $$

@@ -28,6 +28,7 @@ import { LeaveBalanceCard } from "@/components/profile/LeaveBalanceCard";
 import { LeaveRequestForm } from "@/components/profile/LeaveRequestForm";
 import { LeaveRequestHistory } from "@/components/profile/LeaveRequestHistory";
 import { PayslipViewer } from "@/components/profile/PayslipViewer";
+import { ResignationCard } from "@/components/profile/ResignationCard";
 import { TaxDocumentsViewer } from "@/components/profile/TaxDocumentsViewer";
 import { MyAttendanceHistory } from "@/components/profile/MyAttendanceHistory";
 import { MyAssets } from "@/components/profile/MyAssets";
@@ -553,6 +554,7 @@ const Profile = () => {
                   </CardContent>
                 </Card>
               </div>
+              <ResignationCard employeeId={employee.id} />
             </TabsContent>
 
             {/* Leaves Tab */}

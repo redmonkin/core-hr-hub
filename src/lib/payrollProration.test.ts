@@ -4,6 +4,7 @@ import {
   calculatePayrollAmounts,
   countWorkingDays,
   getProrationRatio,
+  isEmployedDuringMonth,
   resolveWorkingDays,
 } from "./payrollProration";
 
@@ -169,5 +170,30 @@ describe("calculatePayrollAmounts", () => {
 
   it("accepts numeric strings (Postgres numeric columns)", () => {
     expect(calculatePayrollAmounts({ basic_salary: "40000.50", hra: "10000" }, 1).net_salary).toBeCloseTo(50000.5);
+  });
+});
+
+describe("leavers", () => {
+  const none = new Set<string>();
+
+  it("prorates the exit month up to the last working day", () => {
+    // Left Fri 11th: 1–4, 7–11 = 9 of 22 weekdays
+    expect(getProrationRatio("2025-01-10", SEP_START, SEP_END, MON_FRI, none, "2026-09-11")).toBeCloseTo(9 / 22);
+  });
+
+  it("pays a full month when the last day is the month's end", () => {
+    expect(getProrationRatio("2025-01-10", SEP_START, SEP_END, MON_FRI, none, "2026-09-30")).toBe(1);
+  });
+
+  it("handles joining and leaving in the same month", () => {
+    // 15th–18th = 4 weekdays
+    expect(getProrationRatio("2026-09-15", SEP_START, SEP_END, MON_FRI, none, "2026-09-18")).toBeCloseTo(4 / 22);
+  });
+
+  it("only pays people employed during the month", () => {
+    expect(isEmployedDuringMonth("2025-01-10", null, "2026-09-01", "2026-09-30")).toBe(true);
+    expect(isEmployedDuringMonth("2025-01-10", "2026-09-01", "2026-09-01", "2026-09-30")).toBe(true);
+    expect(isEmployedDuringMonth("2025-01-10", "2026-08-31", "2026-09-01", "2026-09-30")).toBe(false);
+    expect(isEmployedDuringMonth("2026-10-01", null, "2026-09-01", "2026-09-30")).toBe(false);
   });
 });

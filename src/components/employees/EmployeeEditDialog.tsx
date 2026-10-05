@@ -23,7 +23,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Employee } from "./EmployeeTable";
 import { Loader2, Hash, IndianRupee, History, ChevronDown, ChevronUp } from "lucide-react";
-import { format } from "date-fns";
+import { format, parseISO } from "date-fns";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Switch } from "@/components/ui/switch";
 import {
@@ -34,6 +34,8 @@ import {
 import { WorkingDaysPicker } from "./WorkingDaysPicker";
 import { EmployeeLeaveEligibility, type EmployeeLeaveEligibilityHandle } from "./EmployeeLeaveEligibility";
 import { normalizeIfsc, isValidIfsc } from "@/lib/ifsc";
+import { Badge } from "@/components/ui/badge";
+import { formatStatus, statusBadgeClass, toneClass } from "@/lib/statusStyles";
 
 interface EmployeeEditDialogProps {
   employee: Employee | null;
@@ -216,7 +218,8 @@ export function EmployeeEditDialog({ employee, open, onOpenChange }: EmployeeEdi
           working_hours_start,
           working_hours_end,
           working_days,
-          status
+          status,
+          exit_date
         `)
         .eq("id", employee.id)
         .maybeSingle();
@@ -319,7 +322,6 @@ export function EmployeeEditDialog({ employee, open, onOpenChange }: EmployeeEdi
           working_hours_start: data.working_hours_start ? `${data.working_hours_start}:00` : '09:00:00',
           working_hours_end: data.working_hours_end ? `${data.working_hours_end}:00` : '18:00:00',
           working_days: data.working_days,
-          status: data.status as "active" | "inactive" | "onboarding" | "offboarded",
         })
         .eq("id", employee?.id);
 
@@ -756,21 +758,21 @@ export function EmployeeEditDialog({ employee, open, onOpenChange }: EmployeeEdi
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="status">Status</Label>
-                  <Select
-                    value={formData.status}
-                    onValueChange={(value) => setFormData({ ...formData, status: value })}
-                  >
-                    <SelectTrigger id="status">
-                      <SelectValue placeholder="Select status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="active">Active</SelectItem>
-                      <SelectItem value="inactive">Inactive</SelectItem>
-                      <SelectItem value="onboarding">Onboarding</SelectItem>
-                      <SelectItem value="offboarded">Offboarded</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <span className="text-sm font-medium leading-none">Status</span>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge
+                      variant="outline"
+                      className={employeeDetails?.exit_date && formData.status === "active" ? toneClass("warning") : statusBadgeClass(formData.status)}
+                    >
+                      {employeeDetails?.exit_date && formData.status === "active"
+                        ? `Leaving ${format(parseISO(employeeDetails.exit_date), "MMM d, yyyy")}`
+                        : formatStatus(formData.status)}
+                    </Badge>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Set automatically: new hires become active when they set up their account, and people leave
+                    through <span className="font-medium">Start offboarding</span> in the Employees list.
+                  </p>
                 </div>
               </TabsContent>
 

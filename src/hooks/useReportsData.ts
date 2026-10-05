@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { format, startOfMonth, endOfMonth, startOfYear, endOfYear, parseISO } from "date-fns";
+import { format, startOfMonth, endOfMonth, startOfYear, endOfYear, parseISO, endOfDay } from "date-fns";
 
 const CHART_COLORS = [
   "hsl(var(--chart-1))",
@@ -11,18 +11,22 @@ const CHART_COLORS = [
   "hsl(var(--primary))",
 ];
 
-type EmployeeRow = { id: string; hire_date: string; status: string; updated_at: string };
+type EmployeeRow = { id: string; hire_date: string; status: string; updated_at: string; exit_date: string | null };
+
+/** The day someone left: their last working day (older records fall back to when they were offboarded). */
+function leftOn(emp: EmployeeRow): Date {
+  return emp.exit_date ? endOfDay(parseISO(emp.exit_date)) : new Date(emp.updated_at);
+}
 
 /**
  * Headcount everywhere on the Reports page means "active employees":
  * someone counts at a given date if they had joined by then and are still active,
- * or were offboarded after that date. Onboarding (not yet joined) and inactive
- * employees are not counted, so the summary, growth chart and department split agree.
+ * or left after that date. Onboarding (not yet joined) employees are not counted, so the summary, growth chart and department split agree.
  */
 function wasEmployedAt(emp: EmployeeRow, date: Date) {
   if (parseISO(emp.hire_date) > date) return false;
   if (emp.status === "active") return true;
-  if (emp.status === "offboarded") return new Date(emp.updated_at) > date;
+  if (emp.status === "offboarded") return leftOn(emp) > date;
   return false;
 }
 
@@ -35,8 +39,8 @@ function joinedBetween(emp: EmployeeRow, start: Date, end: Date) {
 
 function leftBetween(emp: EmployeeRow, start: Date, end: Date) {
   if (emp.status !== "offboarded") return false;
-  const updatedAt = new Date(emp.updated_at);
-  return updatedAt >= start && updatedAt <= end;
+  const left = leftOn(emp);
+  return left >= start && left <= end;
 }
 
 export function useEmployeeGrowthData(year: number) {
@@ -45,7 +49,7 @@ export function useEmployeeGrowthData(year: number) {
     queryFn: async () => {
       const { data: employees, error } = await supabase
         .from("employees")
-        .select("id, hire_date, status, updated_at")
+        .select("id, hire_date, status, updated_at, exit_date")
         .order("hire_date", { ascending: true });
 
       if (error) throw error;
@@ -210,7 +214,7 @@ export function useHeadcountSummary(year: number) {
 
       const { data, error } = await supabase
         .from("employees")
-        .select("id, hire_date, status, updated_at");
+        .select("id, hire_date, status, updated_at, exit_date");
 
       if (error) throw error;
       const employees = (data || []) as EmployeeRow[];
@@ -218,7 +222,7 @@ export function useHeadcountSummary(year: number) {
       // People who joined during the selected year (up to today)
       const newHires = employees.filter((emp) => joinedBetween(emp, yearStart, yearEnd)).length;
 
-      // Offboarded during the selected year (offboarding date approximated by updated_at)
+      // Left during the selected year (by last working day)
       const terminations = employees.filter((emp) => leftBetween(emp, yearStart, yearEnd)).length;
 
       const netChange = newHires - terminations;
