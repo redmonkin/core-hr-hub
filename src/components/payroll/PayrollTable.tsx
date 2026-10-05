@@ -306,7 +306,7 @@ export function PayrollTable({
         )}
       </Button>
       {canManage && (
-        <DropdownMenu>
+        <DropdownMenu modal={false}>
           <DropdownMenuTrigger asChild>
             <Button
               variant="ghost"

@@ -55,7 +55,7 @@ export function AssetCard({ asset, onAssign, onReturn, onEdit, onDelete, onViewH
             </div>
           </div>
           {showAdminActions && (
-            <DropdownMenu>
+            <DropdownMenu modal={false}>
               <DropdownMenuTrigger asChild>
                 <Button
                   variant="ghost"

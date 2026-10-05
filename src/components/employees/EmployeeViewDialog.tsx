@@ -31,7 +31,7 @@ export function EmployeeViewDialog({ employee, open, onOpenChange }: EmployeeVie
           id,
           department_id,
           manager_id,
-          manager:employees!employees_manager_id_fkey(first_name, last_name),
+          manager:manager_id(first_name, last_name),
           department:departments!employees_department_id_fkey(
             name,
             manager_id,
