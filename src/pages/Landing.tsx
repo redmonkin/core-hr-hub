@@ -36,7 +36,6 @@ import { Backdrop } from "@/components/landing/Backdrop";
 import { HeroScene } from "@/components/landing/HeroScene";
 import { OpenSourceOrbit } from "@/components/landing/OpenSourceOrbit";
 import { Reveal } from "@/components/landing/Reveal";
-import { isProductionDomain } from "@/lib/domain";
 import { LICENSE_URL, REPO_URL, SECURITY_POLICY_URL, SELF_HOST_GUIDE_URL } from "@/lib/site";
 import peoploLogoLight from "@/assets/hr-hub-logo-light.svg";
 
@@ -163,6 +162,10 @@ const faqs = [
     a: "No. Accounts are invite-only. HR sends an invitation, the person completes their onboarding details, and HR approves them.",
   },
   {
+    q: "Can several companies share one Peoplo?",
+    a: "No. Each Peoplo deployment is one company's workspace, tied to your email domain, so your data never sits alongside another organisation's. Self-host your own, or book a demo and we'll set up a dedicated workspace for you.",
+  },
+  {
     q: "Does it work on phones?",
     a: "Yes. Peoplo is a progressive web app, so people can clock in, apply for leave and check payslips from their phone and get push notifications.",
   },
@@ -188,7 +191,6 @@ function SectionHeading({ eyebrow, title, text }: { eyebrow: string; title: stri
 
 const Landing = () => {
   const { user, isLoading } = useAuth();
-  const isProduction = isProductionDomain();
 
   if (!isLoading && user) {
     return <Navigate to="/dashboard" replace />;
@@ -212,7 +214,7 @@ const Landing = () => {
     {
       icon: Cloud,
       name: "Let us run it",
-      description: "A managed Peoplo workspace, set up for your company.",
+      description: "A dedicated, managed workspace for your company.",
       features: [
         "Nothing to install or maintain",
         "Updates and backups handled for you",
@@ -265,25 +267,16 @@ const Landing = () => {
                 className="flex animate-fade-up flex-col items-center justify-center gap-3 sm:flex-row lg:justify-start"
                 style={{ animationDelay: "240ms" }}
               >
-                {isProduction ? (
-                  <Button size="lg" className="group w-full gap-2 shadow-lg shadow-primary/25 sm:w-auto" asChild>
-                    <ExternalLink href={DEMO_URL}>
-                      Book a demo
-                      <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
-                    </ExternalLink>
-                  </Button>
-                ) : (
-                  <Button size="lg" className="group w-full gap-2 shadow-lg shadow-primary/25 sm:w-auto" asChild>
-                    <Link to="/auth">
-                      Sign in
-                      <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
-                    </Link>
-                  </Button>
-                )}
+                <Button size="lg" className="group w-full gap-2 shadow-lg shadow-primary/25 sm:w-auto" asChild>
+                  <ExternalLink href={DEMO_URL}>
+                    Book a demo
+                    <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
+                  </ExternalLink>
+                </Button>
                 <Button size="lg" variant="outline" className="w-full gap-2 bg-background/70 backdrop-blur sm:w-auto" asChild>
                   <ExternalLink href={REPO_URL}>
                     <Github className="h-4 w-4" aria-hidden="true" />
-                    View the code
+                    View on GitHub
                   </ExternalLink>
                 </Button>
               </div>
