@@ -80,7 +80,7 @@ const useOnboardingEmployees = () => {
           working_hours_start,
           working_hours_end,
           working_days,
-          departments (name)
+          departments!employees_department_id_fkey (name)
         `)
         .eq('status', 'onboarding');
       
