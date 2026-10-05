@@ -29,7 +29,9 @@ Run the version bump script:
 
 ### 2. Update Changelog
 
-Edit `src/lib/version.ts` and update the `LOCAL_CHANGELOG` array with your changes:
+Move the entries under **[Unreleased]** in [`CHANGELOG.md`](CHANGELOG.md) into a new version section, including **Upgrade notes** for self-hosters (new migrations, secrets or manual steps).
+
+Then update the `LOCAL_CHANGELOG` array in `src/lib/version.ts`, which the in-app "What's New" page shows when GitHub can't be reached:
 
 ```typescript
 const LOCAL_CHANGELOG: ChangelogEntry[] = [
