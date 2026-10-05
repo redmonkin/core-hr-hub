@@ -1,13 +1,28 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { format } from "date-fns";
+import { format, parseISO } from "date-fns";
+
+export const ASSET_TYPES = ["laptop", "desktop", "monitor", "phone", "tablet", "accessory", "other"] as const;
+export type AssetType = (typeof ASSET_TYPES)[number];
+
+/** assets.category is free text in the DB; map anything we don't know to "other". */
+export function normalizeAssetType(category: string | null | undefined): AssetType {
+  const value = (category ?? "").trim().toLowerCase();
+  return (ASSET_TYPES as readonly string[]).includes(value) ? (value as AssetType) : "other";
+}
 
 export interface Asset {
   id: string;
   name: string;
-  type: "laptop" | "monitor" | "phone" | "accessory";
+  type: AssetType;
+  /** Raw category as stored, so editing an unknown category doesn't silently rename it. */
+  category: string;
   serialNumber: string;
+  /** Display date ("MMM d, yyyy") or "Unknown". */
   purchaseDate: string;
+  /** ISO date (yyyy-MM-dd) as stored, or "" when not set. */
+  purchaseDateRaw: string;
+  vendor: string;
   cost: number;
   status: "available" | "assigned" | "maintenance" | "retired";
   notes?: string;
@@ -30,6 +45,7 @@ export function useAssets() {
           serial_number,
           purchase_date,
           purchase_cost,
+          vendor,
           status,
           notes
         `)
@@ -61,11 +77,14 @@ export function useAssets() {
         return {
           id: asset.id,
           name: asset.name,
-          type: asset.category.toLowerCase() as Asset["type"],
+          type: normalizeAssetType(asset.category),
+          category: asset.category,
           serialNumber: asset.serial_number || "",
           purchaseDate: asset.purchase_date
-            ? format(new Date(asset.purchase_date), "MMM d, yyyy")
+            ? format(parseISO(asset.purchase_date), "MMM d, yyyy")
             : "Unknown",
+          purchaseDateRaw: asset.purchase_date || "",
+          vendor: asset.vendor || "",
           cost: Number(asset.purchase_cost) || 0,
           status: asset.status as Asset["status"],
           notes: asset.notes || undefined,
@@ -91,12 +110,21 @@ export function useAssetStats() {
 
       if (error) throw error;
 
-      const total = data?.length || 0;
-      const laptops = data?.filter((a) => a.category.toLowerCase() === "laptop").length || 0;
-      const monitors = data?.filter((a) => a.category.toLowerCase() === "monitor").length || 0;
-      const phones = data?.filter((a) => a.category.toLowerCase() === "phone").length || 0;
+      const counts: Record<AssetType, number> = {
+        laptop: 0, desktop: 0, monitor: 0, phone: 0, tablet: 0, accessory: 0, other: 0,
+      };
+      for (const a of data || []) counts[normalizeAssetType(a.category)] += 1;
 
-      return { total, laptops, monitors, phones };
+      const total = data?.length || 0;
+      // Buckets always add up to `total`.
+      return {
+        total,
+        computers: counts.laptop + counts.desktop,
+        monitors: counts.monitor,
+        mobile: counts.phone + counts.tablet,
+        other: counts.accessory + counts.other,
+        counts,
+      };
     },
   });
 }
@@ -141,11 +169,12 @@ export interface UpdateAssetData {
   id: string;
   name?: string;
   category?: string;
-  serial_number?: string;
-  purchase_date?: string;
-  purchase_cost?: number;
-  vendor?: string;
-  notes?: string;
+  // null clears the field; undefined leaves it untouched.
+  serial_number?: string | null;
+  purchase_date?: string | null;
+  purchase_cost?: number | null;
+  vendor?: string | null;
+  notes?: string | null;
   status?: "available" | "assigned" | "maintenance" | "retired";
 }
 
@@ -288,9 +317,9 @@ export function useAssetHistory(assetId: string | null) {
         const emp = assignment.employee as { first_name: string; last_name: string; avatar_url: string | null } | null;
         return {
           id: assignment.id,
-          assignedDate: format(new Date(assignment.assigned_date), "MMM d, yyyy"),
+          assignedDate: format(parseISO(assignment.assigned_date), "MMM d, yyyy"),
           returnedDate: assignment.returned_date
-            ? format(new Date(assignment.returned_date), "MMM d, yyyy")
+            ? format(parseISO(assignment.returned_date), "MMM d, yyyy")
             : null,
           notes: assignment.notes,
           employee: emp

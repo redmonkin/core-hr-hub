@@ -1,11 +1,10 @@
 import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
@@ -225,107 +224,97 @@ export function SalaryStructureManager({ canManage = true }: SalaryStructureMana
     return basic + allowances - deductions;
   };
 
-  const SalaryFormFields = () => (
+  type AmountField = "basic_salary" | "hra" | "transport_allowance" | "medical_allowance" | "other_allowances" | "tax_deduction" | "pf_deduction";
+
+  const amountInput = (idPrefix: string, field: AmountField, label: string, placeholder = "0", labelClassName = "text-xs") => (
+    <div className="space-y-2">
+      <Label htmlFor={`${idPrefix}${field}`} className={labelClassName}>{label}</Label>
+      <Input
+        id={`${idPrefix}${field}`}
+        type="number"
+        inputMode="decimal"
+        min="0"
+        value={formData[field]}
+        onChange={(e) => setFormData((prev) => ({ ...prev, [field]: e.target.value }))}
+        placeholder={placeholder}
+      />
+    </div>
+  );
+
+  // A render function (not a nested component) so inputs keep focus while typing.
+  const renderSalaryFormFields = (idPrefix: string) => (
     <div className="space-y-4">
       <p className="text-xs text-muted-foreground">
         All amounts below are <span className="font-medium text-foreground">monthly</span> figures, not annual (CTC).
       </p>
 
-      <div className="grid grid-cols-2 gap-4">
-        <div className="col-span-2 space-y-2">
-          <Label>Basic Salary (Monthly) *</Label>
-          <Input
-            type="number"
-            value={formData.basic_salary}
-            onChange={(e) => setFormData({ ...formData, basic_salary: e.target.value })}
-            placeholder="50000"
-          />
-        </div>
-      </div>
+      {amountInput(idPrefix, "basic_salary", "Basic salary (monthly) *", "50000", "")}
 
-      <div className="space-y-2">
-        <Label className="text-sm font-medium text-muted-foreground">Allowances</Label>
+      <fieldset className="space-y-2">
+        <legend className="text-sm font-medium text-muted-foreground">Allowances</legend>
         <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Label className="text-xs">HRA</Label>
-            <Input
-              type="number"
-              value={formData.hra}
-              onChange={(e) => setFormData({ ...formData, hra: e.target.value })}
-              placeholder="0"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label className="text-xs">Transport</Label>
-            <Input
-              type="number"
-              value={formData.transport_allowance}
-              onChange={(e) => setFormData({ ...formData, transport_allowance: e.target.value })}
-              placeholder="0"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label className="text-xs">Medical</Label>
-            <Input
-              type="number"
-              value={formData.medical_allowance}
-              onChange={(e) => setFormData({ ...formData, medical_allowance: e.target.value })}
-              placeholder="0"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label className="text-xs">Other</Label>
-            <Input
-              type="number"
-              value={formData.other_allowances}
-              onChange={(e) => setFormData({ ...formData, other_allowances: e.target.value })}
-              placeholder="0"
-            />
-          </div>
+          {amountInput(idPrefix, "hra", "HRA")}
+          {amountInput(idPrefix, "transport_allowance", "Transport")}
+          {amountInput(idPrefix, "medical_allowance", "Medical")}
+          {amountInput(idPrefix, "other_allowances", "Other")}
         </div>
-      </div>
+      </fieldset>
 
-      <div className="space-y-2">
-        <Label className="text-sm font-medium text-muted-foreground">Deductions</Label>
+      <fieldset className="space-y-2">
+        <legend className="text-sm font-medium text-muted-foreground">Deductions</legend>
         <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Label className="text-xs">Tax</Label>
-            <Input
-              type="number"
-              value={formData.tax_deduction}
-              onChange={(e) => setFormData({ ...formData, tax_deduction: e.target.value })}
-              placeholder="0"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label className="text-xs">PF</Label>
-            <Input
-              type="number"
-              value={formData.pf_deduction}
-              onChange={(e) => setFormData({ ...formData, pf_deduction: e.target.value })}
-              placeholder="0"
-            />
-          </div>
+          {amountInput(idPrefix, "tax_deduction", "Tax")}
+          {amountInput(idPrefix, "pf_deduction", "PF")}
         </div>
-      </div>
+      </fieldset>
 
       <div className="space-y-2">
-        <Label>Effective From</Label>
+        <Label htmlFor={`${idPrefix}effective_from`}>Effective from</Label>
         <Input
+          id={`${idPrefix}effective_from`}
           type="date"
+          className="block w-full min-w-0"
           value={formData.effective_from}
-          onChange={(e) => setFormData({ ...formData, effective_from: e.target.value })}
+          onChange={(e) => setFormData((prev) => ({ ...prev, effective_from: e.target.value }))}
         />
       </div>
 
       <div className="rounded-lg bg-primary/10 p-4">
         <div className="flex items-center justify-between">
-          <span className="text-sm font-medium text-muted-foreground">Net Salary</span>
-          <span className="text-lg font-bold text-primary">{formatCurrency(calculateNetSalary())}</span>
+          <span className="text-sm font-medium text-muted-foreground">Net salary</span>
+          <span className="text-lg font-bold text-foreground">{formatCurrency(calculateNetSalary())}</span>
         </div>
       </div>
     </div>
   );
+
+  const initials = (name: string) => name.split(" ").map((n) => n[0]).join("");
+
+  const renderRowActions = (structure: SalaryStructure) =>
+    canManage ? (
+      <div className="flex justify-end gap-1">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-10 w-10 sm:h-9 sm:w-9"
+          onClick={() => handleEdit(structure)}
+          aria-label={`Edit salary structure for ${structure.employeeName}`}
+          title="Edit"
+        >
+          <Edit className="h-4 w-4" aria-hidden="true" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-10 w-10 text-destructive hover:text-destructive sm:h-9 sm:w-9"
+          onClick={() => handleDelete(structure)}
+          aria-label={`Delete salary structure for ${structure.employeeName}`}
+          title="Delete"
+        >
+          <Trash2 className="h-4 w-4" aria-hidden="true" />
+        </Button>
+      </div>
+    ) : null;
 
   return (
     <div className="space-y-4">
@@ -335,6 +324,7 @@ export function SalaryStructureManager({ canManage = true }: SalaryStructureMana
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             placeholder="Search employees..."
+            aria-label="Search salary structures"
             className="pl-10"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
@@ -342,8 +332,8 @@ export function SalaryStructureManager({ canManage = true }: SalaryStructureMana
         </div>
         {canManage && (
           <Button onClick={() => setIsAddDialogOpen(true)} disabled={employeesWithoutStructure.length === 0}>
-            <Plus className="mr-2 h-4 w-4" />
-            Add Salary Structure
+            <Plus className="mr-2 h-4 w-4" aria-hidden="true" />
+            Add salary structure
           </Button>
         )}
       </div>
@@ -359,7 +349,7 @@ export function SalaryStructureManager({ canManage = true }: SalaryStructureMana
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
             <IndianRupee className="mb-4 h-12 w-12 text-muted-foreground" />
-            <h3 className="text-lg font-semibold text-foreground">No Salary Structures</h3>
+            <h3 className="text-lg font-semibold text-foreground">No salary structures</h3>
             <p className="text-muted-foreground">
               {structures.length === 0
                 ? "Add salary structures to enable payroll generation"
@@ -368,94 +358,116 @@ export function SalaryStructureManager({ canManage = true }: SalaryStructureMana
             {canManage && structures.length === 0 && employeesWithoutStructure.length > 0 && (
               <Button className="mt-4" onClick={() => setIsAddDialogOpen(true)}>
                 <Plus className="mr-2 h-4 w-4" />
-                Add First Salary Structure
+                Add first salary structure
               </Button>
             )}
           </CardContent>
         </Card>
       ) : (
-        <Card>
-          <CardContent className="p-0">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Employee</TableHead>
-                  <TableHead className="text-right">Basic</TableHead>
-                  <TableHead className="text-right">Allowances</TableHead>
-                  <TableHead className="text-right">Deductions</TableHead>
-                  <TableHead className="text-right">Net Salary</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredStructures.map((structure) => (
-                  <TableRow key={structure.id}>
-                    <TableCell>
-                      <div className="flex items-center gap-3">
-                        <Avatar className="h-8 w-8">
-                          <AvatarImage src={structure.employeeAvatar} />
-                          <AvatarFallback>
-                            {structure.employeeName.split(" ").map((n) => n[0]).join("")}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div>
-                          <p className="font-medium text-foreground">{structure.employeeName}</p>
-                          <p className="text-xs text-muted-foreground">{structure.employeeEmail}</p>
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-right font-medium">
-                      {formatCurrency(structure.basicSalary)}
-                    </TableCell>
-                    <TableCell className="text-right text-emerald-600">
-                      +{formatCurrency(structure.totalAllowances)}
-                    </TableCell>
-                    <TableCell className="text-right text-destructive">
-                      -{formatCurrency(structure.totalDeductions)}
-                    </TableCell>
-                    <TableCell className="text-right font-semibold text-primary">
-                      {formatCurrency(structure.netSalary)}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {canManage && (
-                      <div className="flex justify-end gap-2">
-                        <Button variant="ghost" size="icon" onClick={() => handleEdit(structure)}>
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="text-destructive hover:text-destructive"
-                          onClick={() => handleDelete(structure)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                      )}
-                    </TableCell>
+        <>
+          {/* Mobile: stacked cards */}
+          <div className="space-y-3 sm:hidden">
+            {filteredStructures.map((structure) => (
+              <div key={structure.id} className="rounded-xl border border-border bg-card p-4">
+                <div className="flex items-start gap-3">
+                  <Avatar className="h-10 w-10 shrink-0">
+                    <AvatarImage src={structure.employeeAvatar} alt="" />
+                    <AvatarFallback>{initials(structure.employeeName)}</AvatarFallback>
+                  </Avatar>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-medium text-foreground">{structure.employeeName}</p>
+                    <p className="truncate text-xs text-muted-foreground">{structure.employeeEmail}</p>
+                  </div>
+                  <div className="-mr-2 -mt-1 shrink-0">{renderRowActions(structure)}</div>
+                </div>
+                <dl className="mt-3 grid grid-cols-3 gap-2 text-sm">
+                  <div>
+                    <dt className="text-xs text-muted-foreground">Basic</dt>
+                    <dd className="text-foreground">{formatCurrency(structure.basicSalary)}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs text-muted-foreground">Allowances</dt>
+                    <dd className="text-emerald-700 dark:text-emerald-400">+{formatCurrency(structure.totalAllowances)}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs text-muted-foreground">Deductions</dt>
+                    <dd className="text-destructive">-{formatCurrency(structure.totalDeductions)}</dd>
+                  </div>
+                </dl>
+                <div className="mt-3 flex items-center justify-between border-t border-border pt-3">
+                  <span className="text-xs text-muted-foreground">Net salary (monthly)</span>
+                  <span className="font-semibold text-foreground">{formatCurrency(structure.netSalary)}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Desktop / tablet: table */}
+          <Card className="hidden sm:block">
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Employee</TableHead>
+                    <TableHead className="text-right">Basic</TableHead>
+                    <TableHead className="text-right">Allowances</TableHead>
+                    <TableHead className="text-right">Deductions</TableHead>
+                    <TableHead className="text-right">Net salary</TableHead>
+                    {canManage && <TableHead className="text-right">Actions</TableHead>}
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
+                </TableHeader>
+                <TableBody>
+                  {filteredStructures.map((structure) => (
+                    <TableRow key={structure.id}>
+                      <TableCell>
+                        <div className="flex items-center gap-3">
+                          <Avatar className="h-8 w-8">
+                            <AvatarImage src={structure.employeeAvatar} alt="" />
+                            <AvatarFallback>{initials(structure.employeeName)}</AvatarFallback>
+                          </Avatar>
+                          <div className="min-w-0">
+                            <p className="font-medium text-foreground">{structure.employeeName}</p>
+                            <p className="max-w-[220px] truncate text-xs text-muted-foreground" title={structure.employeeEmail}>{structure.employeeEmail}</p>
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap text-right font-medium">
+                        {formatCurrency(structure.basicSalary)}
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap text-right text-emerald-700 dark:text-emerald-400">
+                        +{formatCurrency(structure.totalAllowances)}
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap text-right text-destructive">
+                        -{formatCurrency(structure.totalDeductions)}
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap text-right font-semibold text-foreground">
+                        {formatCurrency(structure.netSalary)}
+                      </TableCell>
+                      {canManage && <TableCell className="text-right">{renderRowActions(structure)}</TableCell>}
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </>
       )}
 
       {/* Add Dialog */}
       <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Add Salary Structure</DialogTitle>
+            <DialogTitle>Add salary structure</DialogTitle>
             <DialogDescription>Set up salary components for an employee.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label>Select Employee *</Label>
+              <Label htmlFor="add-salary-employee">Employee *</Label>
               <Select
                 value={formData.employee_id}
                 onValueChange={(value) => setFormData({ ...formData, employee_id: value })}
               >
-                <SelectTrigger>
+                <SelectTrigger id="add-salary-employee">
                   <SelectValue placeholder="Choose an employee" />
                 </SelectTrigger>
                 <SelectContent>
@@ -467,14 +479,14 @@ export function SalaryStructureManager({ canManage = true }: SalaryStructureMana
                 </SelectContent>
               </Select>
             </div>
-            <SalaryFormFields />
+            {renderSalaryFormFields("add-salary-")}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
               Cancel
             </Button>
             <Button onClick={handleAdd} disabled={createStructure.isPending}>
-              {createStructure.isPending ? "Creating..." : "Create Structure"}
+              {createStructure.isPending ? "Creating..." : "Create structure"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -484,20 +496,20 @@ export function SalaryStructureManager({ canManage = true }: SalaryStructureMana
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Edit Salary Structure</DialogTitle>
+            <DialogTitle>Edit salary structure</DialogTitle>
             <DialogDescription>
               Update salary for {selectedStructure?.employeeName}
             </DialogDescription>
           </DialogHeader>
           <div className="py-4">
-            <SalaryFormFields />
+            {renderSalaryFormFields("edit-salary-")}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
               Cancel
             </Button>
             <Button onClick={handleUpdate} disabled={updateStructure.isPending}>
-              {updateStructure.isPending ? "Updating..." : "Update Structure"}
+              {updateStructure.isPending ? "Updating..." : "Save changes"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -507,7 +519,7 @@ export function SalaryStructureManager({ canManage = true }: SalaryStructureMana
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Salary Structure?</AlertDialogTitle>
+            <AlertDialogTitle>Delete salary structure?</AlertDialogTitle>
             <AlertDialogDescription>
               This will permanently delete the salary structure for {selectedStructure?.employeeName}.
               This action cannot be undone.

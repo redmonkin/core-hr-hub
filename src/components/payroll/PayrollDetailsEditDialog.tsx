@@ -68,10 +68,12 @@ export function PayrollDetailsEditDialog({ open, onOpenChange, record }: Payroll
     <div className="space-y-2">
       <Label htmlFor={key}>{label}</Label>
       <div className="relative">
-        <IndianRupee className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <IndianRupee className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
         <Input
           id={key}
           type="number"
+          inputMode="decimal"
+          min="0"
           value={form[key]}
           onChange={(e) => setForm({ ...form, [key]: e.target.value })}
           className="pl-9"
@@ -105,9 +107,9 @@ export function PayrollDetailsEditDialog({ open, onOpenChange, record }: Payroll
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>Edit Payroll Details</DialogTitle>
+          <DialogTitle>Edit payroll details</DialogTitle>
           <DialogDescription>
             {record.employee.name} — {record.month}
           </DialogDescription>
@@ -115,25 +117,25 @@ export function PayrollDetailsEditDialog({ open, onOpenChange, record }: Payroll
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-3">
             <h4 className="text-sm font-medium text-muted-foreground">Earnings</h4>
-            <div className="grid grid-cols-2 gap-4">
-              {field("ltaAllowance", "LTA Allowance")}
-              {field("variablePay", "Variable Pay")}
-              {field("pfEmployerContribution", "PF Employer Contribution")}
-              {field("healthInsurance", "Health Insurance")}
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              {field("ltaAllowance", "LTA allowance")}
+              {field("variablePay", "Variable pay")}
+              {field("pfEmployerContribution", "PF employer contribution")}
+              {field("healthInsurance", "Health insurance")}
             </div>
           </div>
 
           <div className="space-y-3">
             <h4 className="text-sm font-medium text-muted-foreground">Deductions</h4>
-            <div className="grid grid-cols-2 gap-4">
-              {field("professionalTax", "Professional Tax")}
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              {field("professionalTax", "Professional tax")}
               {field("tds", "TDS")}
-              {field("advanceAmountAdjusted", "Advance Amount Adjusted")}
+              {field("advanceAmountAdjusted", "Advance amount adjusted")}
             </div>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="lossOfPayDays">Loss of Pay (Days)</Label>
+            <Label htmlFor="lossOfPayDays">Loss of pay (days)</Label>
             <Input
               id="lossOfPayDays"
               type="number"
@@ -150,8 +152,8 @@ export function PayrollDetailsEditDialog({ open, onOpenChange, record }: Payroll
               Cancel
             </Button>
             <Button type="submit" disabled={updateDetails.isPending}>
-              {updateDetails.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Save Changes
+              {updateDetails.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />}
+              Save changes
             </Button>
           </DialogFooter>
         </form>

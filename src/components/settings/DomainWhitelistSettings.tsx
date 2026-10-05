@@ -122,16 +122,16 @@ const DomainWhitelistSettings = () => {
         <CardHeader>
           <div className="flex items-center gap-2">
             <Shield className="h-5 w-5 text-primary" />
-            <CardTitle>Domain Whitelisting</CardTitle>
+            <CardTitle>Domain whitelisting</CardTitle>
           </div>
           <CardDescription>
             Control which email domains can join your organization. When enabled, only addresses on these domains can be invited or used when someone changes their email.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-4">
             <div className="space-y-0.5">
-              <Label htmlFor="domain-whitelist-toggle">Enable Domain Whitelisting</Label>
+              <Label htmlFor="domain-whitelist-toggle">Enable domain whitelisting</Label>
               <p className="text-sm text-muted-foreground">
                 {settingValue.enabled 
                   ? "Only whitelisted domains can register" 
@@ -149,15 +149,18 @@ const DomainWhitelistSettings = () => {
           {settingValue.enabled && (
             <>
               <div className="border-t pt-4">
-                <Label className="flex items-center gap-2 mb-3">
-                  <Globe className="h-4 w-4" />
-                  Allowed Domains
+                <Label htmlFor="new-domain" className="mb-3 flex items-center gap-2">
+                  <Globe className="h-4 w-4" aria-hidden="true" />
+                  Allowed domains
                 </Label>
                 
                 <div className="flex gap-2 mb-4">
                   <div className="flex-1">
                     <Input
+                      id="new-domain"
                       placeholder="company.com"
+                      aria-invalid={!!domainError}
+                      aria-describedby={domainError ? "new-domain-error" : undefined}
                       value={newDomain}
                       onChange={(e) => {
                         setNewDomain(e.target.value);
@@ -172,7 +175,7 @@ const DomainWhitelistSettings = () => {
                       disabled={updateMutation.isPending}
                     />
                     {domainError && (
-                      <p className="text-sm text-destructive mt-1">{domainError}</p>
+                      <p id="new-domain-error" className="mt-1 text-sm text-destructive">{domainError}</p>
                     )}
                   </div>
                   <Button 
@@ -195,14 +198,17 @@ const DomainWhitelistSettings = () => {
                     </p>
                   ) : (
                     settingValue.domains.map((domain) => (
-                      <Badge key={domain} variant="secondary" className="gap-1 pr-1">
+                      <Badge key={domain} variant="secondary" className="gap-1 py-0 pl-3 pr-0 text-sm font-normal">
                         {domain}
                         <button
+                          type="button"
                           onClick={() => handleRemoveDomain(domain)}
-                          className="ml-1 rounded-full p-0.5 hover:bg-destructive/20 hover:text-destructive"
+                          className="inline-flex h-8 w-8 items-center justify-center rounded-full hover:bg-destructive/20 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
                           disabled={updateMutation.isPending}
+                          aria-label={`Remove ${domain}`}
+                          title={`Remove ${domain}`}
                         >
-                          <X className="h-3 w-3" />
+                          <X className="h-4 w-4" aria-hidden="true" />
                         </button>
                       </Badge>
                     ))

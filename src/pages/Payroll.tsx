@@ -13,8 +13,9 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Select,
@@ -24,12 +25,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import {
   Pagination,
   PaginationContent,
@@ -45,7 +40,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
-import { usePayrollRecords, usePayrollStats, useGeneratePayroll, useUpdatePayrollStatus, useBulkUpdatePayrollStatus, type PayrollRecord } from "@/hooks/usePayroll";
+import { usePayrollRecords, useGeneratePayroll, useUpdatePayrollStatus, useBulkUpdatePayrollStatus, type PayrollRecord } from "@/hooks/usePayroll";
 import { useCompanyBranding } from "@/hooks/useCompanyBranding";
 import { drawPdfHeader, drawPdfFooter, fetchImageAsDataUrl, formatCurrencyForPdf, PDF_TABLE_HEAD_STYLE, PDF_COLORS } from "@/lib/pdfTheme";
 import { usePermissions } from "@/hooks/usePermissions";
@@ -66,19 +61,28 @@ const months = [
   { value: "12", label: "December" },
 ];
 
+const periodKey = (year: number, month: number) => `${year}-${month}`;
+const parsePeriodKey = (key: string) => {
+  const [year, month] = key.split("-").map(Number);
+  return { year, month };
+};
+const periodLabel = (year: number, month: number) => `${months[month - 1]?.label ?? ""} ${year}`;
+
 const Payroll = () => {
   const [searchQuery, setSearchQuery] = useState("");
-  const [monthFilter, setMonthFilter] = useState("current");
+  const [activeTab, setActiveTab] = useState("run");
   
   const currentDate = new Date();
   const currentMonth = currentDate.getMonth() + 1;
   const currentYear = currentDate.getFullYear();
 
-  // History tab filters — default to the current month/year so payroll
-  // generated for a past cycle (still unpaid until next month) is easy to find
+  // Pay-run period and History filters start as null ("auto"): they resolve to the most
+  // recent month that has payroll records, so the page never opens on an empty month
+  // while last cycle's payslips are still waiting to be paid.
+  const [runPeriod, setRunPeriod] = useState<string | null>(null);
   const [historySearchQuery, setHistorySearchQuery] = useState("");
-  const [historyMonth, setHistoryMonth] = useState<string>(String(currentMonth));
-  const [historyYear, setHistoryYear] = useState<string>(String(currentYear));
+  const [historyMonthState, setHistoryMonth] = useState<string | null>(null);
+  const [historyYearState, setHistoryYear] = useState<string | null>(null);
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
   const [selectedRecord, setSelectedRecord] = useState<PayrollRecord | null>(null);
   const [editDetailsOpen, setEditDetailsOpen] = useState(false);
@@ -89,15 +93,39 @@ const Payroll = () => {
   const canManage = can("payroll", "manage");
   const { data: branding } = useCompanyBranding();
 
-  const { data: records = [], isLoading } = usePayrollRecords(
-    monthFilter === "current" ? currentMonth : undefined,
-    monthFilter === "current" ? currentYear : undefined
-  );
-  
-  // Fetch all records for history tab
+  // One query for every record; the pay-run tab, history tab and stat cards all derive from it.
   const { data: allRecords = [], isLoading: isLoadingHistory } = usePayrollRecords();
-  
-  const { data: stats } = usePayrollStats();
+  const isLoading = isLoadingHistory;
+
+  const latestPeriod = useMemo(() => {
+    let best: { year: number; month: number } | null = null;
+    for (const r of allRecords) {
+      if (!best || r.year > best.year || (r.year === best.year && r.monthNum > best.month)) {
+        best = { year: r.year, month: r.monthNum };
+      }
+    }
+    return best ?? { year: currentYear, month: currentMonth };
+  }, [allRecords, currentMonth, currentYear]);
+
+  // Periods offered in the pay-run picker: every month with records, plus the current month.
+  const periodOptions = useMemo(() => {
+    const keys = new Map<string, { year: number; month: number }>();
+    keys.set(periodKey(currentYear, currentMonth), { year: currentYear, month: currentMonth });
+    allRecords.forEach((r) => keys.set(periodKey(r.year, r.monthNum), { year: r.year, month: r.monthNum }));
+    return Array.from(keys.entries())
+      .sort(([, a], [, b]) => b.year - a.year || b.month - a.month)
+      .map(([key, p]) => ({ key, label: periodLabel(p.year, p.month) }));
+  }, [allRecords, currentMonth, currentYear]);
+
+  const effectiveRunPeriod = runPeriod ?? periodKey(latestPeriod.year, latestPeriod.month);
+  const runSelection = parsePeriodKey(effectiveRunPeriod);
+  const records = useMemo(
+    () => allRecords.filter((r) => r.year === runSelection.year && r.monthNum === runSelection.month),
+    [allRecords, runSelection.year, runSelection.month]
+  );
+
+  const historyMonth = historyMonthState ?? String(latestPeriod.month);
+  const historyYear = historyYearState ?? String(latestPeriod.year);
   
   // Generate available years from records
   const availableYears = useMemo(() => {
@@ -105,8 +133,9 @@ const Payroll = () => {
     allRecords.forEach(record => {
       if (record.year) years.add(record.year);
     });
+    if (historyYear !== "all") years.add(parseInt(historyYear));
     return Array.from(years).sort((a, b) => b - a);
-  }, [allRecords]);
+  }, [allRecords, historyYear]);
   
   // Filter history records
   const filteredHistoryRecords = useMemo(() => {
@@ -481,25 +510,47 @@ const Payroll = () => {
     });
   };
 
+  // Stat cards follow whatever period the active tab is showing.
+  const statsRecords = activeTab === "history"
+    ? allRecords.filter((r) =>
+        (historyMonth === "all" || r.monthNum === parseInt(historyMonth)) &&
+        (historyYear === "all" || r.year === parseInt(historyYear)))
+    : records;
+  const statsPeriodLabel = activeTab === "history"
+    ? historyMonth === "all" && historyYear === "all"
+      ? "All time"
+      : historyMonth === "all"
+        ? `All of ${historyYear}`
+        : historyYear === "all"
+          ? `${months[parseInt(historyMonth) - 1]?.label}, all years`
+          : periodLabel(parseInt(historyYear), parseInt(historyMonth))
+    : periodLabel(runSelection.year, runSelection.month);
+  const statsTotal = statsRecords.reduce((sum, r) => sum + r.netSalary, 0);
+  const statsEmployees = new Set(statsRecords.map((r) => r.employeeId)).size;
+  const statsPending = statsRecords.filter((r) => r.status === "pending").length;
   const payrollStats = [
-    { label: "Total Payroll", value: formatCurrency(stats?.totalPayroll || 0), icon: <IndianRupee className="h-5 w-5" />, change: "" },
-    { label: "Employees", value: String(stats?.employeeCount || 0), icon: <Users className="h-5 w-5" />, change: "" },
-    { label: "Avg. Salary", value: formatCurrency(stats?.avgSalary || 0), icon: <TrendingUp className="h-5 w-5" />, change: "" },
-    { label: "Pending", value: String(stats?.pending || 0), icon: <FileText className="h-5 w-5" />, change: "" },
+    { label: "Total net payroll", value: formatCurrency(statsTotal), icon: <IndianRupee className="h-5 w-5" aria-hidden="true" /> },
+    { label: statsEmployees === 1 ? "Employee paid" : "Employees paid", value: String(statsEmployees), icon: <Users className="h-5 w-5" aria-hidden="true" /> },
+    { label: "Avg. net salary", value: formatCurrency(statsRecords.length ? statsTotal / statsRecords.length : 0), icon: <TrendingUp className="h-5 w-5" aria-hidden="true" /> },
+    { label: "Pending payslips", value: String(statsPending), icon: <FileText className="h-5 w-5" aria-hidden="true" /> },
   ];
+  const showLatestHistory = () => {
+    setHistoryMonth(String(latestPeriod.month));
+    setHistoryYear(String(latestPeriod.year));
+  };
 
   return (
     <DashboardLayout>
       <div className="space-y-6">
         {/* Header */}
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h2 className="text-2xl font-bold text-foreground">Payroll Management</h2>
+            <h1 className="text-2xl font-bold text-foreground sm:text-3xl">Payroll</h1>
             <p className="text-muted-foreground">Process and track employee payroll</p>
           </div>
-          <div className="flex gap-3">
+          <div className="flex flex-wrap gap-3">
             <DateRangeExportDialog
-              title="Export Payroll"
+              title="Export payroll"
               description="Select a date range to export payroll records. Leave empty to export all records."
               onExportCSV={exportToCSV}
               onExportPDF={exportToPDF}
@@ -507,7 +558,7 @@ const Payroll = () => {
             />
             {canManage && (
               <Button onClick={() => setGenerateDialogOpen(true)}>
-                Generate Payroll
+                Generate payroll
               </Button>
             )}
           </div>
@@ -516,7 +567,7 @@ const Payroll = () => {
         <Dialog open={generateDialogOpen} onOpenChange={setGenerateDialogOpen}>
           <DialogContent className="max-w-sm">
             <DialogHeader>
-              <DialogTitle>Generate Payroll</DialogTitle>
+              <DialogTitle>Generate payroll</DialogTitle>
               <DialogDescription>
                 Pick the month to generate payroll for — including past months. Employees who joined
                 after the selected month are skipped, and mid-month joiners are pro-rated by working days.
@@ -524,9 +575,9 @@ const Payroll = () => {
             </DialogHeader>
             <div className="grid grid-cols-2 gap-4 py-2">
               <div className="space-y-2">
-                <label className="text-sm font-medium">Month</label>
+                <Label htmlFor="generate-month">Month</Label>
                 <Select value={generateMonth} onValueChange={setGenerateMonth}>
-                  <SelectTrigger>
+                  <SelectTrigger id="generate-month">
                     <SelectValue placeholder="Month" />
                   </SelectTrigger>
                   <SelectContent>
@@ -539,9 +590,9 @@ const Payroll = () => {
                 </Select>
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium">Year</label>
+                <Label htmlFor="generate-year">Year</Label>
                 <Select value={generateYear} onValueChange={setGenerateYear}>
-                  <SelectTrigger>
+                  <SelectTrigger id="generate-year">
                     <SelectValue placeholder="Year" />
                   </SelectTrigger>
                   <SelectContent>
@@ -573,49 +624,58 @@ const Payroll = () => {
         </Dialog>
 
         {/* Stats */}
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {payrollStats.map((stat) => (
-            <Card key={stat.label}>
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div className="rounded-xl bg-primary/10 p-3 text-primary">{stat.icon}</div>
-                </div>
-                <div className="mt-4">
-                  <p className="text-2xl font-bold text-foreground">{stat.value}</p>
-                  <p className="text-sm text-muted-foreground">{stat.label}</p>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+        <section aria-label={`Payroll summary for ${statsPeriodLabel}`} className="space-y-2">
+          <p className="text-sm text-muted-foreground" aria-live="polite">
+            Summary for <span className="font-medium text-foreground">{statsPeriodLabel}</span>
+          </p>
+          <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+            {payrollStats.map((stat) => (
+              <Card key={stat.label}>
+                <CardContent className="p-4 sm:p-6">
+                  <div className="w-fit rounded-xl bg-primary/10 p-2.5 text-primary sm:p-3">{stat.icon}</div>
+                  <div className="mt-3 sm:mt-4">
+                    <p className="break-words text-lg font-bold text-foreground sm:text-2xl">{stat.value}</p>
+                    <p className="text-xs text-muted-foreground sm:text-sm">{stat.label}</p>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </section>
 
         {/* Payroll Table */}
-        <Tabs defaultValue="current">
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList>
-            <TabsTrigger value="current">Current Month</TabsTrigger>
+            <TabsTrigger value="run">Pay run</TabsTrigger>
             <TabsTrigger value="history">History</TabsTrigger>
-            <TabsTrigger value="salary">Salary Structure</TabsTrigger>
+            <TabsTrigger value="salary">Salary structure</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="current" className="mt-6 space-y-4">
+          <TabsContent value="run" className="mt-6 space-y-4">
             {/* Filters */}
             <div className="flex flex-col gap-4 sm:flex-row">
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   placeholder="Search employees..."
+                  aria-label="Search employees"
                   className="pl-10"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                 />
               </div>
-              <Select value={monthFilter} onValueChange={setMonthFilter}>
-                <SelectTrigger className="w-full sm:w-[180px]">
-                  <SelectValue placeholder="Select month" />
+              <Select value={effectiveRunPeriod} onValueChange={setRunPeriod}>
+                <SelectTrigger className="w-full sm:w-[200px]" aria-label="Pay period">
+                  <Calendar className="mr-2 h-4 w-4 shrink-0" aria-hidden="true" />
+                  <SelectValue placeholder="Pay period" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="current">Current Month</SelectItem>
-                  <SelectItem value="all">All Records</SelectItem>
+                  {periodOptions.map((p) => (
+                    <SelectItem key={p.key} value={p.key}>
+                      {p.label}
+                      {p.key === periodKey(currentYear, currentMonth) ? " (current)" : ""}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -630,12 +690,21 @@ const Payroll = () => {
               <Card>
                 <CardContent className="flex flex-col items-center justify-center py-12">
                   <FileText className="mb-4 h-12 w-12 text-muted-foreground" />
-                  <h3 className="text-lg font-semibold text-foreground">No Payroll Records</h3>
-                  <p className="text-muted-foreground">
+                  <h3 className="text-lg font-semibold text-foreground">No payroll records</h3>
+                  <p className="text-center text-muted-foreground">
                     {records.length === 0
-                      ? "Generate payroll to see records here"
+                      ? `Payroll hasn't been generated for ${periodLabel(runSelection.year, runSelection.month)} yet.`
                       : "No records match your search criteria"}
                   </p>
+                  {records.length === 0 && canManage && (
+                    <Button className="mt-4" onClick={() => {
+                      setGenerateMonth(String(runSelection.month));
+                      setGenerateYear(String(runSelection.year));
+                      setGenerateDialogOpen(true);
+                    }}>
+                      Generate payroll
+                    </Button>
+                  )}
                 </CardContent>
               </Card>
             ) : (
@@ -662,18 +731,19 @@ const Payroll = () => {
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   placeholder="Search by name, email, or employee code..."
+                  aria-label="Search payroll history"
                   className="pl-10"
                   value={historySearchQuery}
                   onChange={(e) => setHistorySearchQuery(e.target.value)}
                 />
               </div>
               <Select value={historyMonth} onValueChange={setHistoryMonth}>
-                <SelectTrigger className="w-full sm:w-[150px]">
-                  <Calendar className="mr-2 h-4 w-4" />
+                <SelectTrigger className="w-full sm:w-[160px]" aria-label="Filter by month">
+                  <Calendar className="mr-2 h-4 w-4 shrink-0" aria-hidden="true" />
                   <SelectValue placeholder="Month" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Months</SelectItem>
+                  <SelectItem value="all">All months</SelectItem>
                   {months.map((month) => (
                     <SelectItem key={month.value} value={month.value}>
                       {month.label}
@@ -682,11 +752,11 @@ const Payroll = () => {
                 </SelectContent>
               </Select>
               <Select value={historyYear} onValueChange={setHistoryYear}>
-                <SelectTrigger className="w-full sm:w-[120px]">
+                <SelectTrigger className="w-full sm:w-[120px]" aria-label="Filter by year">
                   <SelectValue placeholder="Year" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Years</SelectItem>
+                  <SelectItem value="all">All years</SelectItem>
                   {availableYears.map((year) => (
                     <SelectItem key={year} value={String(year)}>
                       {year}
@@ -706,12 +776,22 @@ const Payroll = () => {
               <Card>
                 <CardContent className="flex flex-col items-center justify-center py-12">
                   <FileText className="mb-4 h-12 w-12 text-muted-foreground" />
-                  <h3 className="text-lg font-semibold text-foreground">No Records Found</h3>
-                  <p className="text-muted-foreground">
+                  <h3 className="text-lg font-semibold text-foreground">No records found</h3>
+                  <p className="text-center text-muted-foreground">
                     {allRecords.length === 0
                       ? "No payroll history available yet"
                       : "No records match your filter criteria"}
                   </p>
+                  {allRecords.length > 0 && (
+                    <div className="mt-4 flex flex-wrap justify-center gap-2">
+                      <Button variant="outline" onClick={showLatestHistory}>
+                        Show latest month ({periodLabel(latestPeriod.year, latestPeriod.month)})
+                      </Button>
+                      <Button variant="ghost" onClick={() => { setHistoryMonth("all"); setHistoryYear("all"); setHistorySearchQuery(""); }}>
+                        Show all records
+                      </Button>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             ) : (
@@ -732,13 +812,13 @@ const Payroll = () => {
                 
                 {/* Pagination Controls */}
                 {totalPages > 1 && (
-                  <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4">
-                    <div className="flex items-center gap-4">
+                  <div className="flex flex-col items-center justify-between gap-4 pt-4 sm:flex-row">
+                    <div className="flex flex-wrap items-center justify-center gap-4">
                       <p className="text-sm text-muted-foreground">
                         Showing {((currentPage - 1) * pageSize) + 1} to {Math.min(currentPage * pageSize, totalItems)} of {totalItems} records
                       </p>
                       <Select value={String(pageSize)} onValueChange={(value) => setPageSize(Number(value))}>
-                        <SelectTrigger className="w-[100px]">
+                        <SelectTrigger className="w-[110px]" aria-label="Records per page">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>

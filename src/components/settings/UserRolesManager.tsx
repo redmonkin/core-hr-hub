@@ -10,6 +10,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { cn } from "@/lib/utils";
 import {
   Dialog,
   DialogContent,
@@ -37,7 +38,15 @@ import {
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Pencil, Loader2, Ban, CheckCircle, Link, Unlink, KeyRound } from "lucide-react";
+import { Pencil, Loader2, Ban, CheckCircle, Link, Unlink, KeyRound, MoreVertical } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { statusBadgeClass } from "@/lib/statusStyles";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -79,11 +88,12 @@ const roleLabels: Record<AppRole, string> = {
   employee: "Employee",
 };
 
-const roleBadgeVariant: Record<AppRole, "default" | "secondary" | "outline"> = {
-  admin: "default",
-  hr: "default",
-  manager: "secondary",
-  employee: "outline",
+// Each role gets its own light tint so Administrator and HR Manager are easy to tell apart.
+const roleBadgeClass: Record<AppRole, string> = {
+  admin: "border-violet-200 bg-violet-50 text-violet-800 dark:border-violet-800 dark:bg-violet-950 dark:text-violet-300",
+  hr: "border-sky-200 bg-sky-50 text-sky-800 dark:border-sky-800 dark:bg-sky-950 dark:text-sky-300",
+  manager: "border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-300",
+  employee: "border-slate-200 bg-slate-50 text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300",
 };
 
 const ROLE_RANK: Record<AppRole, number> = { admin: 4, hr: 3, manager: 2, employee: 1 };
@@ -95,12 +105,6 @@ const statusLabels: Record<EmployeeStatus, string> = {
   offboarded: "Offboarded",
 };
 
-const statusBadgeVariant: Record<EmployeeStatus, "default" | "secondary" | "outline" | "destructive"> = {
-  active: "default",
-  inactive: "destructive",
-  onboarding: "secondary",
-  offboarded: "outline",
-};
 
 export function UserRolesManager() {
   const { toast } = useToast();
@@ -372,13 +376,90 @@ export function UserRolesManager() {
         {grants.map(g => (
           <Badge
             key={g.module}
-            variant={g.level === 'manage' ? 'default' : 'secondary'}
-            className="whitespace-nowrap text-xs font-normal"
+            variant="outline"
+            className={cn("whitespace-nowrap text-xs font-normal", statusBadgeClass(g.level === 'manage' ? 'assigned' : 'draft'))}
           >
             {moduleLabel(g.module)} · {levelLabel(g.level).toLowerCase()}
           </Badge>
         ))}
       </div>
+    );
+  };
+
+  const renderStatus = (user: UserWithRole) => {
+    if (user.blocked) {
+      return <Badge variant="outline" className={cn("whitespace-nowrap", statusBadgeClass("blocked"))}>Blocked</Badge>;
+    }
+    if (user.employee_status) {
+      return (
+        <Badge variant="outline" className={cn("whitespace-nowrap", statusBadgeClass(user.employee_status === "offboarded" ? "inactive" : user.employee_status))}>
+          {statusLabels[user.employee_status]}
+        </Badge>
+      );
+    }
+    return (
+      <Badge variant="outline" className={cn("whitespace-nowrap", statusBadgeClass("not_linked"))} title="No employee record linked to this login">
+        Not linked
+      </Badge>
+    );
+  };
+
+  const renderRoles = (user: UserWithRole) =>
+    user.role_rows.length > 0 ? (
+      user.role_rows.map(r => (
+        <Badge key={r.id} variant="outline" className={cn("whitespace-nowrap", roleBadgeClass[r.role])}>
+          {roleLabels[r.role]}
+        </Badge>
+      ))
+    ) : (
+      <Badge variant="outline" className="whitespace-nowrap">No role</Badge>
+    );
+
+  const renderRowMenu = (user: UserWithRole) => {
+    const name = user.full_name || user.email;
+    return (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-10 w-10 sm:h-9 sm:w-9"
+            aria-label={`More actions for ${name}`}
+            title="More actions"
+          >
+            <MoreVertical className="h-4 w-4" aria-hidden="true" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem onClick={() => handleEditRole(user)}>
+            <Pencil className="mr-2 h-4 w-4" aria-hidden="true" />
+            Change role
+          </DropdownMenuItem>
+          {user.employee_id ? (
+            <DropdownMenuItem onClick={() => handleUnlinkClick(user)}>
+              <Unlink className="mr-2 h-4 w-4" aria-hidden="true" />
+              Unlink employee record
+            </DropdownMenuItem>
+          ) : (
+            <DropdownMenuItem onClick={() => handleLinkClick(user)} disabled={unlinkedEmployees.length === 0}>
+              <Link className="mr-2 h-4 w-4" aria-hidden="true" />
+              Link to employee
+            </DropdownMenuItem>
+          )}
+          {user.id !== currentUser?.id && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={() => handleBlockClick(user)}
+                className={user.blocked ? "text-emerald-700 focus:text-emerald-700" : "text-destructive focus:text-destructive"}
+              >
+                {user.blocked ? <CheckCircle className="mr-2 h-4 w-4" aria-hidden="true" /> : <Ban className="mr-2 h-4 w-4" aria-hidden="true" />}
+                {user.blocked ? "Unblock user" : "Block user"}
+              </DropdownMenuItem>
+            </>
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
     );
   };
 
@@ -398,7 +479,7 @@ export function UserRolesManager() {
       <CardHeader>
         <CardTitle>Users &amp; access</CardTitle>
         <CardDescription>
-          To give one person access to more modules (for example Assets), tap{" "}
+          To give one person access to more modules (for example Assets), use{" "}
           <span className="font-medium text-foreground">Extra access</span> on their row. This only affects that
           person.
         </CardDescription>
@@ -409,118 +490,96 @@ export function UserRolesManager() {
         ) : users.length === 0 ? (
           <div className="py-8 text-center text-muted-foreground">No users found.</div>
         ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>User</TableHead>
-                <TableHead className="hidden lg:table-cell">Email</TableHead>
-                <TableHead className="hidden sm:table-cell">Status</TableHead>
-                <TableHead className="hidden sm:table-cell">Role</TableHead>
-                <TableHead className="hidden md:table-cell">Extra access</TableHead>
-                <TableHead>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
+          <>
+            {/* Mobile: one card per user */}
+            <ul className="space-y-3 sm:hidden" aria-label="Users">
               {users.map((user) => (
-                <TableRow key={user.id}>
-                  <TableCell>
-                    <div className="flex items-start gap-3">
-                      <Avatar className="h-8 w-8 shrink-0">
-                        <AvatarImage src={user.avatar_url || undefined} />
-                        <AvatarFallback>{getUserInitials(user.full_name, user.email)}</AvatarFallback>
-                      </Avatar>
-                      <div className="min-w-0 space-y-1">
-                        <p className="font-medium">{user.full_name || "Unnamed User"}</p>
-                        <p className="break-all text-xs text-muted-foreground lg:hidden">{user.email}</p>
-                        {/* Compact summary on small screens, where the other columns are hidden */}
-                        <div className="flex flex-wrap gap-1 sm:hidden">
-                          {user.blocked && <Badge variant="destructive">Blocked</Badge>}
-                          {user.role_rows.map(r => (
-                            <Badge key={r.id} variant={roleBadgeVariant[r.role]}>{roleLabels[r.role]}</Badge>
-                          ))}
-                        </div>
-                        <div className="md:hidden">{renderAccess(user)}</div>
-                      </div>
+                <li key={user.id} className="rounded-xl border border-border p-3">
+                  <div className="flex items-start gap-3">
+                    <Avatar className="h-10 w-10 shrink-0">
+                      <AvatarImage src={user.avatar_url || undefined} alt="" />
+                      <AvatarFallback>{getUserInitials(user.full_name, user.email)}</AvatarFallback>
+                    </Avatar>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate font-medium">{user.full_name || "Unnamed user"}</p>
+                      <p className="truncate text-xs text-muted-foreground" title={user.email}>{user.email}</p>
                     </div>
-                  </TableCell>
-                  <TableCell className="hidden text-muted-foreground lg:table-cell">{user.email}</TableCell>
-                  <TableCell className="hidden sm:table-cell">
-                    {user.blocked ? (
-                      <Badge variant="destructive">Blocked</Badge>
-                    ) : user.employee_status ? (
-                      <Badge variant={statusBadgeVariant[user.employee_status]}>
-                        {statusLabels[user.employee_status]}
-                      </Badge>
-                    ) : (
-                      <Badge variant="outline">Not Linked</Badge>
-                    )}
-                  </TableCell>
-                  <TableCell className="hidden sm:table-cell">
-                    {user.role_rows.length > 0 ? (
-                      <div className="flex flex-wrap gap-1">
-                        {user.role_rows.map(r => (
-                          <Badge key={r.id} variant={roleBadgeVariant[r.role]}>
-                            {roleLabels[r.role]}
-                          </Badge>
-                        ))}
-                      </div>
-                    ) : (
-                      <Badge variant="outline">No Role</Badge>
-                    )}
-                  </TableCell>
-                  <TableCell className="hidden max-w-[260px] md:table-cell">{renderAccess(user)}</TableCell>
-                  <TableCell>
-                    <div className="flex flex-wrap gap-1">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setPermissionsUser(user)}
-                        title="Give this person access to extra modules"
-                      >
-                        <KeyRound className="mr-1.5 h-4 w-4" />
-                        Extra access
-                      </Button>
-                      <Button variant="ghost" size="icon" onClick={() => handleEditRole(user)} title="Change role">
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      {/* Link/Unlink Employee Button */}
-                      {user.employee_id ? (
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          onClick={() => handleUnlinkClick(user)}
-                          title="Unlink employee"
-                        >
-                          <Unlink className="h-4 w-4" />
-                        </Button>
-                      ) : (
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          onClick={() => handleLinkClick(user)}
-                          title="Link to employee"
-                          disabled={unlinkedEmployees.length === 0}
-                        >
-                          <Link className="h-4 w-4" />
-                        </Button>
-                      )}
-                      {user.id !== currentUser?.id && (
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          onClick={() => handleBlockClick(user)}
-                          className={user.blocked ? "text-green-600 hover:text-green-700" : "text-destructive hover:text-destructive"}
-                          title={user.blocked ? "Unblock user" : "Block user"}
-                        >
-                          {user.blocked ? <CheckCircle className="h-4 w-4" /> : <Ban className="h-4 w-4" />}
-                        </Button>
-                      )}
-                    </div>
-                  </TableCell>
-                </TableRow>
+                    <div className="-mr-1 -mt-1 shrink-0">{renderRowMenu(user)}</div>
+                  </div>
+                  <div className="mt-2 flex flex-wrap gap-1">
+                    {renderStatus(user)}
+                    {renderRoles(user)}
+                  </div>
+                  <div className="mt-2">{renderAccess(user)}</div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="mt-3 h-10 w-full"
+                    onClick={() => setPermissionsUser(user)}
+                    aria-label={`Extra access for ${user.full_name || user.email}`}
+                  >
+                    <KeyRound className="mr-1.5 h-4 w-4" aria-hidden="true" />
+                    Extra access
+                  </Button>
+                </li>
               ))}
-            </TableBody>
-          </Table>
+            </ul>
+
+            {/* Tablet / desktop: table */}
+            <div className="hidden sm:block">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>User</TableHead>
+                    <TableHead className="hidden xl:table-cell">Email</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Role</TableHead>
+                    <TableHead className="hidden md:table-cell">Extra access</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {users.map((user) => (
+                    <TableRow key={user.id}>
+                      <TableCell>
+                        <div className="flex items-center gap-3">
+                          <Avatar className="h-8 w-8 shrink-0">
+                            <AvatarImage src={user.avatar_url || undefined} alt="" />
+                            <AvatarFallback>{getUserInitials(user.full_name, user.email)}</AvatarFallback>
+                          </Avatar>
+                          <div className="min-w-0">
+                            <p className="font-medium">{user.full_name || "Unnamed user"}</p>
+                            <p className="text-xs text-muted-foreground xl:hidden">{user.email}</p>
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell className="hidden text-muted-foreground xl:table-cell">{user.email}</TableCell>
+                      <TableCell>{renderStatus(user)}</TableCell>
+                      <TableCell>
+                        <div className="flex flex-wrap gap-1">{renderRoles(user)}</div>
+                      </TableCell>
+                      <TableCell className="hidden max-w-[260px] md:table-cell">{renderAccess(user)}</TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-1 whitespace-nowrap">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setPermissionsUser(user)}
+                            title="Give this person access to extra modules"
+                            aria-label={`Extra access for ${user.full_name || user.email}`}
+                          >
+                            <KeyRound className="mr-1.5 h-4 w-4" aria-hidden="true" />
+                            Extra access
+                          </Button>
+                          {renderRowMenu(user)}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </>
         )}
 
         <Dialog open={dialogOpen} onOpenChange={(open) => {
@@ -529,7 +588,7 @@ export function UserRolesManager() {
         }}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Edit User Role</DialogTitle>
+              <DialogTitle>Change role</DialogTitle>
               <DialogDescription>
                 Change the role for {selectedUser?.full_name || selectedUser?.email}
               </DialogDescription>
@@ -542,32 +601,33 @@ export function UserRolesManager() {
                 </p>
               )}
               <div className="space-y-2">
-                <Label>Role</Label>
+                <Label htmlFor="user-role-select">Role</Label>
                 <Select value={selectedRole} onValueChange={(value) => setSelectedRole(value as AppRole)}>
-                  <SelectTrigger>
-                    <SelectValue />
+                  <SelectTrigger id="user-role-select">
+                    {/* Only the role name in the trigger; descriptions stay in the list */}
+                    <SelectValue>{roleLabels[selectedRole]}</SelectValue>
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="admin">
-                      <div className="flex flex-col">
+                    <SelectItem value="admin" textValue="Administrator">
+                      <div className="flex flex-col items-start text-left">
                         <span>Administrator</span>
                         <span className="text-xs text-muted-foreground">Full system access</span>
                       </div>
                     </SelectItem>
-                    <SelectItem value="hr">
-                      <div className="flex flex-col">
+                    <SelectItem value="hr" textValue="HR Manager">
+                      <div className="flex flex-col items-start text-left">
                         <span>HR Manager</span>
                         <span className="text-xs text-muted-foreground">Module access set under "Defaults for each role"</span>
                       </div>
                     </SelectItem>
-                    <SelectItem value="manager">
-                      <div className="flex flex-col">
+                    <SelectItem value="manager" textValue="Manager">
+                      <div className="flex flex-col items-start text-left">
                         <span>Manager</span>
                         <span className="text-xs text-muted-foreground">Their team, plus their role defaults</span>
                       </div>
                     </SelectItem>
-                    <SelectItem value="employee">
-                      <div className="flex flex-col">
+                    <SelectItem value="employee" textValue="Employee">
+                      <div className="flex flex-col items-start text-left">
                         <span>Employee</span>
                         <span className="text-xs text-muted-foreground">Self-service, plus their role defaults</span>
                       </div>
@@ -593,7 +653,7 @@ export function UserRolesManager() {
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>
-                {selectedUser?.blocked ? "Unblock User" : "Block User"}
+                {selectedUser?.blocked ? "Unblock user" : "Block user"}
               </AlertDialogTitle>
               <AlertDialogDescription>
                 {selectedUser?.blocked 
@@ -625,19 +685,19 @@ export function UserRolesManager() {
         }}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Link Employee to User</DialogTitle>
+              <DialogTitle>Link employee record</DialogTitle>
               <DialogDescription>
                 Link {selectedUser?.full_name || selectedUser?.email} to an existing employee record
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
               <div className="space-y-2">
-                <Label>Select Employee</Label>
+                <Label htmlFor="link-employee-select">Employee</Label>
                 {sortedUnlinkedEmployees.length === 0 ? (
                   <p className="text-sm text-muted-foreground">No unlinked employees available</p>
                 ) : (
                   <Select value={selectedEmployeeId} onValueChange={setSelectedEmployeeId}>
-                    <SelectTrigger>
+                    <SelectTrigger id="link-employee-select">
                       <SelectValue placeholder="Select an employee..." />
                     </SelectTrigger>
                     <SelectContent>
@@ -668,7 +728,7 @@ export function UserRolesManager() {
                       <div className="space-y-1">
                         <p><span className="text-muted-foreground">Name:</span> {emp.first_name} {emp.last_name}</p>
                         <p><span className="text-muted-foreground">Code:</span> {emp.employee_code}</p>
-                        <p><span className="text-muted-foreground">Email:</span> {emp.email}</p>
+                        <p className="break-all"><span className="text-muted-foreground">Email:</span> {emp.email}</p>
                         <p><span className="text-muted-foreground">Designation:</span> {emp.designation}</p>
                       </div>
                     );
@@ -680,7 +740,7 @@ export function UserRolesManager() {
               <Button variant="outline" onClick={() => setLinkDialogOpen(false)}>Cancel</Button>
               <Button onClick={handleLinkEmployee} disabled={!selectedEmployeeId || linkEmployeeMutation.isPending}>
                 {linkEmployeeMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Link Employee
+                Link employee
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -707,7 +767,7 @@ export function UserRolesManager() {
         }}>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>Unlink Employee</AlertDialogTitle>
+              <AlertDialogTitle>Unlink employee record</AlertDialogTitle>
               <AlertDialogDescription>
                 Are you sure you want to unlink {selectedUser?.full_name || selectedUser?.email} from their employee record? 
                 The employee record will remain but won't be associated with this user account.

@@ -10,13 +10,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
-import { Plus, Search, Package, Laptop, Monitor, Smartphone, ArrowUpDown, ShieldAlert } from "lucide-react";
+import { Plus, Search, Package, Laptop, Monitor, Smartphone, Headphones, ArrowUpDown, ShieldAlert } from "lucide-react";
 import { usePagination } from "@/hooks/usePagination";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useSorting } from "@/hooks/useSorting";
 import { DropdownMenu as SortDropdownMenu, DropdownMenuContent as SortDropdownMenuContent, DropdownMenuItem as SortDropdownMenuItem, DropdownMenuTrigger as SortDropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
-import { useAssets, useAssetStats, useCreateAsset, useUpdateAsset, useDeleteAsset, useAssignAsset, useReturnAsset, useAssetHistory, type Asset } from "@/hooks/useAssets";
+import { useAssets, useAssetStats, useCreateAsset, useUpdateAsset, useDeleteAsset, useAssignAsset, useReturnAsset, useAssetHistory, ASSET_TYPES, type Asset, type AssetType } from "@/hooks/useAssets";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -27,7 +27,29 @@ import autoTable from "jspdf-autotable";
 import { DateRangeExportDialog } from "@/components/export/DateRangeExportDialog";
 import { format, parseISO, isWithinInterval, isAfter, isBefore } from "date-fns";
 import { useCompanyBranding } from "@/hooks/useCompanyBranding";
+import { statusBadgeClass, formatStatus } from "@/lib/statusStyles";
 import { drawPdfHeader, drawPdfFooter, fetchImageAsDataUrl, PDF_TABLE_HEAD_STYLE, PDF_COLORS } from "@/lib/pdfTheme";
+const ASSET_TYPE_LABELS: Record<AssetType, { singular: string; plural: string }> = {
+  laptop: { singular: "Laptop", plural: "Laptops" },
+  desktop: { singular: "Desktop", plural: "Desktops" },
+  monitor: { singular: "Monitor", plural: "Monitors" },
+  phone: { singular: "Phone", plural: "Phones" },
+  tablet: { singular: "Tablet", plural: "Tablets" },
+  accessory: { singular: "Accessory", plural: "Accessories" },
+  other: { singular: "Other", plural: "Other" },
+};
+const ASSET_STATUSES = ["available", "assigned", "maintenance", "retired"] as const;
+const EMPTY_FORM = {
+  name: "",
+  category: "laptop",
+  serial_number: "",
+  purchase_date: "",
+  purchase_cost: "",
+  vendor: "",
+  notes: ""
+};
+type AssetFormData = typeof EMPTY_FORM;
+
 const Assets = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
@@ -41,15 +63,7 @@ const Assets = () => {
   const [historyAssetId, setHistoryAssetId] = useState<string | null>(null);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState("");
   const [assignmentNotes, setAssignmentNotes] = useState("");
-  const [formData, setFormData] = useState({
-    name: "",
-    category: "laptop",
-    serial_number: "",
-    purchase_date: "",
-    purchase_cost: "",
-    vendor: "",
-    notes: ""
-  });
+  const [formData, setFormData] = useState<AssetFormData>(EMPTY_FORM);
   const {
     data: assets = [],
     isLoading
@@ -209,15 +223,7 @@ const Assets = () => {
       onSuccess: () => {
         toast.success("Asset added successfully");
         setIsAddDialogOpen(false);
-        setFormData({
-          name: "",
-          category: "laptop",
-          serial_number: "",
-          purchase_date: "",
-          purchase_cost: "",
-          vendor: "",
-          notes: ""
-        });
+        setFormData(EMPTY_FORM);
       },
       onError: () => {
         toast.error("Failed to add asset");
@@ -228,11 +234,12 @@ const Assets = () => {
     setSelectedAsset(asset);
     setFormData({
       name: asset.name,
-      category: asset.type,
+      // Keep a custom category as-is instead of silently renaming it.
+      category: asset.type === "other" ? asset.category : asset.type,
       serial_number: asset.serialNumber,
-      purchase_date: "",
-      purchase_cost: asset.cost.toString(),
-      vendor: "",
+      purchase_date: asset.purchaseDateRaw,
+      purchase_cost: asset.cost ? asset.cost.toString() : "",
+      vendor: asset.vendor,
       notes: asset.notes || ""
     });
     setIsEditDialogOpen(true);
@@ -246,11 +253,12 @@ const Assets = () => {
       id: selectedAsset.id,
       name: formData.name,
       category: formData.category,
-      serial_number: formData.serial_number || undefined,
-      purchase_date: formData.purchase_date || undefined,
-      purchase_cost: formData.purchase_cost ? parseFloat(formData.purchase_cost) : undefined,
-      vendor: formData.vendor || undefined,
-      notes: formData.notes || undefined
+      // Send every field (null when cleared) so the saved record matches the form exactly.
+      serial_number: formData.serial_number.trim() || null,
+      purchase_date: formData.purchase_date || null,
+      purchase_cost: formData.purchase_cost ? parseFloat(formData.purchase_cost) : null,
+      vendor: formData.vendor.trim() || null,
+      notes: formData.notes.trim() || null
     }, {
       onSuccess: () => {
         toast.success("Asset updated successfully");
@@ -322,23 +330,78 @@ const Assets = () => {
     setHistoryAssetId(asset.id);
     setIsHistoryDialogOpen(true);
   };
+  // The four type buckets always add up to the total.
   const assetStats = [{
-    label: "Total Assets",
+    label: "Total assets",
     value: stats?.total || 0,
-    icon: <Package className="h-5 w-5" />
+    icon: <Package className="h-5 w-5" aria-hidden="true" />
   }, {
-    label: "Laptops",
-    value: stats?.laptops || 0,
-    icon: <Laptop className="h-5 w-5" />
+    label: "Laptops & desktops",
+    value: stats?.computers || 0,
+    icon: <Laptop className="h-5 w-5" aria-hidden="true" />
   }, {
     label: "Monitors",
     value: stats?.monitors || 0,
-    icon: <Monitor className="h-5 w-5" />
+    icon: <Monitor className="h-5 w-5" aria-hidden="true" />
   }, {
-    label: "Mobile Devices",
-    value: stats?.phones || 0,
-    icon: <Smartphone className="h-5 w-5" />
+    label: "Phones & tablets",
+    value: stats?.mobile || 0,
+    icon: <Smartphone className="h-5 w-5" aria-hidden="true" />
+  }, {
+    label: "Accessories & other",
+    value: stats?.other || 0,
+    icon: <Headphones className="h-5 w-5" aria-hidden="true" />
   }];
+  const categoryOptions: { value: string; label: string }[] = ASSET_TYPES.filter(t => t !== "other").map(t => ({
+    value: t,
+    label: ASSET_TYPE_LABELS[t].singular
+  }));
+  if (formData.category && !categoryOptions.some(o => o.value === formData.category)) {
+    categoryOptions.push({ value: formData.category, label: formData.category });
+  }
+  const updateField = (field: keyof AssetFormData) => (value: string) => setFormData(prev => ({
+    ...prev,
+    [field]: value
+  }));
+  const renderAssetFields = (idPrefix: string) => <div className="space-y-4 py-2 sm:py-4">
+      <div className="space-y-2">
+        <Label htmlFor={`${idPrefix}name`}>Asset name *</Label>
+        <Input id={`${idPrefix}name`} value={formData.name} onChange={e => updateField("name")(e.target.value)} placeholder="e.g., MacBook Pro 16" />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor={`${idPrefix}category`}>Category</Label>
+        <Select value={formData.category} onValueChange={updateField("category")}>
+          <SelectTrigger id={`${idPrefix}category`}>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {categoryOptions.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor={`${idPrefix}serial_number`}>Serial number</Label>
+        <Input id={`${idPrefix}serial_number`} value={formData.serial_number} onChange={e => updateField("serial_number")(e.target.value)} placeholder="e.g., ABC123XYZ" />
+      </div>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div className="min-w-0 space-y-2">
+          <Label htmlFor={`${idPrefix}purchase_date`}>Purchase date</Label>
+          <Input id={`${idPrefix}purchase_date`} type="date" className="block w-full min-w-0" value={formData.purchase_date} onChange={e => updateField("purchase_date")(e.target.value)} />
+        </div>
+        <div className="min-w-0 space-y-2">
+          <Label htmlFor={`${idPrefix}purchase_cost`}>Cost (₹)</Label>
+          <Input id={`${idPrefix}purchase_cost`} type="number" inputMode="decimal" min="0" value={formData.purchase_cost} onChange={e => updateField("purchase_cost")(e.target.value)} placeholder="0.00" />
+        </div>
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor={`${idPrefix}vendor`}>Vendor</Label>
+        <Input id={`${idPrefix}vendor`} value={formData.vendor} onChange={e => updateField("vendor")(e.target.value)} placeholder="e.g., Apple Store" />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor={`${idPrefix}notes`}>Notes</Label>
+        <Textarea id={`${idPrefix}notes`} value={formData.notes} onChange={e => updateField("notes")(e.target.value)} placeholder="e.g., 16GB RAM, 512GB SSD, M3 Pro chip" rows={3} />
+      </div>
+    </div>;
   if (!canViewAssets) {
     return (
       <DashboardLayout>
@@ -355,28 +418,28 @@ const Assets = () => {
   return <DashboardLayout>
       <div className="space-y-6">
         {/* Header */}
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h2 className="text-2xl font-bold text-foreground">Assets</h2>
+            <h1 className="text-2xl font-bold text-foreground sm:text-3xl">Assets</h1>
             <p className="text-muted-foreground">Track and manage company assets</p>
           </div>
-          <div className="flex gap-3">
+          <div className="flex flex-wrap gap-3">
             <DateRangeExportDialog title="Export Assets" description="Export asset inventory with optional date range filter based on purchase date." onExportCSV={exportToCSV} onExportPDF={exportToPDF} />
             {canManageAssets && <Button onClick={() => setIsAddDialogOpen(true)}>
-                <Plus className="mr-2 h-4 w-4" />
-                Add Asset
+                <Plus className="mr-2 h-4 w-4" aria-hidden="true" />
+                Add asset
               </Button>}
           </div>
         </div>
 
         {/* Stats */}
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {assetStats.map(stat => <Card key={stat.label}>
-              <CardContent className="flex items-center gap-4 p-6">
-                <div className="rounded-xl bg-primary/10 p-3 text-primary">{stat.icon}</div>
-                <div>
-                  <p className="text-2xl font-bold text-foreground">{stat.value}</p>
-                  <p className="text-sm text-muted-foreground">{stat.label}</p>
+        <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-5">
+          {assetStats.map((stat, i) => <Card key={stat.label} className={i === 0 ? "col-span-2 lg:col-span-1" : undefined}>
+              <CardContent className="flex items-center gap-3 p-4 sm:gap-4 sm:p-6">
+                <div className="shrink-0 rounded-xl bg-primary/10 p-2.5 text-primary sm:p-3">{stat.icon}</div>
+                <div className="min-w-0">
+                  <p className="text-xl font-bold text-foreground sm:text-2xl">{stat.value}</p>
+                  <p className="text-xs text-muted-foreground sm:text-sm">{stat.label}</p>
                 </div>
               </CardContent>
             </Card>)}
@@ -386,35 +449,30 @@ const Assets = () => {
         <div className="flex flex-col gap-4 sm:flex-row">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input placeholder="Search assets..." className="pl-10" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
+            <Input placeholder="Search assets..." aria-label="Search assets" className="pl-10" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
           </div>
           <Select value={typeFilter} onValueChange={setTypeFilter}>
-            <SelectTrigger className="w-full sm:w-[150px]">
+            <SelectTrigger className="w-full sm:w-[150px]" aria-label="Filter by type">
               <SelectValue placeholder="Type" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Types</SelectItem>
-              <SelectItem value="laptop">Laptops</SelectItem>
-              <SelectItem value="monitor">Monitors</SelectItem>
-              <SelectItem value="phone">Phones</SelectItem>
-              <SelectItem value="accessory">Accessories</SelectItem>
+              <SelectItem value="all">All types</SelectItem>
+              {ASSET_TYPES.map(t => <SelectItem key={t} value={t}>{ASSET_TYPE_LABELS[t].plural}</SelectItem>)}
             </SelectContent>
           </Select>
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-full sm:w-[150px]">
+            <SelectTrigger className="w-full sm:w-[150px]" aria-label="Filter by status">
               <SelectValue placeholder="Status" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Status</SelectItem>
-              <SelectItem value="available">Available</SelectItem>
-              <SelectItem value="assigned">Assigned</SelectItem>
-              <SelectItem value="maintenance">Maintenance</SelectItem>
+              <SelectItem value="all">All statuses</SelectItem>
+              {ASSET_STATUSES.map(st => <SelectItem key={st} value={st}>{formatStatus(st)}</SelectItem>)}
             </SelectContent>
           </Select>
           <SortDropdownMenu>
             <SortDropdownMenuTrigger asChild>
-              <Button variant="outline" className="gap-2">
-                <ArrowUpDown className="h-4 w-4" />
+              <Button variant="outline" className="w-full gap-2 sm:w-auto">
+                <ArrowUpDown className="h-4 w-4" aria-hidden="true" />
                 Sort: {sortConfig.key ? sortOptions.find(o => o.key === sortConfig.key)?.label : "None"}
                 {sortConfig.direction && (sortConfig.direction === "asc" ? " ↑" : " ↓")}
               </Button>
@@ -434,13 +492,13 @@ const Assets = () => {
           </div> : filteredAssets.length === 0 ? <Card>
             <CardContent className="flex flex-col items-center justify-center py-12">
               <Package className="mb-4 h-12 w-12 text-muted-foreground" />
-              <h3 className="text-lg font-semibold text-foreground">No Assets Found</h3>
+              <h3 className="text-lg font-semibold text-foreground">No assets found</h3>
               <p className="text-muted-foreground">
                 {assets.length === 0 ? "Start by adding your first asset" : "No assets match your search criteria"}
               </p>
               {assets.length === 0 && canManageAssets && <Button className="mt-4" onClick={() => setIsAddDialogOpen(true)}>
-                  <Plus className="mr-2 h-4 w-4" />
-                  Add Asset
+                  <Plus className="mr-2 h-4 w-4" aria-hidden="true" />
+                  Add asset
                 </Button>}
             </CardContent>
           </Card> : <>
@@ -453,7 +511,7 @@ const Assets = () => {
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <span>Show</span>
                   <Select value={pageSize.toString()} onValueChange={v => setPageSize(Number(v))}>
-                    <SelectTrigger className="h-8 w-[70px]">
+                    <SelectTrigger className="h-8 w-[70px]" aria-label="Assets per page">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -501,77 +559,16 @@ const Assets = () => {
       <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Add New Asset</DialogTitle>
+            <DialogTitle>Add new asset</DialogTitle>
+            <DialogDescription>Enter the details of the asset to add it to the inventory.</DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="name">Asset Name *</Label>
-              <Input id="name" value={formData.name} onChange={e => setFormData({
-              ...formData,
-              name: e.target.value
-            })} placeholder="e.g., MacBook Pro 16" />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="category">Category</Label>
-              <Select value={formData.category} onValueChange={value => setFormData({
-              ...formData,
-              category: value
-            })}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="laptop">Laptop</SelectItem>
-                  <SelectItem value="monitor">Monitor</SelectItem>
-                  <SelectItem value="phone">Phone</SelectItem>
-                  <SelectItem value="accessory">Accessory</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="serial_number">Serial Number</Label>
-              <Input id="serial_number" value={formData.serial_number} onChange={e => setFormData({
-              ...formData,
-              serial_number: e.target.value
-            })} placeholder="e.g., ABC123XYZ" />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="purchase_date">Purchase Date</Label>
-                <Input id="purchase_date" type="date" value={formData.purchase_date} onChange={e => setFormData({
-                ...formData,
-                purchase_date: e.target.value
-              })} />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="purchase_cost">Cost</Label>
-                <Input id="purchase_cost" type="number" value={formData.purchase_cost} onChange={e => setFormData({
-                ...formData,
-                purchase_cost: e.target.value
-              })} placeholder="0.00" />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="vendor">Vendor</Label>
-              <Input id="vendor" value={formData.vendor} onChange={e => setFormData({
-              ...formData,
-              vendor: e.target.value
-            })} placeholder="e.g., Apple Store" />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="notes">Notes</Label>
-              <Textarea id="notes" value={formData.notes} onChange={e => setFormData({
-              ...formData,
-              notes: e.target.value
-            })} placeholder="e.g., 16GB RAM, 512GB SSD, M3 Pro chip" rows={3} />
-            </div>
-          </div>
+          {renderAssetFields("")}
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
               Cancel
             </Button>
             <Button onClick={handleAddAsset} disabled={createAsset.isPending}>
-              {createAsset.isPending ? "Adding..." : "Add Asset"}
+              {createAsset.isPending ? "Adding..." : "Add asset"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -581,78 +578,16 @@ const Assets = () => {
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Edit Asset</DialogTitle>
+            <DialogTitle>Edit asset</DialogTitle>
             <DialogDescription>Update the asset details below.</DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="edit-name">Asset Name *</Label>
-              <Input id="edit-name" value={formData.name} onChange={e => setFormData({
-              ...formData,
-              name: e.target.value
-            })} placeholder="e.g., MacBook Pro 16" />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="edit-category">Category</Label>
-              <Select value={formData.category} onValueChange={value => setFormData({
-              ...formData,
-              category: value
-            })}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="laptop">Laptop</SelectItem>
-                  <SelectItem value="monitor">Monitor</SelectItem>
-                  <SelectItem value="phone">Phone</SelectItem>
-                  <SelectItem value="accessory">Accessory</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="edit-serial_number">Serial Number</Label>
-              <Input id="edit-serial_number" value={formData.serial_number} onChange={e => setFormData({
-              ...formData,
-              serial_number: e.target.value
-            })} placeholder="e.g., ABC123XYZ" />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="edit-purchase_date">Purchase Date</Label>
-                <Input id="edit-purchase_date" type="date" value={formData.purchase_date} onChange={e => setFormData({
-                ...formData,
-                purchase_date: e.target.value
-              })} />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-purchase_cost">Cost</Label>
-                <Input id="edit-purchase_cost" type="number" value={formData.purchase_cost} onChange={e => setFormData({
-                ...formData,
-                purchase_cost: e.target.value
-              })} placeholder="0.00" />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="edit-vendor">Vendor</Label>
-              <Input id="edit-vendor" value={formData.vendor} onChange={e => setFormData({
-              ...formData,
-              vendor: e.target.value
-            })} placeholder="e.g., Apple Store" />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="edit-notes">Notes</Label>
-              <Textarea id="edit-notes" value={formData.notes} onChange={e => setFormData({
-              ...formData,
-              notes: e.target.value
-            })} placeholder="e.g., 16GB RAM, 512GB SSD, M3 Pro chip" rows={3} />
-            </div>
-          </div>
+          {renderAssetFields("edit-")}
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
               Cancel
             </Button>
             <Button onClick={handleUpdateAsset} disabled={updateAsset.isPending}>
-              {updateAsset.isPending ? "Saving..." : "Save Changes"}
+              {updateAsset.isPending ? "Saving..." : "Save changes"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -662,7 +597,7 @@ const Assets = () => {
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Asset</AlertDialogTitle>
+            <AlertDialogTitle>Delete asset</AlertDialogTitle>
             <AlertDialogDescription>
               Are you sure you want to delete "{selectedAsset?.name}"? This action cannot be undone.
             </AlertDialogDescription>
@@ -680,7 +615,7 @@ const Assets = () => {
       <Dialog open={isAssignDialogOpen} onOpenChange={setIsAssignDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Assign Asset</DialogTitle>
+            <DialogTitle>Assign asset</DialogTitle>
             <DialogDescription>
               Assign "{selectedAsset?.name}" to an employee.
             </DialogDescription>
@@ -689,7 +624,7 @@ const Assets = () => {
             <div className="space-y-2">
               <Label htmlFor="employee">Select Employee *</Label>
               <Select value={selectedEmployeeId} onValueChange={setSelectedEmployeeId}>
-                <SelectTrigger>
+                <SelectTrigger id="employee">
                   <SelectValue placeholder="Choose an employee" />
                 </SelectTrigger>
                 <SelectContent>
@@ -709,7 +644,7 @@ const Assets = () => {
               Cancel
             </Button>
             <Button onClick={confirmAssign} disabled={assignAsset.isPending || !selectedEmployeeId}>
-              {assignAsset.isPending ? "Assigning..." : "Assign Asset"}
+              {assignAsset.isPending ? "Assigning..." : "Assign asset"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -725,7 +660,7 @@ const Assets = () => {
     }}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>Assignment History</DialogTitle>
+            <DialogTitle>Assignment history</DialogTitle>
             <DialogDescription>
               History for "{selectedAsset?.name}"
             </DialogDescription>
@@ -752,7 +687,7 @@ const Assets = () => {
                           </p>
                         </div>
                       </div>
-                      <Badge variant={index === 0 && !assignment.returnedDate ? "default" : "secondary"}>
+                      <Badge variant="outline" className={statusBadgeClass(index === 0 && !assignment.returnedDate ? "assigned" : "inactive")}>
                         {index === 0 && !assignment.returnedDate ? "Current" : "Returned"}
                       </Badge>
                     </div>
