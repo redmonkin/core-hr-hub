@@ -83,8 +83,8 @@ function countWorkingDays(start: Date, end: Date, workingDays: number[], holiday
   return count;
 }
 
-// This function is designed to be called by a cron job on the 27th of every
-// month. CRON_SECRET validation provides an additional security layer.
+// This function is designed to be called by a cron job on the last day of
+// every month (pg_cron schedule '0 9 $ * *'). CRON_SECRET validation provides an additional security layer.
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });

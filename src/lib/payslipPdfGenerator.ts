@@ -302,7 +302,7 @@ export function generatePayslipPDF(data: PayslipData): jsPDF {
     { align: "center" }
   );
   doc.text(
-    `Payslip date: ${(payslipDate(data.monthName, data.year) ?? new Date()).toLocaleDateString("en-IN", {
+    `Generated on ${(payslipDate(data.monthName, data.year) ?? new Date()).toLocaleDateString("en-IN", {
       day: "numeric",
       month: "long",
       year: "numeric"

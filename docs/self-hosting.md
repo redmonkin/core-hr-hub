@@ -207,8 +207,9 @@ select cron.schedule('weekly-event-notifications', '0 8 * * 1', $$
     body := '{}'::jsonb);
 $$);
 
--- Generate this month's payroll records: the 27th at 09:00 UTC
-select cron.schedule('monthly-payroll-generation', '0 9 27 * *', $$
+-- Generate this month's payroll records: the last day of the month at 09:00 UTC
+-- ('$' means the last day of the month; needs pg_cron 1.5 or later)
+select cron.schedule('monthly-payroll-generation', '0 9 $ * *', $$
   select net.http_post(
     url := 'https://<project-ref>.supabase.co/functions/v1/generate-monthly-payroll',
     headers := jsonb_build_object('Content-Type', 'application/json', 'x-cron-secret', '<CRON_SECRET>'),
