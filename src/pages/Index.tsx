@@ -13,7 +13,7 @@ import { useDashboardStats } from "@/hooks/useDashboardStats";
 import { useEmployeeStatus } from "@/hooks/useEmployeeStatus";
 import { usePermissions } from "@/hooks/usePermissions";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useNavigate, Link } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
@@ -27,7 +27,6 @@ const Index = () => {
   const canViewPayroll = can("payroll", "view");
   const showAdminQuickActions = canAddEmployees || canViewAssets || canViewPayroll;
   const { user } = useAuth();
-  const navigate = useNavigate();
   const hasPendingApprovals = (stats?.pendingApprovals ?? 0) > 0;
 
   const getGreeting = () => {
@@ -56,9 +55,9 @@ const Index = () => {
     return (
       <DashboardLayout>
         <div className="space-y-6">
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
             {[1, 2, 3, 4].map((i) => (
-              <Skeleton key={i} className="h-32 rounded-xl" />
+              <Skeleton key={i} className="h-24 rounded-xl sm:h-32" />
             ))}
           </div>
         </div>
@@ -83,38 +82,38 @@ const Index = () => {
         <UpdateNotification />
 
         {/* Greeting + Quick Actions */}
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-semibold text-foreground">
+        <div className="flex items-center justify-between gap-3">
+          <h1 className="min-w-0 truncate text-xl font-semibold text-foreground sm:text-2xl">
             {getGreeting()}, {getUserFirstName()}
           </h1>
-          <DropdownMenu>
+          <DropdownMenu modal={false}>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="gap-2">
-                <Zap className="h-4 w-4" />
-                Quick Actions
+              <Button variant="outline" size="sm" className="h-10 w-10 shrink-0 gap-2 p-0 sm:h-9 sm:w-auto sm:px-3" aria-label="Quick Actions" title="Quick actions">
+                <Zap className="h-4 w-4" aria-hidden="true" />
+                <span className="hidden sm:inline">Quick actions</span>
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48 bg-popover z-50">
+            <DropdownMenuContent align="end" collisionPadding={12} className="w-52 bg-popover z-50">
               {showAdminQuickActions ? (
                 <>
                   {canAddEmployees && (
                     <DropdownMenuItem asChild>
                       <Link to="/onboarding" className="flex items-center gap-2 cursor-pointer">
-                        <UserPlus className="h-4 w-4" /> Add Employee
+                        <UserPlus className="h-4 w-4" /> Add employee
                       </Link>
                     </DropdownMenuItem>
                   )}
                   {canViewAssets && (
                     <DropdownMenuItem asChild>
                       <Link to="/assets" className="flex items-center gap-2 cursor-pointer">
-                        <Package className="h-4 w-4" /> Manage Assets
+                        <Package className="h-4 w-4" /> Manage assets
                       </Link>
                     </DropdownMenuItem>
                   )}
                   {canViewPayroll && (
                     <DropdownMenuItem asChild>
                       <Link to="/payroll" className="flex items-center gap-2 cursor-pointer">
-                        <FileText className="h-4 w-4" /> View Payroll
+                        <FileText className="h-4 w-4" /> View payroll
                       </Link>
                     </DropdownMenuItem>
                   )}
@@ -123,7 +122,7 @@ const Index = () => {
                 <>
                   <DropdownMenuItem asChild>
                     <Link to="/leaves" className="flex items-center gap-2 cursor-pointer">
-                      <Calendar className="h-4 w-4" /> Request Leave
+                      <Calendar className="h-4 w-4" /> Request leave
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
@@ -133,7 +132,7 @@ const Index = () => {
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
                     <Link to="/attendance" className="flex items-center gap-2 cursor-pointer">
-                      <ClipboardList className="h-4 w-4" /> View Attendance
+                      <ClipboardList className="h-4 w-4" /> View attendance
                     </Link>
                   </DropdownMenuItem>
                 </>
@@ -143,27 +142,27 @@ const Index = () => {
         </div>
 
         {/* Stats Grid */}
-        <div className={`grid gap-4 sm:grid-cols-2 ${hasPendingApprovals ? 'lg:grid-cols-4' : 'lg:grid-cols-3'}`}>
+        <div className={`grid grid-cols-2 gap-3 sm:gap-4 ${hasPendingApprovals ? 'lg:grid-cols-4' : 'lg:grid-cols-3'}`}>
           {isLoading ? (
             <>
               {[1, 2, 3].map((i) => (
-                <Skeleton key={i} className="h-32 rounded-xl" />
+                <Skeleton key={i} className={`h-24 rounded-xl sm:h-32 ${i === 3 ? 'col-span-2 lg:col-span-1' : ''}`} />
               ))}
             </>
           ) : (
             <>
               <StatsCard
-                title="Leave Balance"
+                title="Leave balance"
                 value={`${stats?.availableLeaves || 0} / ${stats?.totalLeaves || 0}`}
                 icon={<CalendarDays className="h-6 w-6" />}
                 variant="primary"
               />
               {(() => {
                 const statusConfig = {
-                  leave: { title: "You're On Leave", value: "On Leave", variant: "warning" as const },
-                  holiday: { title: "Today's a Holiday", value: "Holiday", variant: "default" as const },
-                  day_off: { title: "Status Today", value: "Day Off", variant: "default" as const },
-                  working: { title: "Status Today", value: "Working", variant: "success" as const },
+                  leave: { title: "You're on leave", value: "On leave", variant: "warning" as const },
+                  holiday: { title: "Today's a holiday", value: "Holiday", variant: "default" as const },
+                  day_off: { title: "Status today", value: "Day off", variant: "default" as const },
+                  working: { title: "Status today", value: "Working", variant: "success" as const },
                 };
                 const { title, value, variant } = statusConfig[stats?.todayStatus || "working"];
                 return (
@@ -176,24 +175,26 @@ const Index = () => {
                 );
               })()}
               <StatsCard
-                title="My Assets"
+                title="My assets"
                 value={String(stats?.assetsAssigned || 0)}
                 icon={<Package className="h-6 w-6" />}
                 variant="success"
+                className={hasPendingApprovals ? undefined : "col-span-2 lg:col-span-1"}
               />
-              
+
               {hasPendingApprovals && (
-                <div 
-                  className="cursor-pointer" 
-                  onClick={() => navigate("/leave-approvals")}
+                <Link
+                  to="/leave-approvals"
+                  className="rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  aria-label={`${stats?.pendingApprovals || 0} pending approvals — review now`}
                 >
                   <StatsCard
-                    title="Pending Approvals"
+                    title="Pending approvals"
                     value={String(stats?.pendingApprovals || 0)}
                     icon={<ClipboardCheck className="h-6 w-6" />}
                     variant="warning"
                   />
-                </div>
+                </Link>
               )}
             </>
           )}

@@ -5,7 +5,11 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
+  DialogFooter,
 } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { statusBadgeClass } from "@/lib/statusStyles";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -45,16 +49,13 @@ const formatCurrency = (amount: number) => {
   }).format(amount);
 };
 
-const getStatusBadge = (status: string) => {
-  switch (status) {
-    case "paid":
-      return <Badge className="bg-emerald-500/10 text-emerald-600 border-emerald-500/20">Paid</Badge>;
-    case "processing":
-      return <Badge className="bg-primary/10 text-primary border-primary/20">Processed</Badge>;
-    default:
-      return <Badge variant="secondary">Pending</Badge>;
-  }
-};
+const STATUS_LABELS: Record<string, string> = { paid: "Paid", processing: "Processing", pending: "Pending" };
+
+const getStatusBadge = (status: string) => (
+  <Badge variant="outline" className={statusBadgeClass(status)}>
+    {STATUS_LABELS[status] ?? "Pending"}
+  </Badge>
+);
 
 export function PayslipViewDialog({ open, onOpenChange, record }: PayslipViewDialogProps) {
   const { data: salaryStructure, isLoading } = useQuery({
@@ -80,18 +81,18 @@ export function PayslipViewDialog({ open, onOpenChange, record }: PayslipViewDia
   const getAllowanceBreakdown = () => {
     if (!salaryStructure) return [];
     const items = [];
-    if (salaryStructure.hra) items.push({ label: "House Rent Allowance (HRA)", amount: Number(salaryStructure.hra) });
-    if (salaryStructure.transport_allowance) items.push({ label: "Transport Allowance", amount: Number(salaryStructure.transport_allowance) });
-    if (salaryStructure.medical_allowance) items.push({ label: "Medical Allowance", amount: Number(salaryStructure.medical_allowance) });
-    if (salaryStructure.other_allowances) items.push({ label: "Other Allowances", amount: Number(salaryStructure.other_allowances) });
+    if (salaryStructure.hra) items.push({ label: "House rent allowance (HRA)", amount: Number(salaryStructure.hra) });
+    if (salaryStructure.transport_allowance) items.push({ label: "Transport allowance", amount: Number(salaryStructure.transport_allowance) });
+    if (salaryStructure.medical_allowance) items.push({ label: "Medical allowance", amount: Number(salaryStructure.medical_allowance) });
+    if (salaryStructure.other_allowances) items.push({ label: "Other allowances", amount: Number(salaryStructure.other_allowances) });
     return items;
   };
 
   const getDeductionBreakdown = () => {
     if (!salaryStructure) return [];
     const items = [];
-    if (salaryStructure.tax_deduction) items.push({ label: "Tax Deduction", amount: Number(salaryStructure.tax_deduction) });
-    if (salaryStructure.pf_deduction) items.push({ label: "PF Deduction", amount: Number(salaryStructure.pf_deduction) });
+    if (salaryStructure.tax_deduction) items.push({ label: "Tax deduction", amount: Number(salaryStructure.tax_deduction) });
+    if (salaryStructure.pf_deduction) items.push({ label: "PF deduction", amount: Number(salaryStructure.pf_deduction) });
     return items;
   };
 
@@ -101,33 +102,34 @@ export function PayslipViewDialog({ open, onOpenChange, record }: PayslipViewDia
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle className="text-xl">Payslip - {record.month}</DialogTitle>
+          <DialogTitle className="text-xl">Payslip — {record.month}</DialogTitle>
+          <DialogDescription>Salary breakdown for {record.employee.name}</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-6">
           {/* Employee Details */}
           <div className="rounded-lg border bg-muted/30 p-4">
-            <h3 className="font-semibold mb-3">Employee Details</h3>
-            <div className="grid grid-cols-2 gap-4 text-sm">
+            <h3 className="mb-3 font-semibold">Employee details</h3>
+            <div className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2 sm:gap-4">
               <div>
                 <span className="text-muted-foreground">Name:</span>
                 <span className="ml-2 font-medium">{record.employee.name}</span>
               </div>
               <div>
-                <span className="text-muted-foreground">Employee Code:</span>
+                <span className="text-muted-foreground">Employee code:</span>
                 <span className="ml-2 font-medium">{record.employeeCode}</span>
               </div>
-              <div>
+              <div className="min-w-0">
                 <span className="text-muted-foreground">Email:</span>
-                <span className="ml-2 font-medium">{record.employee.email}</span>
+                <span className="ml-2 break-all font-medium">{record.employee.email}</span>
               </div>
               <div>
-                <span className="text-muted-foreground">Pay Period:</span>
+                <span className="text-muted-foreground">Pay period:</span>
                 <span className="ml-2 font-medium">{record.month}</span>
               </div>
-              <div className="col-span-2">
+              <div className="sm:col-span-2">
                 <span className="text-muted-foreground">Status:</span>
                 <span className="ml-2">{getStatusBadge(record.status)}</span>
                 {record.paidAt && (
@@ -146,31 +148,31 @@ export function PayslipViewDialog({ open, onOpenChange, record }: PayslipViewDia
             <div className="grid gap-6 md:grid-cols-2">
               {/* Earnings */}
               <div className="space-y-3">
-                <div className="flex items-center gap-2 text-emerald-600">
-                  <Plus className="h-4 w-4" />
+                <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-400">
+                  <Plus className="h-4 w-4" aria-hidden="true" />
                   <span className="font-semibold">Earnings</span>
                 </div>
                 <div className="space-y-2 rounded-lg border bg-background p-4">
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Basic Salary</span>
+                    <span className="text-muted-foreground">Basic salary</span>
                     <span className="font-medium">{formatCurrency(record.basic)}</span>
                   </div>
                   {allowanceBreakdown.length > 0 ? (
                     allowanceBreakdown.map((item) => (
                       <div key={item.label} className="flex justify-between">
                         <span className="text-muted-foreground">{item.label}</span>
-                        <span className="font-medium text-emerald-600">+{formatCurrency(item.amount)}</span>
+                        <span className="font-medium text-emerald-700 dark:text-emerald-400">+{formatCurrency(item.amount)}</span>
                       </div>
                     ))
                   ) : (
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">Total Allowances</span>
-                      <span className="font-medium text-emerald-600">+{formatCurrency(record.allowances)}</span>
+                      <span className="text-muted-foreground">Total allowances</span>
+                      <span className="font-medium text-emerald-700 dark:text-emerald-400">+{formatCurrency(record.allowances)}</span>
                     </div>
                   )}
                   <Separator />
                   <div className="flex justify-between font-semibold">
-                    <span>Gross Salary</span>
+                    <span>Gross salary</span>
                     <span>{formatCurrency(grossSalary)}</span>
                   </div>
                 </div>
@@ -178,8 +180,8 @@ export function PayslipViewDialog({ open, onOpenChange, record }: PayslipViewDia
 
               {/* Deductions */}
               <div className="space-y-3">
-                <div className="flex items-center gap-2 text-destructive">
-                  <Minus className="h-4 w-4" />
+                <div className="flex items-center gap-2 text-red-700 dark:text-red-400">
+                  <Minus className="h-4 w-4" aria-hidden="true" />
                   <span className="font-semibold">Deductions</span>
                 </div>
                 <div className="space-y-2 rounded-lg border bg-background p-4">
@@ -188,15 +190,15 @@ export function PayslipViewDialog({ open, onOpenChange, record }: PayslipViewDia
                       {deductionBreakdown.map((item) => (
                         <div key={item.label} className="flex justify-between">
                           <span className="text-muted-foreground">{item.label}</span>
-                          <span className="font-medium text-destructive">-{formatCurrency(item.amount)}</span>
+                          <span className="font-medium text-red-700 dark:text-red-400">-{formatCurrency(item.amount)}</span>
                         </div>
                       ))}
                       <Separator />
                     </>
                   ) : null}
                   <div className="flex justify-between font-semibold">
-                    <span>Total Deductions</span>
-                    <span className="text-destructive">-{formatCurrency(record.deductions)}</span>
+                    <span>Total deductions</span>
+                    <span className="text-red-700 dark:text-red-400">-{formatCurrency(record.deductions)}</span>
                   </div>
                 </div>
               </div>
@@ -205,9 +207,9 @@ export function PayslipViewDialog({ open, onOpenChange, record }: PayslipViewDia
 
           {/* Net Salary */}
           <div className="rounded-lg border-2 border-primary/20 bg-primary/5 p-4">
-            <div className="flex justify-between items-center">
-              <span className="font-semibold text-lg">Net Salary</span>
-              <span className="font-bold text-2xl text-primary">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="text-lg font-semibold">Net salary</span>
+              <span className="text-2xl font-bold text-foreground">
                 {formatCurrency(record.netSalary)}
               </span>
             </div>
@@ -217,6 +219,12 @@ export function PayslipViewDialog({ open, onOpenChange, record }: PayslipViewDia
             This is a computer-generated payslip view.
           </p>
         </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Close
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

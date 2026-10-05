@@ -3,25 +3,20 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Download, FileText, Files, Eye } from "lucide-react";
 import { format } from "date-fns";
 import { DocumentViewerDialog } from "@/components/documents/DocumentViewerDialog";
+import {
+  TAX_DOCUMENT_TYPES,
+  TAX_DOCUMENT_TYPE_VALUES,
+  documentTypeLabel,
+} from "@/components/documents/documentTypes";
 
 interface TaxDocumentsViewerProps {
   employeeId: string;
 }
-
-const TAX_DOCUMENT_TYPES = ["W-2", "1099", "Tax Statement", "Tax Certificate"];
 
 export function TaxDocumentsViewer({ employeeId }: TaxDocumentsViewerProps) {
   const [viewingDocument, setViewingDocument] = useState<{
@@ -40,7 +35,7 @@ export function TaxDocumentsViewer({ employeeId }: TaxDocumentsViewerProps) {
         .from("employee_documents")
         .select("*")
         .eq("employee_id", employeeId)
-        .in("document_type", TAX_DOCUMENT_TYPES)
+        .in("document_type", TAX_DOCUMENT_TYPE_VALUES)
         .order("uploaded_at", { ascending: false });
 
       if (error) throw error;
@@ -61,7 +56,6 @@ export function TaxDocumentsViewer({ employeeId }: TaxDocumentsViewerProps) {
 
       if (error) throw error;
 
-      // Create download link
       const url = URL.createObjectURL(data);
       const a = document.createElement("a");
       a.href = url;
@@ -75,31 +69,14 @@ export function TaxDocumentsViewer({ employeeId }: TaxDocumentsViewerProps) {
     }
   };
 
-  const getDocumentBadgeColor = (type: string) => {
-    switch (type) {
-      case "W-2":
-        return "bg-blue-500/10 text-blue-600 border-blue-500/20";
-      case "1099":
-        return "bg-purple-500/10 text-purple-600 border-purple-500/20";
-      case "Tax Statement":
-        return "bg-green-500/10 text-green-600 border-green-500/20";
-      case "Tax Certificate":
-        return "bg-orange-500/10 text-orange-600 border-orange-500/20";
-      default:
-        return "";
-    }
-  };
-
   return (
     <Card>
       <CardHeader>
-        <div className="flex items-center gap-2">
-          <Files className="h-5 w-5 text-primary" />
-          <div>
-            <CardTitle>Tax Documents</CardTitle>
-            <CardDescription>Download your tax-related documents</CardDescription>
-          </div>
-        </div>
+        <CardTitle className="flex items-center gap-2">
+          <Files className="h-5 w-5 text-primary" aria-hidden="true" />
+          Tax documents
+        </CardTitle>
+        <CardDescription>Download your Form 16 and other tax documents</CardDescription>
       </CardHeader>
       <CardContent>
         {isLoading ? (
@@ -109,81 +86,64 @@ export function TaxDocumentsViewer({ employeeId }: TaxDocumentsViewerProps) {
             ))}
           </div>
         ) : documents && documents.length > 0 ? (
-          <div className="rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Document Name</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Uploaded</TableHead>
-                  <TableHead className="text-right">Action</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {documents.map((doc) => (
-                  <TableRow key={doc.id}>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <FileText className="h-4 w-4 text-muted-foreground" />
-                        <span className="font-medium">{doc.document_name}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className={getDocumentBadgeColor(doc.document_type)}>
-                        {doc.document_type}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {format(new Date(doc.uploaded_at), "MMM d, yyyy")}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-1">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setViewingDocument(doc)}
-                          title="View document"
-                        >
-                          <Eye className="h-4 w-4 mr-1" />
-                          View
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleDownload(doc.file_url, doc.document_name)}
-                          title="Download document"
-                        >
-                          <Download className="h-4 w-4 mr-1" />
-                          Download
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
+          <ul className="divide-y rounded-lg border">
+            {documents.map((doc) => (
+              <li key={doc.id} className="flex flex-col gap-2 p-3 sm:flex-row sm:items-center sm:gap-3">
+                <div className="flex min-w-0 flex-1 items-start gap-3">
+                  <FileText className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                  <div className="min-w-0">
+                    <p className="break-words font-medium [overflow-wrap:anywhere]">{doc.document_name}</p>
+                    <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                      <Badge variant="outline" className="font-normal">{documentTypeLabel(doc.document_type)}</Badge>
+                      <span>{format(new Date(doc.uploaded_at), "MMM d, yyyy")}</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex shrink-0 gap-2 pl-7 sm:pl-0">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-9"
+                    onClick={() => setViewingDocument(doc)}
+                    aria-label={`View ${doc.document_name}`}
+                  >
+                    <Eye className="mr-1 h-4 w-4" aria-hidden="true" />
+                    View
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-9"
+                    onClick={() => handleDownload(doc.file_url, doc.document_name)}
+                    aria-label={`Download ${doc.document_name}`}
+                  >
+                    <Download className="mr-1 h-4 w-4" aria-hidden="true" />
+                    Download
+                  </Button>
+                </div>
+              </li>
+            ))}
+          </ul>
         ) : (
-          <div className="flex flex-col items-center justify-center py-12 text-center">
-            <Files className="h-12 w-12 text-muted-foreground mb-4" />
-            <p className="text-lg font-medium">No Tax Documents</p>
+          <div className="flex flex-col items-center justify-center py-10 text-center">
+            <Files className="mb-4 h-12 w-12 text-muted-foreground" aria-hidden="true" />
+            <p className="text-lg font-medium">No tax documents yet</p>
             <p className="text-sm text-muted-foreground">
-              No tax documents have been uploaded yet. Contact HR for assistance.
+              Your Form 16 and other tax documents will appear here once HR uploads them.
             </p>
           </div>
         )}
 
-        {/* Document Types Legend */}
-        <div className="mt-4 flex flex-wrap gap-3 text-xs text-muted-foreground">
-          <span className="font-medium">Available document types:</span>
+        {/* Document types legend */}
+        <div className="mt-4 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+          <span className="font-medium">Document types:</span>
           {TAX_DOCUMENT_TYPES.map((type) => (
-            <Badge key={type} variant="outline" className={getDocumentBadgeColor(type)}>
-              {type}
+            <Badge key={type.value} variant="outline" className="font-normal text-muted-foreground">
+              {type.label}
             </Badge>
           ))}
         </div>
 
-        {/* Document Viewer Dialog */}
         <DocumentViewerDialog
           open={!!viewingDocument}
           onOpenChange={(open) => !open && setViewingDocument(null)}

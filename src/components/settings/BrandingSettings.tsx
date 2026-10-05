@@ -30,7 +30,7 @@ function AssetUploader({
 
   return (
     <div className="space-y-2">
-      <Label>{label}</Label>
+      <p className="text-sm font-medium leading-none">{label}</p>
       <div className="flex items-center gap-4">
         <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-muted/50">
           {imageUrl ? (
@@ -46,6 +46,7 @@ function AssetUploader({
             size="sm"
             onClick={() => inputRef.current?.click()}
             disabled={isUploading}
+            aria-label={`Upload ${label.toLowerCase()}`}
           >
             {isUploading ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -62,6 +63,8 @@ function AssetUploader({
         type="file"
         accept="image/png,image/jpeg,image/svg+xml,image/webp"
         className="hidden"
+        aria-label={`${label} file`}
+        tabIndex={-1}
         onChange={(e) => {
           const file = e.target.files?.[0];
           if (file) onUpload(file);

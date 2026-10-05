@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -131,13 +131,13 @@ export function LeaveBalanceReport() {
           <div>
             <CardTitle className="flex items-center gap-2">
               <Calendar className="h-5 w-5" />
-              Leave Balance Report
+              Leave balance report
             </CardTitle>
             <CardDescription>Employee leave balances by type</CardDescription>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Select value={selectedYear} onValueChange={setSelectedYear}>
-              <SelectTrigger className="w-[100px]">
+              <SelectTrigger className="w-[100px]" aria-label="Year">
                 <SelectValue placeholder="Year" />
               </SelectTrigger>
               <SelectContent>
@@ -148,7 +148,7 @@ export function LeaveBalanceReport() {
                 ))}
               </SelectContent>
             </Select>
-            <Button onClick={exportToPDF} disabled={isExporting || !report?.records.length}>
+            <Button onClick={exportToPDF} disabled={isExporting || !report?.records.length} className="flex-1 sm:flex-none">
               {isExporting ? (
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
               ) : (
@@ -167,7 +167,8 @@ export function LeaveBalanceReport() {
         ) : report ? (
           <div className="space-y-4">
             {report.records.length > 0 ? (
-              <div className="rounded-md border overflow-x-auto">
+              <>
+              <div className="hidden rounded-md border sm:block">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -183,11 +184,11 @@ export function LeaveBalanceReport() {
                       <TableHead className="sticky left-0 bg-background"></TableHead>
                       <TableHead></TableHead>
                       {report.leaveTypes.map((lt) => (
-                        <>
-                          <TableHead key={`${lt}-t`} className="text-center text-xs border-l">Total</TableHead>
-                          <TableHead key={`${lt}-u`} className="text-center text-xs">Used</TableHead>
-                          <TableHead key={`${lt}-r`} className="text-center text-xs">Left</TableHead>
-                        </>
+                        <Fragment key={lt}>
+                          <TableHead className="text-center text-xs border-l">Total</TableHead>
+                          <TableHead className="text-center text-xs">Used</TableHead>
+                          <TableHead className="text-center text-xs">Left</TableHead>
+                        </Fragment>
                       ))}
                     </TableRow>
                   </TableHeader>
@@ -202,23 +203,47 @@ export function LeaveBalanceReport() {
                         </TableCell>
                         <TableCell>{record.department}</TableCell>
                         {record.balances.map((bal, i) => (
-                          <>
-                            <TableCell key={`${record.employeeId}-${i}-t`} className="text-center border-l">
+                          <Fragment key={`${record.employeeId}-${i}`}>
+                            <TableCell className="text-center border-l">
                               {bal.total}
                             </TableCell>
-                            <TableCell key={`${record.employeeId}-${i}-u`} className="text-center text-orange-600">
+                            <TableCell className="text-center text-orange-700 dark:text-orange-400">
                               {bal.used}
                             </TableCell>
-                            <TableCell key={`${record.employeeId}-${i}-r`} className="text-center font-medium text-green-600">
+                            <TableCell className="text-center font-medium text-emerald-700 dark:text-emerald-400">
                               {bal.remaining}
                             </TableCell>
-                          </>
+                          </Fragment>
                         ))}
                       </TableRow>
                     ))}
                   </TableBody>
                 </Table>
               </div>
+              <ul className="space-y-3 sm:hidden" aria-label="Leave balances">
+                {report.records.map((record) => (
+                  <li key={record.employeeId} className="rounded-lg border p-3">
+                    <div className="min-w-0">
+                      <p className="truncate font-medium">{record.employeeName}</p>
+                      <p className="truncate text-xs text-muted-foreground">
+                        {[record.employeeCode, record.department].filter(Boolean).join(" • ")}
+                      </p>
+                    </div>
+                    <dl className="mt-3 space-y-1.5 text-sm">
+                      {record.balances.map((bal, i) => (
+                        <div key={`${record.employeeId}-${i}`} className="flex items-baseline justify-between gap-3">
+                          <dt className="min-w-0 truncate text-muted-foreground">{report.leaveTypes[i]}</dt>
+                          <dd className="shrink-0 tabular-nums">
+                            <span className="font-medium text-emerald-700 dark:text-emerald-400">{bal.remaining} left</span>
+                            <span className="text-muted-foreground"> · {bal.used} of {bal.total} used</span>
+                          </dd>
+                        </div>
+                      ))}
+                    </dl>
+                  </li>
+                ))}
+              </ul>
+              </>
             ) : (
               <div className="flex flex-col items-center justify-center py-12 text-center">
                 <Calendar className="h-12 w-12 text-muted-foreground mb-4" />
@@ -231,10 +256,10 @@ export function LeaveBalanceReport() {
 
             {/* Legend */}
             {report.records.length > 0 && (
-              <div className="flex items-center gap-4 text-sm text-muted-foreground">
+              <div className="hidden flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground sm:flex">
                 <span>Total = Allocated days</span>
-                <span className="text-orange-600">Used = Days taken</span>
-                <span className="text-green-600">Left = Remaining balance</span>
+                <span className="text-orange-700 dark:text-orange-400">Used = Days taken</span>
+                <span className="text-emerald-700 dark:text-emerald-400">Left = Remaining balance</span>
               </div>
             )}
           </div>

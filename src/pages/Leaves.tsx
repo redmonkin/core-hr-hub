@@ -11,6 +11,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { pluralizeDays } from "@/lib/statusStyles";
 import { Calendar, Plus, Clock, CheckCircle, XCircle, ArrowUpDown, Tag, Loader2 } from "lucide-react";
 import { usePagination } from "@/hooks/usePagination";
 import { useSorting } from "@/hooks/useSorting";
@@ -169,7 +171,7 @@ const Leaves = () => {
   const filterByDateRange = (items: LeaveRequest[], startDate?: Date, endDate?: Date) => {
     if (!startDate && !endDate) return items;
     return items.filter(req => {
-      const leaveStartDate = parseISO(req.startDate);
+      const leaveStartDate = parseISO(req.startDateISO ?? "");
       if (startDate && endDate) {
         return isWithinInterval(leaveStartDate, {
           start: startDate,
@@ -185,7 +187,7 @@ const Leaves = () => {
     const allRequests = [...pendingRequests, ...processedRequests];
     const filteredRequests = filterByDateRange(allRequests, startDate, endDate);
     const headers = ["Employee", "Department", "Type", "Start Date", "End Date", "Days", "Status", "Reason"];
-    const csvContent = [headers.join(","), ...filteredRequests.map(req => [`"${req.employee.name}"`, `"${req.employee.department}"`, `"${req.type}"`, `"${req.startDate}"`, `"${req.endDate}"`, `"${req.days}"`, `"${req.status}"`, `"${req.reason || ''}"`].join(","))].join("\n");
+    const csvContent = [headers.join(","), ...filteredRequests.map(req => [`"${req.employee.name}"`, `"${req.employee.department}"`, `"${req.type}"`, `"${req.startDateISO ?? req.startDate}"`, `"${req.endDateISO ?? req.endDate}"`, `"${req.days}"`, `"${req.status}"`, `"${req.reason || ''}"`].join(","))].join("\n");
     const blob = new Blob([csvContent], {
       type: "text/csv;charset=utf-8;"
     });
@@ -262,7 +264,7 @@ const Leaves = () => {
   const uniqueLeaveTypes = [...new Set(allProcessedRequests.map(r => r.type))];
 
   // Get unique years for filter
-  const uniqueYears = [...new Set(allProcessedRequests.map(r => parseISO(r.startDate).getFullYear()))].sort((a, b) => b - a);
+  const uniqueYears = [...new Set(allProcessedRequests.map(r => parseISO(r.startDateISO ?? "").getFullYear()).filter(y => !Number.isNaN(y)))].sort((a, b) => b - a);
   const MONTHS = [{
     value: "0",
     label: "January"
@@ -305,16 +307,16 @@ const Leaves = () => {
   const processedRequests = allProcessedRequests.filter(r => {
     const statusMatch = processedStatusFilter === "all" || r.status === processedStatusFilter;
     const typeMatch = processedTypeFilter === "all" || r.type === processedTypeFilter;
-    const leaveDate = parseISO(r.startDate);
+    const leaveDate = parseISO(r.startDateISO ?? "");
     const monthMatch = processedMonthFilter === "all" || leaveDate.getMonth().toString() === processedMonthFilter;
     const yearMatch = processedYearFilter === "all" || leaveDate.getFullYear().toString() === processedYearFilter;
     return statusMatch && typeMatch && monthMatch && yearMatch;
   });
 
   // Sorting for pending requests
-  const pendingSorting = useSorting<LeaveRequest>(pendingRequests);
+  const pendingSorting = useSorting<LeaveRequest>(pendingRequests, "startDateISO", "asc");
   // Sorting for processed requests  
-  const processedSorting = useSorting<LeaveRequest>(processedRequests);
+  const processedSorting = useSorting<LeaveRequest>(processedRequests, "startDateISO", "desc");
   const pendingPagination = usePagination(pendingSorting.sortedItems, {
     initialPageSize: 10
   });
@@ -338,7 +340,7 @@ const Leaves = () => {
     color: "text-destructive"
   }];
   const sortOptions = [{
-    key: "startDate",
+    key: "startDateISO",
     label: "Date",
     icon: Calendar
   }, {
@@ -352,10 +354,10 @@ const Leaves = () => {
   }] as const;
   const renderSortDropdown = (sorting: ReturnType<typeof useSorting<LeaveRequest>>) => <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="outline" size="sm" className="gap-2">
-          <ArrowUpDown className="h-4 w-4" />
-          Sort by {sorting.sortConfig.key ? sortOptions.find(o => o.key === sorting.sortConfig.key)?.label : "..."}
-          {sorting.sortConfig.direction && (sorting.sortConfig.direction === "asc" ? " ↑" : " ↓")}
+        <Button variant="outline" size="sm" className="h-10 gap-2">
+          <ArrowUpDown className="h-4 w-4" aria-hidden="true" />
+          Sort: {sorting.sortConfig.key ? sortOptions.find(o => o.key === sorting.sortConfig.key)?.label : "Default"}
+          {sorting.sortConfig.direction && <span aria-label={sorting.sortConfig.direction === "asc" ? "ascending" : "descending"}>{sorting.sortConfig.direction === "asc" ? "↑" : "↓"}</span>}
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
@@ -425,44 +427,44 @@ const Leaves = () => {
   return <DashboardLayout>
       <div className="space-y-6">
         {/* Header */}
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h2 className="text-2xl font-bold text-foreground">Leaves</h2>
+            <h1 className="text-2xl font-bold text-foreground sm:text-3xl">Leaves</h1>
             <p className="text-muted-foreground">Manage and track leave requests</p>
           </div>
-          <div className="flex gap-3">
-            <DateRangeExportDialog title="Export Leave Requests" description="Export leave requests with optional date range filter based on leave start date." onExportCSV={exportToCSV} onExportPDF={exportToPDF} />
+          <div className="flex gap-2">
+            <DateRangeExportDialog title="Export leave requests" description="Export leave requests with optional date range filter based on leave start date." onExportCSV={exportToCSV} onExportPDF={exportToPDF} triggerClassName="flex-1 sm:flex-none" />
             <Dialog open={isNewRequestOpen} onOpenChange={setIsNewRequestOpen}>
               <DialogTrigger asChild>
-                <Button>
+                <Button className="flex-1 sm:flex-none">
                   <Plus className="mr-2 h-4 w-4" />
-                  New Leave Request
+                  New request
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-2xl">
+              <DialogContent className="max-w-xl">
                 <DialogHeader>
-                  <DialogTitle>New Leave Request</DialogTitle>
+                  <DialogTitle>New leave request</DialogTitle>
                   <DialogDescription>Submit a leave request for approval.</DialogDescription>
                 </DialogHeader>
 
                 {isLoadingMyEmployee ? <Skeleton className="h-72 w-full" /> : !myEmployeeId ? <div className="rounded-lg border border-border bg-muted/30 p-4 text-sm text-muted-foreground">
                     We couldn't find an employee profile linked to your account. Please contact HR to link your profile.
-                  </div> : <LeaveRequestForm employeeId={myEmployeeId} />}
+                  </div> : <LeaveRequestForm employeeId={myEmployeeId} variant="dialog" onCancel={() => setIsNewRequestOpen(false)} onSubmitted={() => setIsNewRequestOpen(false)} />}
               </DialogContent>
             </Dialog>
           </div>
         </div>
 
         {/* Stats */}
-        <div className="grid gap-4 sm:grid-cols-3">
+        <div className="grid grid-cols-3 gap-3 sm:gap-4">
           {leaveStats.map(stat => <Card key={stat.label}>
-              <CardContent className="flex items-center gap-4 p-6">
-                <div className={`rounded-xl bg-muted p-3 ${stat.color}`}>
+              <CardContent className="flex flex-col items-start gap-2 p-3 sm:flex-row sm:items-center sm:gap-4 sm:p-6">
+                <div className={`shrink-0 rounded-xl bg-muted p-2 sm:p-3 ${stat.color}`}>
                   {stat.icon}
                 </div>
-                <div>
-                  <p className="text-2xl font-bold text-foreground">{stat.value}</p>
-                  <p className="text-sm text-muted-foreground">{stat.label} Requests</p>
+                <div className="min-w-0">
+                  <p className="text-xl font-bold text-foreground sm:text-2xl">{stat.value}</p>
+                  <p className="text-sm text-muted-foreground">{stat.label}</p>
                 </div>
               </CardContent>
             </Card>)}
@@ -478,7 +480,7 @@ const Leaves = () => {
               </Badge>
             </TabsTrigger>
             <TabsTrigger value="processed">Processed</TabsTrigger>
-            <TabsTrigger value="calendar">Calendar View</TabsTrigger>
+            <TabsTrigger value="calendar">Calendar</TabsTrigger>
           </TabsList>
 
           <TabsContent value="pending" className="mt-6 space-y-4">
@@ -487,7 +489,7 @@ const Leaves = () => {
               </div> : pendingRequests.length === 0 ? <Card>
                 <CardContent className="flex flex-col items-center justify-center py-12">
                   <Calendar className="mb-4 h-12 w-12 text-muted-foreground" />
-                  <h3 className="text-lg font-semibold text-foreground">No Pending Requests</h3>
+                  <h3 className="text-lg font-semibold text-foreground">No pending requests</h3>
                   <p className="text-muted-foreground">All leave requests have been processed</p>
                 </CardContent>
               </Card> : <>
@@ -517,50 +519,50 @@ const Leaves = () => {
               </div> : allProcessedRequests.length === 0 ? <Card>
                 <CardContent className="flex flex-col items-center justify-center py-12">
                   <Calendar className="mb-4 h-12 w-12 text-muted-foreground" />
-                  <h3 className="text-lg font-semibold text-foreground">No Processed Requests</h3>
+                  <h3 className="text-lg font-semibold text-foreground">No processed requests</h3>
                   <p className="text-muted-foreground">Processed leave requests will appear here</p>
                 </CardContent>
               </Card> : <>
                 <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div className="flex flex-wrap items-center gap-2">
+                  <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:items-center">
                     <Select value={processedMonthFilter} onValueChange={setProcessedMonthFilter}>
-                      <SelectTrigger className="w-[130px]">
+                      <SelectTrigger className="sm:w-[140px]" aria-label="Filter by month">
                         <SelectValue placeholder="Month" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="all">All Months</SelectItem>
+                        <SelectItem value="all">All months</SelectItem>
                         {MONTHS.map(month => <SelectItem key={month.value} value={month.value}>
                             {month.label}
                           </SelectItem>)}
                       </SelectContent>
                     </Select>
                     <Select value={processedYearFilter} onValueChange={setProcessedYearFilter}>
-                      <SelectTrigger className="w-[100px]">
+                      <SelectTrigger className="sm:w-[120px]" aria-label="Filter by year">
                         <SelectValue placeholder="Year" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="all">All Years</SelectItem>
+                        <SelectItem value="all">All years</SelectItem>
                         {uniqueYears.map(year => <SelectItem key={year} value={year.toString()}>
                             {year}
                           </SelectItem>)}
                       </SelectContent>
                     </Select>
                     <Select value={processedStatusFilter} onValueChange={v => setProcessedStatusFilter(v as "all" | "approved" | "rejected")}>
-                      <SelectTrigger className="w-[130px]">
+                      <SelectTrigger className="sm:w-[130px]" aria-label="Filter by status">
                         <SelectValue placeholder="Status" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="all">All Status</SelectItem>
+                        <SelectItem value="all">All statuses</SelectItem>
                         <SelectItem value="approved">Approved</SelectItem>
                         <SelectItem value="rejected">Rejected</SelectItem>
                       </SelectContent>
                     </Select>
                     <Select value={processedTypeFilter} onValueChange={setProcessedTypeFilter}>
-                      <SelectTrigger className="w-[150px]">
+                      <SelectTrigger className="sm:w-[160px]" aria-label="Filter by leave type">
                         <SelectValue placeholder="Leave Type" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="all">All Types</SelectItem>
+                        <SelectItem value="all">All types</SelectItem>
                         {uniqueLeaveTypes.map(type => <SelectItem key={type} value={type}>
                             {type}
                           </SelectItem>)}
@@ -580,7 +582,7 @@ const Leaves = () => {
                 {processedRequests.length === 0 ? <Card>
                     <CardContent className="flex flex-col items-center justify-center py-12">
                       <Calendar className="mb-4 h-12 w-12 text-muted-foreground" />
-                      <h3 className="text-lg font-semibold text-foreground">No Matching Requests</h3>
+                      <h3 className="text-lg font-semibold text-foreground">No matching requests</h3>
                       <p className="text-muted-foreground">Try adjusting your filters</p>
                     </CardContent>
                   </Card> : <>
@@ -606,7 +608,7 @@ const Leaves = () => {
           <DialogContent>
             <DialogHeader>
               <DialogTitle>
-                {actionType === "approve" ? "Approve" : "Reject"} Leave Request
+                {actionType === "approve" ? "Approve leave request" : "Reject leave request"}
               </DialogTitle>
               <DialogDescription>
                 {actionType === "approve" ? "Are you sure you want to approve this leave request?" : "Are you sure you want to reject this leave request?"}
@@ -614,13 +616,13 @@ const Leaves = () => {
             </DialogHeader>
 
             {selectedRequest && <div className="space-y-4">
-                <div className="rounded-lg bg-muted p-4 space-y-2">
+                <div className="space-y-1.5 rounded-lg border bg-muted/50 p-4">
                   <p className="font-medium">{selectedRequest.employee.name}</p>
                   <p className="text-sm text-muted-foreground">
-                    {selectedRequest.type} • {selectedRequest.days} day(s)
+                    {selectedRequest.type} • {pluralizeDays(selectedRequest.days)}
                   </p>
                   <p className="text-sm text-muted-foreground">
-                    {format(new Date(selectedRequest.startDate), "PPP")} - {format(new Date(selectedRequest.endDate), "PPP")}
+                    {selectedRequest.startDate === selectedRequest.endDate ? selectedRequest.startDate : `${selectedRequest.startDate} – ${selectedRequest.endDate}`}
                   </p>
                   {selectedRequest.reason && <p className="text-sm text-muted-foreground mt-2">
                       <span className="font-medium">Reason:</span> {selectedRequest.reason}
@@ -628,8 +630,8 @@ const Leaves = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">Notes (Optional)</label>
-                  <Textarea value={reviewNotes} onChange={e => setReviewNotes(e.target.value)} placeholder="Add any notes for the employee..." rows={3} />
+                  <Label htmlFor="leave-review-notes">Notes (optional)</Label>
+                  <Textarea id="leave-review-notes" value={reviewNotes} onChange={e => setReviewNotes(e.target.value)} placeholder="Add any notes for the employee..." rows={3} />
                 </div>
               </div>}
 

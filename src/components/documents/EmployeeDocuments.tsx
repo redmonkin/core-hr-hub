@@ -3,13 +3,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Upload, FileText, Trash2, Download, Loader2, Eye } from "lucide-react";
 import { useEmployeeDocuments, useUploadDocument, useDeleteDocument } from "@/hooks/useEmployeeDocuments";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { DocumentViewerDialog } from "./DocumentViewerDialog";
+import { UPLOADABLE_DOCUMENT_TYPES, documentTypeLabel } from "./documentTypes";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -22,21 +23,15 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 
-const DOCUMENT_TYPES = [
-  { value: "id_proof", label: "ID Proof" },
-  { value: "resume", label: "Resume" },
-  { value: "offer_letter", label: "Offer Letter" },
-  { value: "contract", label: "Contract" },
-  { value: "other", label: "Others" },
-];
-
 interface EmployeeDocumentsProps {
   employeeId: string;
   canUpload?: boolean;
   canDelete?: boolean;
+  /** Render without the outer card (e.g. inside a dialog that has its own title). */
+  embedded?: boolean;
 }
 
-export function EmployeeDocuments({ employeeId, canUpload = true, canDelete = true }: EmployeeDocumentsProps) {
+export function EmployeeDocuments({ employeeId, canUpload = true, canDelete = true, embedded = false }: EmployeeDocumentsProps) {
   const [selectedType, setSelectedType] = useState<string>("contract");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [viewingDocument, setViewingDocument] = useState<{
@@ -94,162 +89,160 @@ export function EmployeeDocuments({ employeeId, canUpload = true, canDelete = tr
     URL.revokeObjectURL(url);
   };
 
-  const getTypeBadgeVariant = (type: string) => {
-    switch (type) {
-      case "contract":
-        return "default";
-      case "id_proof":
-        return "secondary";
-      case "offer_letter":
-        return "secondary";
-      case "resume":
-        return "outline";
-      default:
-        return "secondary";
-    }
-  };
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <FileText className="h-5 w-5" />
-          Documents
-        </CardTitle>
-        <CardDescription>
-          Manage employee documents like ID proof, resumes, offer letters, and contracts
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {canUpload && (
-          <div className="flex flex-col sm:flex-row gap-3">
+  const content = (
+    <div className="space-y-4">
+      {canUpload && (
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+          <div className="space-y-1.5 sm:w-[180px]">
+            <Label htmlFor={`${employeeId}-doc-type`}>Document type</Label>
             <Select value={selectedType} onValueChange={setSelectedType}>
-              <SelectTrigger className="w-full sm:w-[180px]">
+              <SelectTrigger id={`${employeeId}-doc-type`} className="w-full">
                 <SelectValue placeholder="Document type" />
               </SelectTrigger>
               <SelectContent>
-                {DOCUMENT_TYPES.map((type) => (
+                {UPLOADABLE_DOCUMENT_TYPES.map((type) => (
                   <SelectItem key={type.value} value={type.value}>
                     {type.label}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
+          </div>
+          <div className="min-w-0 flex-1 space-y-1.5">
+            <Label htmlFor={`${employeeId}-doc-file`}>File</Label>
             <Input
+              id={`${employeeId}-doc-file`}
               ref={fileInputRef}
               type="file"
               onChange={handleFileSelect}
-              className="flex-1"
+              className="w-full min-w-0"
               accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
             />
-            <Button
-              onClick={handleUpload}
-              disabled={!selectedFile || uploadMutation.isPending}
-            >
-              {uploadMutation.isPending ? (
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-              ) : (
-                <Upload className="h-4 w-4 mr-2" />
-              )}
-              Upload
-            </Button>
           </div>
-        )}
+          <Button
+            onClick={handleUpload}
+            disabled={!selectedFile || uploadMutation.isPending}
+          >
+            {uploadMutation.isPending ? (
+              <Loader2 className="h-4 w-4 animate-spin mr-2" />
+            ) : (
+              <Upload className="h-4 w-4 mr-2" />
+            )}
+            Upload
+          </Button>
+        </div>
+      )}
 
-        {isLoading ? (
-          <div className="flex items-center justify-center py-8">
-            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-          </div>
-        ) : documents && documents.length > 0 ? (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Document Name</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Uploaded</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {documents.map((doc) => (
-                <TableRow key={doc.id}>
-                  <TableCell className="font-medium">{doc.document_name}</TableCell>
-                  <TableCell>
-                    <Badge variant={getTypeBadgeVariant(doc.document_type)}>
-                      {DOCUMENT_TYPES.find((t) => t.value === doc.document_type)?.label || doc.document_type}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    {format(new Date(doc.uploaded_at), "MMM d, yyyy")}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end gap-2">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => setViewingDocument(doc)}
-                        title="View document"
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleDownload(doc.file_url, doc.document_name)}
-                        title="Download document"
-                      >
-                        <Download className="h-4 w-4" />
-                      </Button>
-                      {canDelete && (
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button variant="ghost" size="icon">
-                              <Trash2 className="h-4 w-4 text-destructive" />
-                            </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Delete Document</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                Are you sure you want to delete "{doc.document_name}"? This action cannot be undone.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Cancel</AlertDialogCancel>
-                              <AlertDialogAction
-                                onClick={() =>
-                                  deleteMutation.mutate({
-                                    documentId: doc.id,
-                                    fileUrl: doc.file_url,
-                                    employeeId,
-                                  })
-                                }
-                              >
-                                Delete
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
-                      )}
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        ) : (
-          <div className="text-center py-8 text-muted-foreground">
-            No documents uploaded yet
-          </div>
-        )}
-      </CardContent>
+      {isLoading ? (
+        <div className="flex items-center justify-center py-8">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" aria-label="Loading documents" />
+        </div>
+      ) : documents && documents.length > 0 ? (
+        <ul className="divide-y rounded-lg border">
+          {documents.map((doc) => {
+            const typeLabel = documentTypeLabel(doc.document_type);
+            return (
+              <li key={doc.id} className="flex items-center gap-3 p-3">
+                <FileText className="hidden h-5 w-5 shrink-0 text-muted-foreground sm:block" aria-hidden="true" />
+                <div className="min-w-0 flex-1">
+                  <p className="break-words font-medium [overflow-wrap:anywhere]">{doc.document_name}</p>
+                  <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                    <Badge variant="outline" className="font-normal">{typeLabel}</Badge>
+                    <span>{format(new Date(doc.uploaded_at), "MMM d, yyyy")}</span>
+                  </div>
+                </div>
+                <div className="flex shrink-0 items-center gap-1">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-10 w-10 sm:h-9 sm:w-9"
+                    onClick={() => setViewingDocument(doc)}
+                    title="View document"
+                    aria-label={`View ${doc.document_name}`}
+                  >
+                    <Eye className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-10 w-10 sm:h-9 sm:w-9"
+                    onClick={() => handleDownload(doc.file_url, doc.document_name)}
+                    title="Download document"
+                    aria-label={`Download ${doc.document_name}`}
+                  >
+                    <Download className="h-4 w-4" />
+                  </Button>
+                  {canDelete && (
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-10 w-10 sm:h-9 sm:w-9"
+                          title="Delete document"
+                          aria-label={`Delete ${doc.document_name}`}
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Delete document?</AlertDialogTitle>
+                          <AlertDialogDescription className="break-words">
+                            Are you sure you want to delete "{doc.document_name}"? This action cannot be undone.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                            onClick={() =>
+                              deleteMutation.mutate({
+                                documentId: doc.id,
+                                fileUrl: doc.file_url,
+                                employeeId,
+                              })
+                            }
+                          >
+                            Delete
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  )}
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      ) : (
+        <div className="rounded-lg border border-dashed py-8 text-center text-sm text-muted-foreground">
+          No documents uploaded yet
+        </div>
+      )}
 
-      {/* Document Viewer Dialog */}
       <DocumentViewerDialog
         open={!!viewingDocument}
         onOpenChange={(open) => !open && setViewingDocument(null)}
         documentInfo={viewingDocument}
       />
+    </div>
+  );
+
+  if (embedded) return content;
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <FileText className="h-5 w-5" aria-hidden="true" />
+          Documents
+        </CardTitle>
+        <CardDescription>
+          Manage employee documents like ID proof, resumes, offer letters, and contracts
+        </CardDescription>
+      </CardHeader>
+      <CardContent>{content}</CardContent>
     </Card>
   );
 }

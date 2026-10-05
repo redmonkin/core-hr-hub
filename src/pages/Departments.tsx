@@ -8,7 +8,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
@@ -30,6 +31,7 @@ const Departments = () => {
 
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingDepartment, setEditingDepartment] = useState<Department | null>(null);
+  const [deletingDepartment, setDeletingDepartment] = useState<Department | null>(null);
   const [formData, setFormData] = useState({ name: "", description: "", manager_id: "" });
 
   // Fetch employees for manager selection
@@ -127,7 +129,7 @@ const Departments = () => {
       <DashboardLayout>
         <div className="flex min-h-[400px] flex-col items-center justify-center space-y-4">
           <ShieldAlert className="h-16 w-16 text-destructive" />
-          <h2 className="text-2xl font-bold text-foreground">Access Denied</h2>
+          <h1 className="text-2xl font-bold text-foreground">Access denied</h1>
           <p className="text-muted-foreground">You don't have permission to access this page.</p>
           <p className="text-sm text-muted-foreground">Only administrators and HR personnel can manage departments.</p>
         </div>
@@ -135,26 +137,95 @@ const Departments = () => {
     );
   }
 
+  const managerSelect = (id: string) => (
+    <Select
+      value={formData.manager_id}
+      onValueChange={(value) => setFormData({ ...formData, manager_id: value === "none" ? "" : value })}
+    >
+      <SelectTrigger id={id}>
+        <SelectValue placeholder="Select department head" />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="none">No department head</SelectItem>
+        {employees.map((emp) => (
+          <SelectItem key={emp.id} value={emp.id}>
+            {emp.first_name} {emp.last_name}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+
+  const formatCreated = (value: string | null | undefined) =>
+    value && !isNaN(new Date(value).getTime()) ? format(new Date(value), "MMM d, yyyy") : "—";
+
+  const deleteBlockedReason = (department: Department) =>
+    department.employee_count > 0
+      ? `Move its ${department.employee_count} employee${department.employee_count === 1 ? "" : "s"} to another department before deleting.`
+      : null;
+
+  const renderActions = (department: Department) => {
+    const blocked = deleteBlockedReason(department);
+    const deleteButton = (
+      <Button
+        variant="ghost"
+        size="icon"
+        className="h-10 w-10 sm:h-9 sm:w-9"
+        aria-label={blocked ? `Delete ${department.name} (unavailable: ${blocked})` : `Delete ${department.name}`}
+        disabled={!!blocked}
+        onClick={() => setDeletingDepartment(department)}
+      >
+        <Trash2 className="h-4 w-4 text-destructive" />
+      </Button>
+    );
+    return (
+      <div className="flex justify-end gap-1">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-10 w-10 sm:h-9 sm:w-9"
+          aria-label={`Edit ${department.name}`}
+          title="Edit"
+          onClick={() => openEdit(department)}
+        >
+          <Pencil className="h-4 w-4" />
+        </Button>
+        {blocked ? (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span tabIndex={0} className="inline-flex rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-ring" data-delete-wrapper>
+                {deleteButton}
+              </span>
+            </TooltipTrigger>
+            <TooltipContent className="max-w-[220px]">{blocked}</TooltipContent>
+          </Tooltip>
+        ) : (
+          deleteButton
+        )}
+      </div>
+    );
+  };
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
         {/* Header */}
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h2 className="text-2xl font-bold text-foreground">Departments</h2>
+            <h1 className="text-2xl font-bold text-foreground sm:text-3xl">Departments</h1>
             <p className="text-muted-foreground">Manage company departments and teams</p>
           </div>
           {canManage && (
           <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
             <DialogTrigger asChild>
-              <Button onClick={() => resetForm()}>
+              <Button onClick={() => resetForm()} className="self-start sm:self-auto">
                 <Plus className="mr-2 h-4 w-4" />
-                Add Department
+                Add department
               </Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Create Department</DialogTitle>
+                <DialogTitle>Create department</DialogTitle>
                 <DialogDescription>Add a new department to your organization</DialogDescription>
               </DialogHeader>
               <div className="space-y-4 py-4">
@@ -177,23 +248,8 @@ const Departments = () => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="manager">Department Head</Label>
-                  <Select
-                    value={formData.manager_id}
-                    onValueChange={(value) => setFormData({ ...formData, manager_id: value === "none" ? "" : value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select department head" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">No Manager</SelectItem>
-                      {employees.map((emp) => (
-                        <SelectItem key={emp.id} value={emp.id}>
-                          {emp.first_name} {emp.last_name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Label htmlFor="manager">Department head</Label>
+                  {managerSelect("manager")}
                 </div>
               </div>
               <DialogFooter>
@@ -210,28 +266,28 @@ const Departments = () => {
         </div>
 
         {/* Stats */}
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid grid-cols-2 gap-3 sm:gap-4">
           <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-4">
-                <div className="rounded-xl bg-primary/10 p-3">
-                  <Building2 className="h-6 w-6 text-primary" />
+            <CardContent className="p-4 sm:p-6">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
+                <div className="w-fit rounded-xl bg-primary/10 p-2.5 sm:p-3">
+                  <Building2 className="h-5 w-5 text-primary sm:h-6 sm:w-6" aria-hidden="true" />
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Total Departments</p>
+                  <p className="text-sm text-muted-foreground">Total departments</p>
                   <p className="text-2xl font-bold">{departments?.length || 0}</p>
                 </div>
               </div>
             </CardContent>
           </Card>
           <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-4">
-                <div className="rounded-xl bg-secondary/50 p-3">
-                  <Users className="h-6 w-6 text-secondary-foreground" />
+            <CardContent className="p-4 sm:p-6">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
+                <div className="w-fit rounded-xl bg-primary/10 p-2.5 sm:p-3">
+                  <Users className="h-5 w-5 text-primary sm:h-6 sm:w-6" aria-hidden="true" />
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Total Employees</p>
+                  <p className="text-sm text-muted-foreground">Total employees</p>
                   <p className="text-2xl font-bold">
                     {departments?.reduce((sum, d) => sum + d.employee_count, 0) || 0}
                   </p>
@@ -241,13 +297,13 @@ const Departments = () => {
           </Card>
         </div>
 
-        {/* Departments Table */}
+        {/* Departments */}
         <Card>
-          <CardHeader>
-            <CardTitle>All Departments</CardTitle>
+          <CardHeader className="p-4 sm:p-6">
+            <CardTitle>All departments</CardTitle>
             <CardDescription>View and manage all departments in your organization</CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-4 pt-0 sm:p-6 sm:pt-0">
             {isLoading ? (
               <div className="space-y-4">
                 {[...Array(5)].map((_, i) => (
@@ -255,13 +311,14 @@ const Departments = () => {
                 ))}
               </div>
             ) : departments && departments.length > 0 ? (
-              <div className="rounded-md border">
+              <>
+              <div className="hidden rounded-md border sm:block">
                 <Table>
                   <TableHeader>
                     <TableRow>
                       <TableHead>Name</TableHead>
                       <TableHead>Description</TableHead>
-                      <TableHead>Department Head</TableHead>
+                      <TableHead>Department head</TableHead>
                       <TableHead>Employees</TableHead>
                       <TableHead>Created</TableHead>
                       {canManage && <TableHead className="text-right">Actions</TableHead>}
@@ -269,142 +326,123 @@ const Departments = () => {
                   </TableHeader>
                   <TableBody>
                     {departments.map((department) => (
-                      <TableRow key={department.id}>
+                      <TableRow key={department.id} data-department-row>
                         <TableCell className="font-medium">{department.name}</TableCell>
                         <TableCell className="text-muted-foreground">
-                          {department.description || "-"}
+                          {department.description || "—"}
                         </TableCell>
                         <TableCell>
-                          {department.manager_name || <span className="text-muted-foreground">-</span>}
+                          {department.manager_name || <span className="text-muted-foreground">—</span>}
                         </TableCell>
                         <TableCell>
-                          <Badge variant="secondary">{department.employee_count}</Badge>
+                          <Badge variant="outline" className="tabular-nums">{department.employee_count}</Badge>
                         </TableCell>
-                        <TableCell>
-                          {department.created_at && !isNaN(new Date(department.created_at).getTime())
-                            ? format(new Date(department.created_at), "MMM d, yyyy")
-                            : "-"}
-                        </TableCell>
+                        <TableCell className="whitespace-nowrap">{formatCreated(department.created_at)}</TableCell>
                         {canManage && (
-                        <TableCell className="text-right">
-                          <div className="flex justify-end gap-2">
-                            <Dialog
-                              open={editingDepartment?.id === department.id}
-                              onOpenChange={(open) => !open && setEditingDepartment(null)}
-                            >
-                              <DialogTrigger asChild>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  onClick={() => openEdit(department)}
-                                >
-                                  <Pencil className="h-4 w-4" />
-                                </Button>
-                              </DialogTrigger>
-                              <DialogContent>
-                                <DialogHeader>
-                                  <DialogTitle>Edit Department</DialogTitle>
-                                  <DialogDescription>Update department details</DialogDescription>
-                                </DialogHeader>
-                                <div className="space-y-4 py-4">
-                                  <div className="space-y-2">
-                                    <Label htmlFor="edit-name">Name *</Label>
-                                    <Input
-                                      id="edit-name"
-                                      value={formData.name}
-                                      onChange={(e) =>
-                                        setFormData({ ...formData, name: e.target.value })
-                                      }
-                                    />
-                                  </div>
-                                  <div className="space-y-2">
-                                    <Label htmlFor="edit-description">Description</Label>
-                                    <Textarea
-                                      id="edit-description"
-                                      value={formData.description}
-                                      onChange={(e) =>
-                                        setFormData({ ...formData, description: e.target.value })
-                                      }
-                                    />
-                                  </div>
-                                  <div className="space-y-2">
-                                    <Label htmlFor="edit-manager">Department Head</Label>
-                                    <Select
-                                      value={formData.manager_id}
-                                      onValueChange={(value) => setFormData({ ...formData, manager_id: value === "none" ? "" : value })}
-                                    >
-                                      <SelectTrigger>
-                                        <SelectValue placeholder="Select department head" />
-                                      </SelectTrigger>
-                                      <SelectContent>
-                                        <SelectItem value="none">No Manager</SelectItem>
-                                        {employees.map((emp) => (
-                                          <SelectItem key={emp.id} value={emp.id}>
-                                            {emp.first_name} {emp.last_name}
-                                          </SelectItem>
-                                        ))}
-                                      </SelectContent>
-                                    </Select>
-                                  </div>
-                                </div>
-                                <DialogFooter>
-                                  <Button
-                                    variant="outline"
-                                    onClick={() => setEditingDepartment(null)}
-                                  >
-                                    Cancel
-                                  </Button>
-                                  <Button
-                                    onClick={handleUpdate}
-                                    disabled={updateDepartment.isPending}
-                                  >
-                                    Save Changes
-                                  </Button>
-                                </DialogFooter>
-                              </DialogContent>
-                            </Dialog>
-
-                            <AlertDialog>
-                              <AlertDialogTrigger asChild>
-                                <Button variant="ghost" size="icon">
-                                  <Trash2 className="h-4 w-4 text-destructive" />
-                                </Button>
-                              </AlertDialogTrigger>
-                              <AlertDialogContent>
-                                <AlertDialogHeader>
-                                  <AlertDialogTitle>Delete Department</AlertDialogTitle>
-                                  <AlertDialogDescription>
-                                    Are you sure you want to delete "{department.name}"? This action
-                                    cannot be undone. Departments with assigned employees cannot be
-                                    deleted.
-                                  </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                  <AlertDialogAction
-                                    onClick={() => handleDelete(department.id)}
-                                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                  >
-                                    Delete
-                                  </AlertDialogAction>
-                                </AlertDialogFooter>
-                              </AlertDialogContent>
-                            </AlertDialog>
-                          </div>
-                        </TableCell>
+                          <TableCell className="text-right">{renderActions(department)}</TableCell>
                         )}
                       </TableRow>
                     ))}
                   </TableBody>
                 </Table>
               </div>
+
+              {/* Mobile cards */}
+              <ul className="space-y-3 sm:hidden">
+                {departments.map((department) => (
+                  <li key={department.id} data-department-row className="rounded-lg border p-3">
+                    <div className="flex items-start gap-2">
+                      <div className="min-w-0 flex-1">
+                        <p className="font-medium">{department.name}</p>
+                        {department.description && (
+                          <p className="text-sm text-muted-foreground">{department.description}</p>
+                        )}
+                      </div>
+                      {canManage && renderActions(department)}
+                    </div>
+                    <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-sm">
+                      <dt className="text-muted-foreground">Head</dt>
+                      <dd className="text-right">{department.manager_name || "—"}</dd>
+                      <dt className="text-muted-foreground">Employees</dt>
+                      <dd className="text-right tabular-nums">{department.employee_count}</dd>
+                      <dt className="text-muted-foreground">Created</dt>
+                      <dd className="text-right">{formatCreated(department.created_at)}</dd>
+                    </dl>
+                    {canManage && deleteBlockedReason(department) && (
+                      <p className="mt-2 text-xs text-muted-foreground">{deleteBlockedReason(department)}</p>
+                    )}
+                  </li>
+                ))}
+              </ul>
+              </>
             ) : (
-              <div className="flex h-32 items-center justify-center text-muted-foreground">
+              <div className="flex h-32 items-center justify-center text-center text-muted-foreground">
                 No departments found. Create your first department to get started.
               </div>
             )}
           </CardContent>
         </Card>
+
+        {/* Edit dialog */}
+        <Dialog open={!!editingDepartment} onOpenChange={(open) => !open && setEditingDepartment(null)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Edit department</DialogTitle>
+              <DialogDescription>Update department details</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-name">Name *</Label>
+                <Input
+                  id="edit-name"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-description">Description</Label>
+                <Textarea
+                  id="edit-description"
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-manager">Department head</Label>
+                {managerSelect("edit-manager")}
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setEditingDepartment(null)}>
+                Cancel
+              </Button>
+              <Button onClick={handleUpdate} disabled={updateDepartment.isPending}>
+                Save changes
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Delete confirmation */}
+        <AlertDialog open={!!deletingDepartment} onOpenChange={(open) => !open && setDeletingDepartment(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete department?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to delete "{deletingDepartment?.name}"? This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => deletingDepartment && handleDelete(deletingDepartment.id)}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                Delete
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </DashboardLayout>
   );

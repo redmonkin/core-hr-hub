@@ -19,16 +19,16 @@ import {
 import { format } from "date-fns";
 
 const changeTypeConfig = {
-  feature: { icon: Sparkles, label: "New Feature", className: "bg-green-500/10 text-green-600 dark:text-green-400" },
-  fix: { icon: Bug, label: "Bug Fix", className: "bg-yellow-500/10 text-yellow-600 dark:text-yellow-400" },
-  security: { icon: Shield, label: "Security", className: "bg-red-500/10 text-red-600 dark:text-red-400" },
-  docs: { icon: FileText, label: "Documentation", className: "bg-blue-500/10 text-blue-600 dark:text-blue-400" },
-  breaking: { icon: AlertTriangle, label: "Breaking Change", className: "bg-orange-500/10 text-orange-600 dark:text-orange-400" },
+  feature: { icon: Sparkles, label: "New feature", className: "bg-green-500/10 text-green-800 dark:text-green-400" },
+  fix: { icon: Bug, label: "Bug fix", className: "bg-yellow-500/10 text-amber-800 dark:text-yellow-400" },
+  security: { icon: Shield, label: "Security", className: "bg-red-500/10 text-red-800 dark:text-red-400" },
+  docs: { icon: FileText, label: "Documentation", className: "bg-blue-500/10 text-blue-800 dark:text-blue-400" },
+  breaking: { icon: AlertTriangle, label: "Breaking change", className: "bg-orange-500/10 text-orange-800 dark:text-orange-400" },
 };
 
 const versionTypeConfig = {
-  major: { label: "Major Release", className: "bg-primary text-primary-foreground" },
-  minor: { label: "Minor Release", className: "bg-secondary text-secondary-foreground" },
+  major: { label: "Major release", className: "bg-primary text-primary-foreground" },
+  minor: { label: "Minor release", className: "bg-secondary text-secondary-foreground" },
   patch: { label: "Patch", className: "bg-muted text-muted-foreground" },
 };
 
@@ -64,7 +64,7 @@ function ChangelogEntryCard({ entry, isCurrentVersion }: { entry: ChangelogEntry
     <Card className={isCurrentVersion ? "border-primary/50" : ""}>
       <CardHeader>
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2">
             <Badge className={versionConfig.className}>
               v{entry.version}
             </Badge>
@@ -80,7 +80,7 @@ function ChangelogEntryCard({ entry, isCurrentVersion }: { entry: ChangelogEntry
             {format(new Date(entry.date), "MMMM d, yyyy")}
           </span>
         </div>
-        <CardTitle className="mt-2">{entry.title}</CardTitle>
+        <CardTitle className="mt-2 text-lg leading-snug sm:text-2xl">{entry.title}</CardTitle>
         <CardDescription>{entry.description}</CardDescription>
       </CardHeader>
       <CardContent>
@@ -89,9 +89,9 @@ function ChangelogEntryCard({ entry, isCurrentVersion }: { entry: ChangelogEntry
             const config = changeTypeConfig[change.type];
             const Icon = config.icon;
             return (
-              <li key={index} className="flex items-start gap-3">
-                <span className={`inline-flex items-center gap-1.5 rounded-full px-2 py-1 text-xs font-medium ${config.className}`}>
-                  <Icon className="h-3 w-3" />
+              <li key={index} className="flex flex-col items-start gap-1.5 sm:flex-row sm:gap-3">
+                <span className={`inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-2 py-1 text-xs font-medium ${config.className}`}>
+                  <Icon className="h-3 w-3" aria-hidden="true" />
                   {config.label}
                 </span>
                 <span className="text-sm text-foreground">{change.text}</span>
@@ -105,8 +105,17 @@ function ChangelogEntryCard({ entry, isCurrentVersion }: { entry: ChangelogEntry
 }
 
 export default function Changelog() {
-  const { data: versionData, isLoading, refetch, isRefetching } = useVersionCheck();
+  const { data: versionData, isLoading, isError, refetch, isRefetching } = useVersionCheck();
   const effectiveVersionData = versionData ?? FALLBACK_VERSION_RESPONSE;
+  // The remote check can fail or come back without a changelog; in that case we can't
+  // claim the user is up to date, and we fall back to the changelog bundled with the app.
+  // checkForUpdates() resolves to the bundled fallback (same changelog array) when no server answered.
+  const usedFallback = !!versionData && versionData.changelog === FALLBACK_VERSION_RESPONSE.changelog;
+  const checkFailed = isError || !versionData || !versionData.currentVersion || usedFallback;
+  const remoteChangelog = versionData?.changelog;
+  const changelog =
+    remoteChangelog && remoteChangelog.length > 0 ? remoteChangelog : FALLBACK_VERSION_RESPONSE.changelog;
+  const showingBundledChangelog = !(remoteChangelog && remoteChangelog.length > 0);
   
   // For auto-updating environments, always show the latest version from GitHub
   // For self-hosted: if there's no update available (they're up to date), 
@@ -127,7 +136,7 @@ export default function Changelog() {
               View the latest updates and improvements to Peoplo
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Button
               variant="outline"
               size="sm"
@@ -135,7 +144,7 @@ export default function Changelog() {
               disabled={isRefetching}
             >
               <RefreshCw className={`mr-2 h-4 w-4 ${isRefetching ? "animate-spin" : ""}`} />
-              Check for Updates
+              Check for updates
             </Button>
             <Button size="sm" asChild>
               <a
@@ -143,7 +152,7 @@ export default function Changelog() {
                 target="_blank"
                 rel="noopener noreferrer"
               >
-                GitHub Releases
+                GitHub releases
                 <ExternalLink className="ml-1.5 h-3.5 w-3.5" />
               </a>
             </Button>
@@ -154,8 +163,12 @@ export default function Changelog() {
         <Card>
           <CardContent className="flex flex-col gap-4 p-6 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-4">
-              <div className="rounded-full bg-primary/10 p-3">
-                {effectiveVersionData.hasUpdate ? (
+              <div className="rounded-full bg-primary/10 p-3" aria-hidden="true">
+                {isLoading ? (
+                  <RefreshCw className="h-6 w-6 animate-spin text-primary" />
+                ) : checkFailed ? (
+                  <AlertTriangle className="h-6 w-6 text-amber-600" />
+                ) : effectiveVersionData.hasUpdate ? (
                   <ArrowUpCircle className="h-6 w-6 text-primary" />
                 ) : (
                   <CheckCircle2 className="h-6 w-6 text-green-600" />
@@ -163,26 +176,30 @@ export default function Changelog() {
               </div>
               <div>
                 <p className="font-medium">
-                  {effectiveVersionData.hasUpdate
-                    ? "Update Available"
-                    : "You're up to date!"}
+                  {isLoading
+                    ? "Checking for updates…"
+                    : checkFailed
+                      ? "Couldn't check for updates"
+                      : effectiveVersionData.hasUpdate
+                        ? "Update available"
+                        : "You're up to date"}
                 </p>
                 <p className="text-sm text-muted-foreground">
                   Current version: <strong>v{displayVersion}</strong>
-                  {effectiveVersionData.hasUpdate && (
+                  {!checkFailed && effectiveVersionData.hasUpdate && (
                     <> · Latest: <strong>v{effectiveVersionData.currentVersion}</strong></>
                   )}
                 </p>
               </div>
             </div>
-            {effectiveVersionData.hasUpdate && (
+            {!checkFailed && effectiveVersionData.hasUpdate && (
               <Button asChild>
                 <a
                   href={effectiveVersionData.updateUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                 >
-                  Download Update
+                  Download update
                   <ExternalLink className="ml-1.5 h-4 w-4" />
                 </a>
               </Button>
@@ -192,16 +209,21 @@ export default function Changelog() {
 
         {/* Changelog Entries */}
         <div className="space-y-6">
-          <h2 className="text-lg font-semibold">Release History</h2>
+          <h2 className="text-lg font-semibold">Release history</h2>
           
           {isLoading ? (
             <div className="space-y-6">
               <ChangelogEntrySkeleton />
               <ChangelogEntrySkeleton />
             </div>
-          ) : effectiveVersionData?.changelog && effectiveVersionData.changelog.length > 0 ? (
+          ) : changelog.length > 0 ? (
             <div className="space-y-6">
-              {effectiveVersionData.changelog.map((entry) => (
+              {checkFailed && showingBundledChangelog && (
+                <p className="text-sm text-muted-foreground">
+                  Showing the release notes bundled with this version. Newer releases may be listed on GitHub.
+                </p>
+              )}
+              {changelog.map((entry) => (
                 <ChangelogEntryCard
                   key={entry.version}
                   entry={entry}

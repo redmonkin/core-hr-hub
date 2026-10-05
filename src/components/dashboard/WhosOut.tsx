@@ -74,8 +74,8 @@ export function WhosOut() {
     <Card>
       <CardHeader className="pb-3">
         <CardTitle className="text-base flex items-center gap-2">
-          <UserX className="h-5 w-5 text-warning" />
-          Who's Out Today
+          <UserX className="h-5 w-5 text-amber-600" aria-hidden="true" />
+          Who's out today
           {whosOut.length > 0 && (
             <Badge variant="secondary" className="ml-auto">
               {whosOut.length}

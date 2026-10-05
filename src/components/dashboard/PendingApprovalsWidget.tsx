@@ -20,11 +20,11 @@ export function PendingApprovalsWidget() {
     <Card>
       <CardHeader className="flex flex-row items-center justify-between pb-2">
         <CardTitle className="text-lg font-semibold flex items-center gap-2">
-          <ClipboardList className="h-5 w-5 text-warning" />
+          <ClipboardList className="h-5 w-5 text-amber-600" aria-hidden="true" />
           Pending Approvals
         </CardTitle>
         {data && data.count > 0 && (
-          <Badge variant="secondary" className="bg-warning/10 text-warning">
+          <Badge variant="secondary" className="bg-amber-50 text-amber-800 border-amber-200">
             {data.count} pending
           </Badge>
         )}

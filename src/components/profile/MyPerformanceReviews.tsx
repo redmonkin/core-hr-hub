@@ -1,5 +1,6 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { statusBadgeClass, formatStatus } from "@/lib/statusStyles";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Star, Calendar, MessageSquare, TrendingUp, AlertTriangle, CheckCircle } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
@@ -25,12 +26,6 @@ interface PerformanceReview {
     last_name: string;
   } | null;
 }
-
-const statusStyles: Record<string, string> = {
-  draft: "bg-muted text-muted-foreground border-muted",
-  submitted: "bg-amber-500/10 text-amber-600 border-amber-500/20",
-  acknowledged: "bg-emerald-500/10 text-emerald-600 border-emerald-500/20",
-};
 
 const ratingLabels: Record<number, string> = {
   1: "Needs Improvement",
@@ -114,8 +109,8 @@ export function MyPerformanceReviews({ employeeId }: MyPerformanceReviewsProps) 
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Star className="h-5 w-5" />
-          Performance Reviews
+          <Star className="h-5 w-5" aria-hidden="true" />
+          Performance reviews
         </CardTitle>
         <CardDescription>Your performance evaluations and feedback</CardDescription>
       </CardHeader>
@@ -130,9 +125,9 @@ export function MyPerformanceReviews({ employeeId }: MyPerformanceReviewsProps) 
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                   <div>
                     <h4 className="font-semibold">{review.review_period}</h4>
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Calendar className="h-4 w-4" />
-                      <span>{format(new Date(review.review_date), "MMMM d, yyyy")}</span>
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-sm text-muted-foreground">
+                      <Calendar className="h-4 w-4" aria-hidden="true" />
+                      <span>{format(new Date(review.review_date), "MMM d, yyyy")}</span>
                       {review.reviewer && (
                         <>
                           <span>•</span>
@@ -142,16 +137,16 @@ export function MyPerformanceReviews({ employeeId }: MyPerformanceReviewsProps) 
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Badge variant="outline" className={statusStyles[review.status] || ""}>
+                    <Badge variant="outline" className={statusBadgeClass(review.status)}>
                       {review.status === "acknowledged" && <CheckCircle className="mr-1 h-3 w-3" />}
-                      {review.status}
+                      {formatStatus(review.status)}
                     </Badge>
                   </div>
                 </div>
 
                 {review.overall_rating && (
                   <div className="space-y-1">
-                    <p className="text-sm font-medium">Overall Rating</p>
+                    <p className="text-sm font-medium">Overall rating</p>
                     {renderStars(review.overall_rating)}
                   </div>
                 )}
@@ -159,7 +154,7 @@ export function MyPerformanceReviews({ employeeId }: MyPerformanceReviewsProps) 
                 {review.strengths && (
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
-                      <TrendingUp className="h-4 w-4 text-emerald-500" />
+                      <TrendingUp className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
                       <p className="text-sm font-medium">Strengths</p>
                     </div>
                     <p className="text-sm text-muted-foreground pl-6">{review.strengths}</p>
@@ -169,8 +164,8 @@ export function MyPerformanceReviews({ employeeId }: MyPerformanceReviewsProps) 
                 {review.areas_for_improvement && (
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
-                      <AlertTriangle className="h-4 w-4 text-amber-500" />
-                      <p className="text-sm font-medium">Areas for Improvement</p>
+                      <AlertTriangle className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+                      <p className="text-sm font-medium">Areas for improvement</p>
                     </div>
                     <p className="text-sm text-muted-foreground pl-6">{review.areas_for_improvement}</p>
                   </div>
@@ -179,8 +174,8 @@ export function MyPerformanceReviews({ employeeId }: MyPerformanceReviewsProps) 
                 {review.comments && (
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
-                      <MessageSquare className="h-4 w-4 text-muted-foreground" />
-                      <p className="text-sm font-medium">Additional Comments</p>
+                      <MessageSquare className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+                      <p className="text-sm font-medium">Additional comments</p>
                     </div>
                     <p className="text-sm text-muted-foreground pl-6">{review.comments}</p>
                   </div>

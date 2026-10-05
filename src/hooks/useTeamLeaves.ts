@@ -1,3 +1,4 @@
+import { format } from "date-fns";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -64,7 +65,8 @@ export function useTeamLeaves(month: Date) {
         `)
         .eq("status", "approved")
         .in("employee_id", reportIds)
-        .or(`start_date.lte.${endOfMonth.toISOString().split("T")[0]},end_date.gte.${startOfMonth.toISOString().split("T")[0]}`)
+        .lte("start_date", format(endOfMonth, "yyyy-MM-dd"))
+        .gte("end_date", format(startOfMonth, "yyyy-MM-dd"))
         .order("start_date", { ascending: true });
 
       if (error) throw error;

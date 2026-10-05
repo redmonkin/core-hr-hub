@@ -137,12 +137,12 @@ export function UserPermissionsDialog({
 
   return (
     <Dialog open={open} onOpenChange={(o) => !saveMutation.isPending && onOpenChange(o)}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+      <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>Module access</DialogTitle>
           <DialogDescription>
             Extra access for {displayName}. Direct grants are added on top of what their role
-            {nonAdminRoles.length > 1 ? "s" : ""} already give
+            {nonAdminRoles.length > 1 ? "s already give" : " already gives"}
             {nonAdminRoles.length > 0 ? ` (${nonAdminRoles.map((r) => roleNames[r]).join(", ")})` : ""}; they never
             take access away.
           </DialogDescription>
@@ -235,7 +235,7 @@ export function UserPermissionsDialog({
           </div>
         )}
 
-        <DialogFooter className="gap-2 sm:gap-0">
+        <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saveMutation.isPending}>
             {isAdminUser ? "Close" : "Cancel"}
           </Button>

@@ -26,6 +26,7 @@ interface DateRangeExportDialogProps {
   onExportCSV: (startDate: Date | undefined, endDate: Date | undefined) => void;
   onExportPDF: (startDate: Date | undefined, endDate: Date | undefined) => void;
   disabled?: boolean;
+  triggerClassName?: string;
 }
 
 export function DateRangeExportDialog({
@@ -34,6 +35,7 @@ export function DateRangeExportDialog({
   onExportCSV,
   onExportPDF,
   disabled,
+  triggerClassName,
 }: DateRangeExportDialogProps) {
   const [open, setOpen] = useState(false);
   const [startDate, setStartDate] = useState<Date | undefined>();
@@ -57,7 +59,7 @@ export function DateRangeExportDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" disabled={disabled}>
+        <Button variant="outline" disabled={disabled} className={triggerClassName}>
           <Download className="mr-2 h-4 w-4" />
           Export
         </Button>
@@ -68,13 +70,14 @@ export function DateRangeExportDialog({
           <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
         
-        <div className="space-y-4 py-4">
-          <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-4">
+          <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label>Start Date</Label>
+              <Label htmlFor="export-start-date">Start date</Label>
               <Popover>
                 <PopoverTrigger asChild>
                   <Button
+                    id="export-start-date"
                     variant="outline"
                     className={cn(
                       "w-full justify-start text-left font-normal",
@@ -82,7 +85,7 @@ export function DateRangeExportDialog({
                     )}
                   >
                     <CalendarIcon className="mr-2 h-4 w-4" />
-                    {startDate ? format(startDate, "PPP") : "Select date"}
+                    {startDate ? format(startDate, "MMM d, yyyy") : "Select date"}
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="start">
@@ -98,10 +101,11 @@ export function DateRangeExportDialog({
             </div>
             
             <div className="space-y-2">
-              <Label>End Date</Label>
+              <Label htmlFor="export-end-date">End date</Label>
               <Popover>
                 <PopoverTrigger asChild>
                   <Button
+                    id="export-end-date"
                     variant="outline"
                     className={cn(
                       "w-full justify-start text-left font-normal",
@@ -109,7 +113,7 @@ export function DateRangeExportDialog({
                     )}
                   >
                     <CalendarIcon className="mr-2 h-4 w-4" />
-                    {endDate ? format(endDate, "PPP") : "Select date"}
+                    {endDate ? format(endDate, "MMM d, yyyy") : "Select date"}
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="start">
@@ -134,12 +138,12 @@ export function DateRangeExportDialog({
           
           <p className="text-sm text-muted-foreground">
             {startDate || endDate 
-              ? `Exporting data ${startDate ? `from ${format(startDate, "PP")}` : ""} ${endDate ? `to ${format(endDate, "PP")}` : ""}`
+              ? `Exporting data${startDate ? ` from ${format(startDate, "MMM d, yyyy")}` : ""}${endDate ? ` to ${format(endDate, "MMM d, yyyy")}` : ""}`
               : "Leave dates empty to export all data"}
           </p>
         </div>
 
-        <DialogFooter className="flex gap-2 sm:gap-0">
+        <DialogFooter>
           <Button variant="outline" onClick={handleExportCSV}>
             <FileSpreadsheet className="mr-2 h-4 w-4" />
             Export CSV

@@ -1,10 +1,11 @@
-import { ReactNode, useState } from "react";
+import { ReactNode, useEffect, useState } from "react";
 import { PWAInstallBanner } from "@/components/layout/PWAInstallBanner";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { Loader2 } from "lucide-react";
 import { usePermissions } from "@/hooks/usePermissions";
+import { useEmployeeStatus } from "@/hooks/useEmployeeStatus";
 import { AppModule, Permissions, canAccessReports, canAccessSettings, hasModuleAccess } from "@/lib/permissions";
 import { useCompanyBranding } from "@/hooks/useCompanyBranding";
 import {
@@ -88,7 +89,35 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const { data: versionData } = useVersionCheck();
   const { data: branding } = useCompanyBranding();
 
-  const filteredNavItems = navItems.filter(item => !item.visible || item.visible(permissions));
+  const { data: employeeStatus } = useEmployeeStatus();
+  // Invited people who aren't linked to an employee record yet and have no module
+  // access can only use the dashboard (where they finish onboarding).
+  const isPendingInvitee = employeeStatus?.isEmployee === false && !permissions.hasAnyModuleAccess;
+  const filteredNavItems = isPendingInvitee
+    ? navItems.filter((item) => item.href === "/dashboard")
+    : navItems.filter((item) => !item.visible || item.visible(permissions));
+
+  // Close the mobile menu whenever the page changes, however that happens
+  // (menu link, back/forward, a link in the page, a redirect).
+  useEffect(() => {
+    setSidebarOpen(false);
+  }, [location.key]);
+
+  // While the mobile menu is open: Escape closes it and the page behind
+  // doesn't scroll.
+  useEffect(() => {
+    if (!sidebarOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setSidebarOpen(false);
+    };
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [sidebarOpen]);
   
   // For auto-updating environments, show the latest version from GitHub
   // For self-hosted: if there's no update (up to date), show the latest from GitHub
@@ -124,14 +153,14 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       {/* Sidebar */}
       <aside
         className={cn(
-          "fixed left-0 top-0 z-50 h-full w-72 transform bg-card shadow-xl transition-transform duration-300 ease-in-out lg:translate-x-0",
-          sidebarOpen ? "translate-x-0" : "-translate-x-full"
+          "fixed left-0 top-0 z-50 h-full w-72 transform border-r border-border bg-card transition-transform duration-300 ease-in-out lg:translate-x-0",
+          sidebarOpen ? "translate-x-0 shadow-xl" : "-translate-x-full"
         )}
       >
         <div className="flex h-full flex-col">
           {/* Logo */}
           <div className="flex h-20 items-center justify-between border-b border-border px-6">
-            <Link to="/dashboard" className="flex items-center gap-3">
+            <Link to="/dashboard" className="flex items-center gap-3" onClick={() => setSidebarOpen(false)}>
               <img src={branding?.iconUrl || hrHubLogo} alt="Peoplo" className="h-10 w-auto" />
               <span className="text-xl font-bold text-foreground">Peoplo</span>
             </Link>
@@ -140,6 +169,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               size="icon"
               className="lg:hidden"
               onClick={() => setSidebarOpen(false)}
+              aria-label="Close menu"
             >
               <X className="h-5 w-5" />
             </Button>
@@ -210,15 +240,17 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       </aside>
 
       {/* Main content */}
-      <div className="lg:pl-72">
+      <div className="min-w-0 overflow-x-clip lg:pl-72">
         {/* Header */}
-        <header className="sticky top-0 z-30 flex h-20 items-center justify-between border-b border-border bg-card/80 px-4 backdrop-blur-lg lg:px-8">
+        <header className="sticky top-0 z-30 flex h-20 items-center justify-between border-b border-border bg-card/95 px-4 backdrop-blur-lg lg:px-8">
           <div className="flex items-center gap-4">
             <Button
               variant="ghost"
               size="icon"
               className="lg:hidden"
               onClick={() => setSidebarOpen(true)}
+              aria-label="Open menu"
+              aria-expanded={sidebarOpen}
             >
               <Menu className="h-5 w-5" />
             </Button>
@@ -243,16 +275,16 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
             {/* Settings - only for people who can manage something there */}
             {showSettings && (
               <Button variant="ghost" size="icon" asChild>
-                <Link to="/settings">
+                <Link to="/settings" aria-label="Settings">
                   <Settings className="h-5 w-5" />
                 </Link>
               </Button>
             )}
 
             {/* User menu */}
-            <DropdownMenu>
+            <DropdownMenu modal={false}>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="flex items-center gap-2 pl-2 pr-3">
+                <Button variant="ghost" className="flex items-center gap-2 pl-2 pr-3" aria-label="Account menu">
                   <Avatar className="h-8 w-8">
                     <AvatarImage src={user?.user_metadata?.avatar_url} />
                     <AvatarFallback>{getUserInitials()}</AvatarFallback>

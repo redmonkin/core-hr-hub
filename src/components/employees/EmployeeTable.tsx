@@ -32,6 +32,7 @@ import {
 } from "lucide-react";
 import { SortableTableHead } from "@/components/ui/sortable-table-head";
 import { SortDirection } from "@/hooks/useSorting";
+import { statusBadgeClass, formatStatus } from "@/lib/statusStyles";
 
 export interface Employee {
   id: string;
@@ -62,13 +63,6 @@ interface EmployeeTableProps {
   onSelectionChange?: (ids: string[]) => void;
   onBulkAction?: (action: string, ids: string[]) => void;
 }
-
-const statusStyles = {
-  active: "bg-emerald-500/10 text-emerald-600 border-emerald-500/20",
-  inactive: "bg-muted text-muted-foreground border-border",
-  onboarding: "bg-primary/10 text-primary border-primary/20",
-  offboarded: "bg-destructive/10 text-destructive border-destructive/20",
-};
 
 export function EmployeeTable({ 
   employees, 
@@ -109,44 +103,81 @@ export function EmployeeTable({
 
   const showBulkActions = canManage && onSelectionChange && onBulkAction;
 
+  const initials = (name: string) =>
+    name.split(" ").filter(Boolean).map((n) => n[0]).join("").slice(0, 2).toUpperCase();
+
+  const renderRowMenu = (employee: Employee) => (
+    <DropdownMenu modal={false}>
+      <DropdownMenuTrigger asChild>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-10 w-10 sm:h-8 sm:w-8"
+          aria-label={`Actions for ${employee.name}`}
+          title="Actions"
+        >
+          <MoreHorizontal className="h-4 w-4" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuItem onClick={() => onView?.(employee)}>
+          <Eye className="mr-2 h-4 w-4" />
+          View profile
+        </DropdownMenuItem>
+        {canManage && (
+          <>
+            <DropdownMenuItem onClick={() => onEdit?.(employee)}>
+              <Edit className="mr-2 h-4 w-4" />
+              Edit
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => onManageDocuments?.(employee)}>
+              <FileText className="mr-2 h-4 w-4" />
+              Documents
+            </DropdownMenuItem>
+          </>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+
   return (
     <div className="space-y-4">
       {/* Bulk Actions Bar */}
       {showBulkActions && selectedIds.length > 0 && (
-        <div className="flex items-center justify-between rounded-lg border border-primary/20 bg-primary/5 p-3">
-          <span className="text-sm font-medium">
-            {selectedIds.length} employee{selectedIds.length > 1 ? 's' : ''} selected
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-primary/20 bg-primary/5 p-3">
+          <span className="whitespace-nowrap text-sm font-medium" aria-live="polite">
+            {selectedIds.length}<span className="hidden sm:inline">&nbsp;employee{selectedIds.length > 1 ? 's' : ''}</span>&nbsp;selected
           </span>
           <div className="flex items-center gap-2">
-            <DropdownMenu>
+            <DropdownMenu modal={false}>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm">
-                  Bulk Actions
+                  Bulk actions
                   <ChevronDown className="ml-2 h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 <DropdownMenuItem onClick={() => onBulkAction?.('export', selectedIds)}>
                   <Download className="mr-2 h-4 w-4" />
-                  Export Selected
+                  Export selected
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => onBulkAction?.('email', selectedIds)}>
                   <Mail className="mr-2 h-4 w-4" />
-                  Send Email
+                  Copy emails
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => onBulkAction?.('assign-manager', selectedIds)}>
                   <UserCog className="mr-2 h-4 w-4" />
-                  Assign Manager
+                  Assign manager
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => onBulkAction?.('activate', selectedIds)}>
                   <UserCheck className="mr-2 h-4 w-4" />
-                  Set as Active
+                  Set as active
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => onBulkAction?.('deactivate', selectedIds)}>
                   <UserX className="mr-2 h-4 w-4" />
-                  Set as Inactive
+                  Set as inactive
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem 
@@ -154,7 +185,7 @@ export function EmployeeTable({
                   className="text-destructive focus:text-destructive"
                 >
                   <Trash2 className="mr-2 h-4 w-4" />
-                  Delete Selected
+                  Delete selected
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -162,25 +193,24 @@ export function EmployeeTable({
               variant="ghost" 
               size="sm"
               onClick={() => onSelectionChange?.([])}
+              aria-label="Clear selection"
             >
-              Clear Selection
+              Clear<span className="hidden sm:inline">&nbsp;selection</span>
             </Button>
           </div>
         </div>
       )}
 
-      <div className="rounded-xl border border-border bg-card">
+      <div className="hidden rounded-xl border border-border bg-card sm:block">
         <Table>
           <TableHeader>
             <TableRow>
               {showBulkActions && (
                 <TableHead className="w-[50px]">
-                  <Checkbox 
-                    checked={allSelected}
-                    onCheckedChange={handleSelectAll}
-                    aria-label="Select all"
-                    className={someSelected ? "data-[state=checked]:bg-primary" : ""}
-                    {...(someSelected ? { "data-state": "checked" } : {})}
+                  <Checkbox
+                    checked={allSelected ? true : someSelected ? "indeterminate" : false}
+                    onCheckedChange={(checked) => handleSelectAll(checked === true)}
+                    aria-label="Select all employees on this page"
                   />
                 </TableHead>
               )}
@@ -191,7 +221,7 @@ export function EmployeeTable({
                     currentSortKey={sortKey ?? null}
                     direction={sortKey === "employeeCode" ? sortDirection ?? null : null}
                     onSort={handleSort}
-                    className="w-[100px]"
+                    className="w-[110px] whitespace-nowrap"
                   >
                     Emp. No.
                   </SortableTableHead>
@@ -239,7 +269,7 @@ export function EmployeeTable({
                 </>
               ) : (
                 <>
-                  <TableHead className="w-[100px]">Emp. No.</TableHead>
+                  <TableHead className="w-[110px] whitespace-nowrap">Emp. No.</TableHead>
                   <TableHead className="w-[260px]">Employee</TableHead>
                   <TableHead>Department</TableHead>
                   <TableHead>Designation</TableHead>
@@ -252,8 +282,9 @@ export function EmployeeTable({
           </TableHeader>
           <TableBody>
             {employees.map((employee) => (
-              <TableRow 
+              <TableRow
                 key={employee.id}
+                data-employee-row
                 className={selectedIds.includes(employee.id) ? "bg-primary/5" : ""}
               >
                 {showBulkActions && (
@@ -273,7 +304,7 @@ export function EmployeeTable({
                     <Avatar className="h-10 w-10">
                       <AvatarImage src={employee.avatar} />
                       <AvatarFallback>
-                        {employee.name.split(" ").map((n) => n[0]).join("")}
+                        {initials(employee.name)}
                       </AvatarFallback>
                     </Avatar>
                     <div>
@@ -284,43 +315,78 @@ export function EmployeeTable({
                 </TableCell>
                 <TableCell className="text-muted-foreground">{employee.department}</TableCell>
                 <TableCell className="text-muted-foreground">{employee.designation}</TableCell>
-                <TableCell className="text-muted-foreground">{employee.joinDate}</TableCell>
+                <TableCell className="whitespace-nowrap text-muted-foreground">{employee.joinDate}</TableCell>
                 <TableCell>
-                  <Badge variant="outline" className={statusStyles[employee.status]}>
-                    {employee.status}
+                  <Badge variant="outline" className={statusBadgeClass(employee.status)}>
+                    {formatStatus(employee.status)}
                   </Badge>
                 </TableCell>
                 <TableCell className="text-right">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-8 w-8">
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => onView?.(employee)}>
-                        <Eye className="mr-2 h-4 w-4" />
-                        View Profile
-                      </DropdownMenuItem>
-                      {canManage && (
-                        <>
-                          <DropdownMenuItem onClick={() => onEdit?.(employee)}>
-                            <Edit className="mr-2 h-4 w-4" />
-                            Edit
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => onManageDocuments?.(employee)}>
-                            <FileText className="mr-2 h-4 w-4" />
-                            Documents
-                          </DropdownMenuItem>
-                        </>
-                      )}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                  {renderRowMenu(employee)}
                 </TableCell>
               </TableRow>
             ))}
           </TableBody>
         </Table>
+      </div>
+
+      {/* Mobile card list */}
+      <div className="space-y-3 sm:hidden">
+        {showBulkActions && (
+          <label className="flex items-center gap-3 px-1 text-sm text-muted-foreground">
+            <Checkbox
+              checked={allSelected ? true : someSelected ? "indeterminate" : false}
+              onCheckedChange={(checked) => handleSelectAll(checked === true)}
+              aria-label="Select all employees on this page"
+            />
+            Select all on this page
+          </label>
+        )}
+        {employees.map((employee) => {
+          const selected = selectedIds.includes(employee.id);
+          return (
+            <div
+              key={employee.id}
+              data-employee-row
+              className={`rounded-xl border bg-card p-3 ${selected ? "border-primary/40 bg-primary/5" : "border-border"}`}
+            >
+              <div className="flex items-start gap-3">
+                {showBulkActions && (
+                  <Checkbox
+                    className="mt-3"
+                    checked={selected}
+                    onCheckedChange={(checked) => handleSelectOne(employee.id, checked === true)}
+                    aria-label={`Select ${employee.name}`}
+                  />
+                )}
+                <Avatar className="h-10 w-10 shrink-0">
+                  <AvatarImage src={employee.avatar} />
+                  <AvatarFallback>{initials(employee.name)}</AvatarFallback>
+                </Avatar>
+                <button
+                  type="button"
+                  className="min-w-0 flex-1 text-left"
+                  onClick={() => onView?.(employee)}
+                >
+                  <p className="truncate font-medium text-foreground">{employee.name}</p>
+                  <p className="truncate text-sm text-muted-foreground" title={employee.email}>
+                    {employee.email}
+                  </p>
+                </button>
+                {renderRowMenu(employee)}
+              </div>
+              <div className={`mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground ${showBulkActions ? "pl-[4.75rem]" : "pl-[3.25rem]"}`}>
+                <Badge variant="outline" className={statusBadgeClass(employee.status)}>
+                  {formatStatus(employee.status)}
+                </Badge>
+                <span className="font-mono text-xs">{employee.employeeCode}</span>
+                {employee.designation && <span>{employee.designation}</span>}
+                {employee.department && <span>{employee.department}</span>}
+                {employee.joinDate && <span>Joined {employee.joinDate}</span>}
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

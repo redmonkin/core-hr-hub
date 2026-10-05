@@ -48,7 +48,7 @@ export default defineConfig(({ mode }) => ({
         name: "Peoplo - HR Management System",
         short_name: "Peoplo",
         description: "Comprehensive HR management system for employee onboarding, leave tracking, asset management, and payroll processing.",
-        theme_color: "#0284C5",
+        theme_color: "#0369A1",
         background_color: "#edf3f7",
         display: "standalone",
         orientation: "portrait-primary",

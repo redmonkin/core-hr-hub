@@ -13,6 +13,7 @@ import {
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -313,15 +314,15 @@ const Employees = () => {
         {/* Header */}
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h2 className="text-2xl font-bold text-foreground">
-              {canViewEmployees ? "Employee Directory" : "Team Directory"}
-            </h2>
+            <h1 className="text-2xl font-bold text-foreground sm:text-3xl">
+              {canViewEmployees ? "Employee directory" : "Team directory"}
+            </h1>
             <p className="text-muted-foreground">
               {canManageEmployees ? "Manage and view all employees" : canViewEmployees ? "View all employees" : "View your colleagues"}
             </p>
           </div>
           {canViewEmployees && (
-            <div className="flex gap-3">
+            <div className="flex flex-wrap gap-3">
               <DateRangeExportDialog
                 title="Export Employee Directory"
                 description="Export employee directory with optional date range filter based on join date."
@@ -332,7 +333,7 @@ const Employees = () => {
               <Link to="/onboarding">
                 <Button>
                   <UserPlus className="mr-2 h-4 w-4" />
-                  Add Employee
+                  Add employee
                 </Button>
               </Link>
               )}
@@ -343,20 +344,21 @@ const Employees = () => {
         {/* Filters */}
         <div className="flex flex-col gap-4 sm:flex-row">
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
             <Input
               placeholder="Search employees..."
+              aria-label="Search employees by name or email"
               className="pl-10"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
           <Select value={departmentFilter} onValueChange={setDepartmentFilter}>
-            <SelectTrigger className="w-full sm:w-[180px]">
+            <SelectTrigger className="w-full sm:w-[180px]" aria-label="Filter by department">
               <SelectValue placeholder="Department" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Departments</SelectItem>
+              <SelectItem value="all">All departments</SelectItem>
               {departments.map((dept) => (
                 <SelectItem key={dept.id} value={dept.name}>
                   {dept.name}
@@ -377,7 +379,7 @@ const Employees = () => {
           <Card>
             <CardContent className="flex flex-col items-center justify-center py-12">
               <Users className="mb-4 h-12 w-12 text-muted-foreground" />
-              <h3 className="text-lg font-semibold text-foreground">No Employees Found</h3>
+              <h3 className="text-lg font-semibold text-foreground">No employees found</h3>
               <p className="text-muted-foreground">
                 {employees.length === 0
                   ? canAddEmployees
@@ -389,7 +391,7 @@ const Employees = () => {
                 <Link to="/onboarding" className="mt-4">
                   <Button>
                     <UserPlus className="mr-2 h-4 w-4" />
-                    Add Employee
+                    Add employee
                   </Button>
                 </Link>
               )}
@@ -413,34 +415,37 @@ const Employees = () => {
             
             {/* Pagination Controls */}
             {totalPages > 1 && (
-              <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4">
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <span>
-                    Showing {((currentPage - 1) * pageSize) + 1} to {Math.min(currentPage * pageSize, totalItems)} of {totalItems} employees
+              <div className="flex flex-col gap-3 pt-2 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-center justify-between gap-3 text-sm text-muted-foreground sm:justify-start">
+                  <span className="whitespace-nowrap">
+                    {((currentPage - 1) * pageSize) + 1}–{Math.min(currentPage * pageSize, totalItems)} of {totalItems} employees
                   </span>
-                  <Select
-                    value={pageSize.toString()}
-                    onValueChange={(value) => setPageSize(Number(value))}
-                  >
-                    <SelectTrigger className="w-[70px] h-8">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="5">5</SelectItem>
-                      <SelectItem value="10">10</SelectItem>
-                      <SelectItem value="20">20</SelectItem>
-                      <SelectItem value="50">50</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <span>per page</span>
+                  <div className="flex items-center gap-2">
+                    <span className="whitespace-nowrap" id="employees-page-size-label">Rows per page</span>
+                    <Select
+                      value={pageSize.toString()}
+                      onValueChange={(value) => setPageSize(Number(value))}
+                    >
+                      <SelectTrigger className="h-8 w-[70px]" aria-labelledby="employees-page-size-label">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="5">5</SelectItem>
+                        <SelectItem value="10">10</SelectItem>
+                        <SelectItem value="20">20</SelectItem>
+                        <SelectItem value="50">50</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
-                
-                <Pagination>
+
+                <Pagination className="mx-0 w-auto justify-center sm:justify-end">
                   <PaginationContent>
                     <PaginationItem>
                       <PaginationPrevious 
                         onClick={() => canGoPrevious && goToPreviousPage()}
-                        className={!canGoPrevious ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                        aria-disabled={!canGoPrevious}
+                        className={!canGoPrevious ? "pointer-events-none text-muted-foreground" : "cursor-pointer"}
                       />
                     </PaginationItem>
                     
@@ -471,7 +476,8 @@ const Employees = () => {
                     <PaginationItem>
                       <PaginationNext 
                         onClick={() => canGoNext && goToNextPage()}
-                        className={!canGoNext ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                        aria-disabled={!canGoNext}
+                        className={!canGoNext ? "pointer-events-none text-muted-foreground" : "cursor-pointer"}
                       />
                     </PaginationItem>
                   </PaginationContent>
@@ -497,12 +503,13 @@ const Employees = () => {
 
         {/* Documents Dialog */}
         <Dialog open={!!documentsEmployee} onOpenChange={(open) => !open && setDocumentsEmployee(null)}>
-          <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+          <DialogContent className="max-w-3xl">
             <DialogHeader>
-              <DialogTitle>Documents - {documentsEmployee?.name}</DialogTitle>
+              <DialogTitle className="break-words">Documents · {documentsEmployee?.name}</DialogTitle>
+              <DialogDescription>Upload, view and manage this employee's documents.</DialogDescription>
             </DialogHeader>
             {documentsEmployee && (
-              <EmployeeDocuments employeeId={documentsEmployee.id} />
+              <EmployeeDocuments employeeId={documentsEmployee.id} embedded />
             )}
           </DialogContent>
         </Dialog>

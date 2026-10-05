@@ -79,7 +79,7 @@ export function UpcomingHolidays() {
                     {formatHolidayDate(holiday.event_date)}
                   </p>
                 </div>
-                <Badge variant="outline" className="text-xs shrink-0 border-green-500/50 text-green-600">
+                <Badge variant="outline" className="text-xs shrink-0 border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
                   Holiday
                 </Badge>
               </div>

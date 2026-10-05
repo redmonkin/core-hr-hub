@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { format } from "date-fns";
+import { format, parseISO } from "date-fns";
 import { toast } from "sonner";
 
 export interface LeaveRequest {
@@ -14,6 +14,9 @@ export interface LeaveRequest {
   type: string;
   startDate: string;
   endDate: string;
+  /** Raw yyyy-MM-dd values, for sorting/filtering */
+  startDateISO: string;
+  endDateISO: string;
   days: number;
   reason: string;
   status: "pending" | "approved" | "rejected" | "cancelled";
@@ -81,8 +84,10 @@ export function useLeaveRequests() {
             department: emp?.department?.name || "Unassigned",
           },
           type: req.leave_type?.name || "Unknown",
-          startDate: format(new Date(req.start_date), "MMM d, yyyy"),
-          endDate: format(new Date(req.end_date), "MMM d, yyyy"),
+          startDate: format(parseISO(req.start_date), "MMM d, yyyy"),
+          endDate: format(parseISO(req.end_date), "MMM d, yyyy"),
+          startDateISO: req.start_date,
+          endDateISO: req.end_date,
           days: req.days_count,
           reason: req.reason || "",
           status: req.status as LeaveRequest["status"],

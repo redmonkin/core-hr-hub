@@ -14,6 +14,8 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { WorkingDaysPicker } from "@/components/employees/WorkingDaysPicker";
+import { statusBadgeClass, formatStatus } from "@/lib/statusStyles";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Switch } from "@/components/ui/switch";
 import {
@@ -80,7 +82,7 @@ const useOnboardingEmployees = () => {
           working_hours_start,
           working_hours_end,
           working_days,
-          departments (name)
+          departments!employees_department_id_fkey (name)
         `)
         .eq('status', 'onboarding');
       
@@ -227,16 +229,6 @@ interface FormData {
   workingDays: number[];
   sourceRequestDocuments: SourceRequestDocuments | null;
 }
-
-const WEEKDAYS = [
-  { value: 0, label: 'Sun' },
-  { value: 1, label: 'Mon' },
-  { value: 2, label: 'Tue' },
-  { value: 3, label: 'Wed' },
-  { value: 4, label: 'Thu' },
-  { value: 5, label: 'Fri' },
-  { value: 6, label: 'Sat' },
-];
 
 const initialFormData: FormData = {
   employeeCode: '',
@@ -787,18 +779,79 @@ const Onboarding = () => {
   };
 
   // Request handling functions
-  const getRequestStatusBadge = (status: string) => {
-    switch (status) {
-      case "pending":
-        return <Badge variant="secondary"><Clock className="mr-1 h-3 w-3" />Pending</Badge>;
-      case "approved":
-        return <Badge className="bg-green-100 text-green-800 hover:bg-green-100"><CheckCircle2 className="mr-1 h-3 w-3" />Approved</Badge>;
-      case "rejected":
-        return <Badge variant="destructive"><XCircle className="mr-1 h-3 w-3" />Rejected</Badge>;
-      default:
-        return <Badge variant="outline">{status}</Badge>;
-    }
+  const renderRequestActions = (request: OnboardingRequest, compact: boolean) => {
+    const name = request.full_name || request.email;
+    return (
+      <>
+        <Button
+          variant="outline"
+          size="sm"
+          className={compact ? "h-9 w-9 p-0" : "h-10 flex-1"}
+          onClick={() => setSelectedRequest(request)}
+          aria-label={`View request from ${name}`}
+          title="View details"
+        >
+          <Eye className="h-4 w-4" aria-hidden="true" />
+          {!compact && <span className="ml-2">View</span>}
+        </Button>
+        {canManage && request.status === "pending" && (
+          <>
+            <Button
+              variant="outline"
+              size="sm"
+              className={`text-emerald-700 hover:bg-emerald-50 hover:text-emerald-800 ${compact ? "h-9 w-9 p-0" : "h-10 flex-1"}`}
+              onClick={() => handleApproveRequest(request)}
+              disabled={approveRequest.isPending}
+              aria-label={`Approve request from ${name}`}
+              title="Approve"
+            >
+              <Check className="h-4 w-4" aria-hidden="true" />
+              {!compact && <span className="ml-2">Approve</span>}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className={`text-red-700 hover:bg-red-50 hover:text-red-800 ${compact ? "h-9 w-9 p-0" : "h-10 flex-1"}`}
+              onClick={() => handleRejectRequest(request)}
+              disabled={rejectRequest.isPending}
+              aria-label={`Reject request from ${name}`}
+              title="Reject"
+            >
+              <X className="h-4 w-4" aria-hidden="true" />
+              {!compact && <span className="ml-2">Reject</span>}
+            </Button>
+          </>
+        )}
+        {canManage && request.status === "approved" && !hasEmployeeRecord(request.user_id) && (
+          <Button
+            size="sm"
+            className={compact ? "" : "h-10 flex-1"}
+            onClick={() => handleCreateEmployeeFromRequest(request)}
+          >
+            <UserPlus className="mr-1 h-4 w-4" aria-hidden="true" />
+            Create employee
+          </Button>
+        )}
+        {request.status === "approved" && hasEmployeeRecord(request.user_id) && (
+          <Badge variant="outline" className={`text-xs ${statusBadgeClass("completed")}`}>
+            <CheckCircle2 className="mr-1 h-3 w-3" aria-hidden="true" />
+            Employee created
+          </Badge>
+        )}
+      </>
+    );
   };
+
+  const getRequestStatusBadge = (status: string) => {
+    const Icon = status === "pending" ? Clock : status === "approved" ? CheckCircle2 : status === "rejected" ? XCircle : null;
+    return (
+      <Badge variant="outline" className={`whitespace-nowrap ${statusBadgeClass(status)}`}>
+        {Icon && <Icon className="mr-1 h-3 w-3" aria-hidden="true" />}
+        {formatStatus(status)}
+      </Badge>
+    );
+  };
+
 
   const getInitials = (name: string) => {
     return name
@@ -929,7 +982,7 @@ const Onboarding = () => {
       <DashboardLayout>
         <div className="flex min-h-[400px] flex-col items-center justify-center space-y-4">
           <ShieldAlert className="h-16 w-16 text-destructive" />
-          <h2 className="text-2xl font-bold text-foreground">Access Denied</h2>
+          <h1 className="text-2xl font-bold text-foreground">Access denied</h1>
           <p className="text-muted-foreground">You don't have permission to access this page.</p>
           <p className="text-sm text-muted-foreground">Ask an administrator for access to onboarding.</p>
         </div>
@@ -1012,6 +1065,8 @@ const Onboarding = () => {
   // People with onboarding:view only can't create employees, so no Add tab
   const availableTabs = canManage ? ['add', 'pending', 'requests', 'invitations'] : ['pending', 'requests', 'invitations'];
   const currentTab = availableTabs.includes(activeTab) ? activeTab : availableTabs[0];
+  const awaitingEmployeeRequests = approvedRequests.filter(r => !hasEmployeeRecord(r.user_id));
+  const pendingOnboardingCount = onboardingEmployees.length + awaitingEmployeeRequests.length;
 
   return (
     <DashboardLayout>
@@ -1022,33 +1077,36 @@ const Onboarding = () => {
             invitations or approve requests.
           </p>
         )}
+        <div>
+          <h1 className="text-2xl font-bold text-foreground sm:text-3xl">Onboarding</h1>
+          <p className="text-muted-foreground">
+            Add new employees, review join requests and track invitations
+          </p>
+        </div>
         <Tabs value={currentTab} onValueChange={setActiveTab}>
-          <TabsList className={`grid h-auto w-full grid-cols-2 gap-1 sm:h-10 sm:max-w-2xl ${canManage ? 'sm:grid-cols-4' : 'sm:grid-cols-3'}`}>
+          <TabsList className="flex w-full justify-start sm:w-auto sm:max-w-2xl">
             {canManage && (
-              <TabsTrigger value="add" className="w-full justify-center">
-                <span className="hidden sm:inline">Add Employee</span>
-                <span className="sm:hidden">Add</span>
+              <TabsTrigger value="add" className="shrink-0 px-2 sm:px-3">
+                Add<span className="hidden sm:inline">&nbsp;employee</span>
               </TabsTrigger>
             )}
-            <TabsTrigger value="pending" className="w-full justify-center">
-              <span className="hidden sm:inline">Pending</span>
-              <span className="sm:hidden">Pending</span>
-              {(onboardingEmployees.length + approvedRequests.filter(r => !hasEmployeeRecord(r.user_id)).length) > 0 && (
-                <Badge variant="secondary" className="ml-2">
-                  {onboardingEmployees.length + approvedRequests.filter(r => !hasEmployeeRecord(r.user_id)).length}
-                </Badge>
+            <TabsTrigger value="pending" className="shrink-0 px-2 sm:px-3">
+              Pending
+              {pendingOnboardingCount > 0 && (
+                <span className="ml-1 rounded-full bg-primary/10 px-1.5 text-xs font-semibold tabular-nums text-primary" aria-label={`${pendingOnboardingCount} pending`}>
+                  {pendingOnboardingCount}
+                </span>
               )}
             </TabsTrigger>
-            <TabsTrigger value="requests" className="w-full justify-center">
-              <span className="hidden sm:inline">Requests</span>
-              <span className="sm:hidden">Requests</span>
+            <TabsTrigger value="requests" className="shrink-0 px-2 sm:px-3">
+              Requests
               {pendingRequests.length > 0 && (
-                <Badge variant="secondary" className="ml-2">
+                <span className="ml-1 rounded-full bg-primary/10 px-1.5 text-xs font-semibold tabular-nums text-primary" aria-label={`${pendingRequests.length} awaiting review`}>
                   {pendingRequests.length}
-                </Badge>
+                </span>
               )}
             </TabsTrigger>
-            <TabsTrigger value="invitations" className="w-full justify-center">
+            <TabsTrigger value="invitations" className="shrink-0 px-2 sm:px-3">
               Invitations
             </TabsTrigger>
           </TabsList>
@@ -1079,7 +1137,7 @@ const Onboarding = () => {
                         value={formData.linkedUserId}
                         onValueChange={handleUserSelect}
                       >
-                        <SelectTrigger>
+                        <SelectTrigger id="linkedUser">
                           <SelectValue placeholder={loadingUsers ? "Loading..." : "Select user account (optional)"} />
                         </SelectTrigger>
                         <SelectContent>
@@ -1220,7 +1278,7 @@ const Onboarding = () => {
                         value={formData.departmentId}
                         onValueChange={(value) => handleInputChange('departmentId', value)}
                       >
-                        <SelectTrigger>
+                        <SelectTrigger id="department">
                           <SelectValue placeholder={loadingDepartments ? "Loading..." : "Select department"} />
                         </SelectTrigger>
                         <SelectContent>
@@ -1265,7 +1323,7 @@ const Onboarding = () => {
                         value={formData.managerId}
                         onValueChange={(value) => handleInputChange('managerId', value)}
                       >
-                        <SelectTrigger>
+                        <SelectTrigger id="manager">
                           <SelectValue placeholder={loadingManagers ? "Loading..." : "Select manager"} />
                         </SelectTrigger>
                         <SelectContent>
@@ -1337,26 +1395,13 @@ const Onboarding = () => {
                         </div>
                       </div>
                       <div className="space-y-2">
-                        <Label>Working Days</Label>
-                        <div className="flex flex-wrap gap-2">
-                          {WEEKDAYS.map((day) => (
-                            <Button
-                              key={day.value}
-                              type="button"
-                              variant={formData.workingDays.includes(day.value) ? "default" : "outline"}
-                              size="sm"
-                              disabled={isSubmitting}
-                              onClick={() => {
-                                const newDays = formData.workingDays.includes(day.value)
-                                  ? formData.workingDays.filter(d => d !== day.value)
-                                  : [...formData.workingDays, day.value].sort((a, b) => a - b);
-                                setFormData(prev => ({ ...prev, workingDays: newDays }));
-                              }}
-                            >
-                              {day.label}
-                            </Button>
-                          ))}
-                        </div>
+                        <Label id="add-working-days-label">Working days</Label>
+                        <WorkingDaysPicker
+                          labelledBy="add-working-days-label"
+                          value={formData.workingDays}
+                          disabled={isSubmitting}
+                          onChange={(days) => setFormData(prev => ({ ...prev, workingDays: days }))}
+                        />
                         <p className="text-xs text-muted-foreground">
                           Select the days this employee will work
                         </p>
@@ -1414,7 +1459,8 @@ const Onboarding = () => {
                                   type="button"
                                   variant="ghost"
                                   size="icon"
-                                  className="absolute top-2 right-2 h-6 w-6"
+                                  className="absolute top-1 right-1 h-9 w-9"
+                                  aria-label={`Remove ${docType.label} file`}
                                   onClick={(e) => {
                                     e.preventDefault();
                                     e.stopPropagation();
@@ -1469,18 +1515,18 @@ const Onboarding = () => {
               {/* Approved requests awaiting employee creation */}
               {approvedRequests.filter(r => !hasEmployeeRecord(r.user_id)).length > 0 && (
                 <>
-                  <h3 className="text-sm font-medium text-muted-foreground">Approved Requests – Awaiting Employee Creation</h3>
+                  <h2 className="text-sm font-medium text-muted-foreground">Approved requests – awaiting employee creation</h2>
                   {approvedRequests.filter(r => !hasEmployeeRecord(r.user_id)).map((request) => (
                     <Card key={request.id}>
-                      <CardContent className="p-6">
+                      <CardContent className="p-4 sm:p-6">
                         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                          <div className="flex items-center gap-4">
-                            <Avatar className="h-12 w-12">
+                          <div className="flex min-w-0 items-center gap-4">
+                            <Avatar className="h-12 w-12 shrink-0">
                               <AvatarFallback>{getInitials(request.full_name)}</AvatarFallback>
                             </Avatar>
-                            <div>
+                            <div className="min-w-0">
                               <h3 className="font-semibold text-foreground">{request.full_name}</h3>
-                              <p className="text-sm text-muted-foreground">
+                              <p className="break-words text-sm text-muted-foreground">
                                 {request.email} · Approved on {format(new Date(request.reviewed_at || request.updated_at), "MMM d, yyyy")}
                               </p>
                               {request.message && (
@@ -1489,14 +1535,14 @@ const Onboarding = () => {
                             </div>
                           </div>
                           <div className="flex items-center gap-2 sm:gap-4 flex-wrap">
-                            <Badge variant="default" className="bg-primary/10 text-primary hover:bg-primary/10">Approved</Badge>
+                            <Badge variant="outline" className={statusBadgeClass("approved")}>Approved</Badge>
                             {canManage && (
                               <Button 
                                 size="sm"
                                 onClick={() => handleCreateEmployeeFromRequest(request)}
                               >
                                 <UserPlus className="mr-2 h-4 w-4" />
-                                Create Employee
+                                Create employee
                               </Button>
                             )}
                           </div>
@@ -1510,7 +1556,7 @@ const Onboarding = () => {
               {/* Existing onboarding employees */}
               {onboardingEmployees.length > 0 && (
                 <>
-                  <h3 className="text-sm font-medium text-muted-foreground">Employees in Onboarding</h3>
+                  <h2 className="text-sm font-medium text-muted-foreground">Employees in onboarding</h2>
                   {onboardingEmployees.map((employee) => {
                     const name = `${employee.first_name} ${employee.last_name}`;
                     const departmentName = employee.departments?.name || 'Unassigned';
@@ -1520,7 +1566,7 @@ const Onboarding = () => {
                     
                     return (
                       <Card key={employee.id}>
-                        <CardContent className="p-6">
+                        <CardContent className="p-4 sm:p-6">
                           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                             <div className="flex items-center gap-4">
                               <Avatar className="h-12 w-12">
@@ -1537,7 +1583,7 @@ const Onboarding = () => {
                               </div>
                             </div>
                             <div className="flex items-center gap-2 sm:gap-4 flex-wrap">
-                              <Badge variant="secondary">Onboarding</Badge>
+                              <Badge variant="outline" className={statusBadgeClass("onboarding")}>Onboarding</Badge>
                               {canManage && (
                               <Button 
                                 variant="ghost" 
@@ -1551,7 +1597,7 @@ const Onboarding = () => {
                                 ) : (
                                   <Send className="mr-2 h-4 w-4" />
                                 )}
-                                {resendingInvite === employee.id ? 'Sending...' : 'Resend Invite'}
+                                {resendingInvite === employee.id ? 'Sending…' : 'Resend invite'}
                               </Button>
                               )}
                               <Button 
@@ -1559,7 +1605,7 @@ const Onboarding = () => {
                                 size="sm"
                                 onClick={() => setSelectedEmployee(employee)}
                               >
-                                View Details
+                                View details
                               </Button>
                             </div>
                           </div>
@@ -1590,13 +1636,13 @@ const Onboarding = () => {
           {/* Requests Tab */}
           <TabsContent value="requests" className="mt-6">
             <Card>
-              <CardHeader>
-                <CardTitle>Join Requests</CardTitle>
+              <CardHeader className="p-4 sm:p-6">
+                <CardTitle>Join requests</CardTitle>
                 <CardDescription>
                   Review onboarding details submitted by invited users
                 </CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className="p-4 pt-0 sm:p-6 sm:pt-0">
                 {loadingRequests ? (
                   <div className="flex items-center justify-center py-12">
                     <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -1604,7 +1650,7 @@ const Onboarding = () => {
                 ) : requests.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-12 text-center">
                     <UserPlus className="mb-4 h-12 w-12 text-muted-foreground" />
-                    <h3 className="text-lg font-semibold text-foreground">No Requests</h3>
+                    <h3 className="text-lg font-semibold text-foreground">No requests</h3>
                     <p className="text-muted-foreground">
                       There are no onboarding requests at this time
                     </p>
@@ -1612,57 +1658,40 @@ const Onboarding = () => {
                 ) : (
                   <div className="space-y-4">
                     {/* Stats */}
-                    <div className="grid gap-4 sm:grid-cols-3 mb-6">
-                      <Card>
-                        <CardContent className="pt-4 pb-4">
-                          <div className="flex items-center justify-between">
+                    <div className="mb-6 grid grid-cols-3 gap-3 sm:gap-4">
+                      {[
+                        { label: "Pending", value: pendingRequests.length, icon: Clock, tone: "text-amber-600" },
+                        { label: "Approved", value: approvedRequests.length, icon: CheckCircle2, tone: "text-emerald-600" },
+                        { label: "Rejected", value: rejectedRequests.length, icon: XCircle, tone: "text-red-600" },
+                      ].map((stat) => (
+                        <div key={stat.label} className="rounded-lg border p-3 sm:p-4">
+                          <div className="flex items-start justify-between gap-2">
                             <div>
-                              <p className="text-2xl font-bold">{pendingRequests.length}</p>
-                              <p className="text-xs text-muted-foreground">Pending</p>
+                              <p className="text-2xl font-bold tabular-nums">{stat.value}</p>
+                              <p className="text-xs text-muted-foreground">{stat.label}</p>
                             </div>
-                            <Clock className="h-5 w-5 text-muted-foreground" />
+                            <stat.icon className={`hidden h-5 w-5 sm:block ${stat.tone}`} aria-hidden="true" />
                           </div>
-                        </CardContent>
-                      </Card>
-                      <Card>
-                        <CardContent className="pt-4 pb-4">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <p className="text-2xl font-bold">{approvedRequests.length}</p>
-                              <p className="text-xs text-muted-foreground">Approved</p>
-                            </div>
-                            <CheckCircle2 className="h-5 w-5 text-green-600" />
-                          </div>
-                        </CardContent>
-                      </Card>
-                      <Card>
-                        <CardContent className="pt-4 pb-4">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <p className="text-2xl font-bold">{rejectedRequests.length}</p>
-                              <p className="text-xs text-muted-foreground">Rejected</p>
-                            </div>
-                            <XCircle className="h-5 w-5 text-destructive" />
-                          </div>
-                        </CardContent>
-                      </Card>
+                        </div>
+                      ))}
                     </div>
 
-                    {/* Requests Table */}
+                    {/* Requests table (sm and up) */}
+                    <div className="hidden sm:block">
                     <Table>
                       <TableHeader>
                         <TableRow>
                           <TableHead>User</TableHead>
                           <TableHead>Email</TableHead>
                           <TableHead className="hidden md:table-cell">Message</TableHead>
-                          <TableHead className="hidden sm:table-cell">Submitted</TableHead>
+                          <TableHead>Submitted</TableHead>
                           <TableHead>Status</TableHead>
                           <TableHead className="text-right">Actions</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {requests.map((request) => (
-                          <TableRow key={request.id}>
+                          <TableRow key={request.id} data-request-row>
                             <TableCell>
                               <div className="flex items-center gap-3">
                                 <Avatar className="h-8 w-8">
@@ -1673,64 +1702,49 @@ const Onboarding = () => {
                             </TableCell>
                             <TableCell className="text-muted-foreground">{request.email}</TableCell>
                             <TableCell className="hidden md:table-cell max-w-[200px] truncate text-muted-foreground">
-                              {request.message || "-"}
+                              {request.message || "—"}
                             </TableCell>
-                            <TableCell className="hidden sm:table-cell text-muted-foreground">
+                            <TableCell className="whitespace-nowrap text-muted-foreground">
                               {format(new Date(request.created_at), "MMM d, yyyy")}
                             </TableCell>
                             <TableCell>{getRequestStatusBadge(request.status)}</TableCell>
                             <TableCell className="text-right">
                               <div className="flex items-center justify-end gap-2">
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => setSelectedRequest(request)}
-                                >
-                                  <Eye className="h-4 w-4" />
-                                </Button>
-                                {canManage && request.status === "pending" && (
-                                  <>
-                                    <Button
-                                      variant="outline"
-                                      size="sm"
-                                      className="text-green-600 hover:bg-green-50 hover:text-green-700"
-                                      onClick={() => handleApproveRequest(request)}
-                                      disabled={approveRequest.isPending}
-                                    >
-                                      <Check className="h-4 w-4" />
-                                    </Button>
-                                    <Button
-                                      variant="outline"
-                                      size="sm"
-                                      className="text-destructive hover:bg-destructive/10"
-                                      onClick={() => handleRejectRequest(request)}
-                                      disabled={rejectRequest.isPending}
-                                    >
-                                      <X className="h-4 w-4" />
-                                    </Button>
-                                  </>
-                                )}
-                                {canManage && request.status === "approved" && !hasEmployeeRecord(request.user_id) && (
-                                  <Button
-                                    size="sm"
-                                    onClick={() => handleCreateEmployeeFromRequest(request)}
-                                  >
-                                    <UserPlus className="mr-1 h-4 w-4" />
-                                    <span className="hidden sm:inline">Create Employee</span>
-                                  </Button>
-                                )}
-                                {request.status === "approved" && hasEmployeeRecord(request.user_id) && (
-                                  <Badge variant="secondary" className="text-xs">
-                                    <CheckCircle2 className="mr-1 h-3 w-3" />
-                                    Created
-                                  </Badge>
-                                )}
+                                {renderRequestActions(request, true)}
                               </div>
                             </TableCell>
                           </TableRow>
                         ))}
                       </TableBody>
                     </Table>
+                    </div>
+
+                    {/* Requests cards (mobile) */}
+                    <ul className="space-y-3 sm:hidden">
+                      {requests.map((request) => (
+                        <li key={request.id} data-request-row className="rounded-lg border p-3">
+                          <div className="flex items-start gap-3">
+                            <Avatar className="h-10 w-10 shrink-0">
+                              <AvatarFallback>{getInitials(request.full_name)}</AvatarFallback>
+                            </Avatar>
+                            <div className="min-w-0 flex-1">
+                              <p className="font-medium">{request.full_name}</p>
+                              <p className="truncate text-sm text-muted-foreground" title={request.email}>{request.email}</p>
+                              <p className="text-xs text-muted-foreground">
+                                Submitted {format(new Date(request.created_at), "MMM d, yyyy")}
+                              </p>
+                            </div>
+                            {getRequestStatusBadge(request.status)}
+                          </div>
+                          {request.message && (
+                            <p className="mt-2 line-clamp-2 text-sm text-muted-foreground">"{request.message}"</p>
+                          )}
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            {renderRequestActions(request, false)}
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
                   </div>
                 )}
               </CardContent>
@@ -1771,7 +1785,7 @@ const Onboarding = () => {
                     </div>
                   </div>
                   {canManage && (
-                    <Button variant="outline" size="icon" onClick={() => openEditMode(selectedEmployee)}>
+                    <Button variant="outline" size="icon" onClick={() => openEditMode(selectedEmployee)} aria-label="Edit employee details" title="Edit">
                       <Pencil className="h-4 w-4" />
                     </Button>
                   )}
@@ -1834,20 +1848,11 @@ const Onboarding = () => {
                       <p className="text-sm font-medium">
                         {selectedEmployee.working_hours_start?.substring(0, 5) || '09:00'} - {selectedEmployee.working_hours_end?.substring(0, 5) || '18:00'}
                       </p>
-                      <div className="flex flex-wrap gap-1 mt-1">
-                        {WEEKDAYS.map((day) => {
-                          const isWorkingDay = (selectedEmployee.working_days || [1, 2, 3, 4, 5]).includes(day.value);
-                          return (
-                            <Badge
-                              key={day.value}
-                              variant={isWorkingDay ? "default" : "outline"}
-                              className={`text-xs px-2 py-0 ${!isWorkingDay ? 'opacity-40' : ''}`}
-                            >
-                              {day.label}
-                            </Badge>
-                          );
-                        })}
-                      </div>
+                      <WorkingDaysPicker
+                        readOnly
+                        className="mt-1 gap-1 [&>span]:h-7 [&>span]:min-w-[2.5rem] [&>span]:px-2 [&>span]:text-xs"
+                        value={selectedEmployee.working_days || [1, 2, 3, 4, 5]}
+                      />
                     </div>
                   </div>
                 </div>
@@ -1887,6 +1892,7 @@ const Onboarding = () => {
                                 className="h-8 w-8"
                                 onClick={() => handleViewDocument(doc.file_url)}
                                 title="View"
+                                aria-label={`View ${docTypeLabel}`}
                               >
                                 <ExternalLink className="h-4 w-4" />
                               </Button>
@@ -1896,6 +1902,7 @@ const Onboarding = () => {
                                 className="h-8 w-8"
                                 onClick={() => handleDownloadDocument(doc.file_url, doc.document_name)}
                                 title="Download"
+                                aria-label={`Download ${docTypeLabel}`}
                               >
                                 <Download className="h-4 w-4" />
                               </Button>
@@ -1916,7 +1923,7 @@ const Onboarding = () => {
                         onValueChange={(value) => setAdditionalDoc(prev => ({ ...prev, type: value }))}
                         disabled={isUploadingAdditional}
                       >
-                        <SelectTrigger className="w-full sm:w-[140px]">
+                        <SelectTrigger className="w-full sm:w-[140px]" aria-label="Document type">
                           <SelectValue placeholder="Type" />
                         </SelectTrigger>
                         <SelectContent>
@@ -1932,12 +1939,14 @@ const Onboarding = () => {
                           type="file"
                           accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
                           disabled={isUploadingAdditional}
+                          aria-label="Document file"
                           onChange={(e) => setAdditionalDoc(prev => ({ ...prev, file: e.target.files?.[0] || null }))}
                           className="text-xs flex-1 min-w-0"
                         />
                         <Button
                           size="sm"
                           onClick={handleUploadAdditionalDocument}
+                          aria-label="Upload document"
                           disabled={isUploadingAdditional || !additionalDoc.file || !additionalDoc.type}
                         >
                           {isUploadingAdditional ? (
@@ -1958,7 +1967,7 @@ const Onboarding = () => {
                 </div>
                 
                 <div className="flex items-center justify-between pt-2">
-                  <Badge variant="secondary">Onboarding</Badge>
+                  <Badge variant="outline" className={statusBadgeClass("onboarding")}>Onboarding</Badge>
                   {canManage && (
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
@@ -2057,7 +2066,7 @@ const Onboarding = () => {
                     onValueChange={(value) => setEditFormData({ ...editFormData, departmentId: value })}
                     disabled={updateEmployeeMutation.isPending || loadingDepartments}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger id="edit-department">
                       <SelectValue placeholder="Select department" />
                     </SelectTrigger>
                     <SelectContent>
@@ -2077,7 +2086,7 @@ const Onboarding = () => {
                     onValueChange={(value) => setEditFormData({ ...editFormData, managerId: value === 'none' ? '' : value })}
                     disabled={updateEmployeeMutation.isPending || loadingManagers}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger id="edit-manager">
                       <SelectValue placeholder="Select manager" />
                     </SelectTrigger>
                     <SelectContent>
@@ -2142,30 +2151,17 @@ const Onboarding = () => {
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <Label>Working Days</Label>
-                    <div className="flex flex-wrap gap-2">
-                      {WEEKDAYS.map((day) => (
-                        <Button
-                          key={day.value}
-                          type="button"
-                          variant={editFormData.workingDays.includes(day.value) ? "default" : "outline"}
-                          size="sm"
-                          disabled={updateEmployeeMutation.isPending}
-                          onClick={() => {
-                            const newDays = editFormData.workingDays.includes(day.value)
-                              ? editFormData.workingDays.filter(d => d !== day.value)
-                              : [...editFormData.workingDays, day.value].sort((a, b) => a - b);
-                            setEditFormData({ ...editFormData, workingDays: newDays });
-                          }}
-                        >
-                          {day.label}
-                        </Button>
-                      ))}
-                    </div>
+                    <Label id="edit-working-days-label">Working days</Label>
+                    <WorkingDaysPicker
+                      labelledBy="edit-working-days-label"
+                      value={editFormData.workingDays}
+                      disabled={updateEmployeeMutation.isPending}
+                      onChange={(days) => setEditFormData({ ...editFormData, workingDays: days })}
+                    />
                   </div>
                 </div>
                 
-                <div className="flex justify-end gap-2 pt-2">
+                <DialogFooter>
                   <Button
                     variant="outline"
                     onClick={() => setIsEditing(false)}
@@ -2178,9 +2174,9 @@ const Onboarding = () => {
                     disabled={updateEmployeeMutation.isPending}
                   >
                     {updateEmployeeMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Save Changes
+                    Save changes
                   </Button>
-                </div>
+                </DialogFooter>
               </div>
             )}
           </DialogContent>
@@ -2190,7 +2186,7 @@ const Onboarding = () => {
         <Dialog open={!!selectedRequest} onOpenChange={(open) => !open && setSelectedRequest(null)}>
           <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Request Details</DialogTitle>
+              <DialogTitle>Request details</DialogTitle>
               <DialogDescription>
                 Onboarding request from {selectedRequest?.full_name}
               </DialogDescription>
@@ -2205,14 +2201,14 @@ const Onboarding = () => {
                   </Avatar>
                   <div>
                     <h3 className="text-lg font-semibold">{selectedRequest.full_name}</h3>
-                    <p className="text-muted-foreground">{selectedRequest.email}</p>
+                    <p className="break-words text-muted-foreground">{selectedRequest.email}</p>
                   </div>
                 </div>
                 <div>
                   <h4 className="text-sm font-medium text-muted-foreground">Status</h4>
                   <div className="mt-1">{getRequestStatusBadge(selectedRequest.status)}</div>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div>
                     <h4 className="text-sm font-medium text-muted-foreground">Phone</h4>
                     <p className="mt-1 text-foreground">{selectedRequest.phone}</p>
@@ -2291,7 +2287,7 @@ const Onboarding = () => {
                 <>
                   <Button
                     variant="outline"
-                    className="text-destructive"
+                    className="text-red-700 hover:bg-red-50 hover:text-red-800"
                     onClick={() => {
                       handleRejectRequest(selectedRequest);
                       setSelectedRequest(null);
@@ -2317,7 +2313,7 @@ const Onboarding = () => {
                   setSelectedRequest(null);
                 }}>
                   <UserPlus className="mr-2 h-4 w-4" />
-                  Create Employee Record
+                  Create employee record
                 </Button>
               )}
             </DialogFooter>
@@ -2328,7 +2324,7 @@ const Onboarding = () => {
         <AlertDialog open={approveDialogOpen} onOpenChange={setApproveDialogOpen}>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>Approve Request</AlertDialogTitle>
+              <AlertDialogTitle>Approve request?</AlertDialogTitle>
               <AlertDialogDescription>
                 Are you sure you want to approve the onboarding request from{" "}
                 <strong>{requestToAction?.full_name}</strong>? You will then be able to create
@@ -2353,7 +2349,7 @@ const Onboarding = () => {
         <AlertDialog open={rejectDialogOpen} onOpenChange={setRejectDialogOpen}>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>Reject Request</AlertDialogTitle>
+              <AlertDialogTitle>Reject request?</AlertDialogTitle>
               <AlertDialogDescription>
                 Are you sure you want to reject the onboarding request from{" "}
                 <strong>{requestToAction?.full_name}</strong>? This action cannot be undone.

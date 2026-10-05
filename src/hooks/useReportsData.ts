@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { format, startOfMonth, endOfMonth, startOfYear, endOfYear } from "date-fns";
+import { format, startOfMonth, endOfMonth, startOfYear, endOfYear, parseISO } from "date-fns";
 
 const CHART_COLORS = [
   "hsl(var(--chart-1))",
@@ -11,29 +11,59 @@ const CHART_COLORS = [
   "hsl(var(--primary))",
 ];
 
+type EmployeeRow = { id: string; hire_date: string; status: string; updated_at: string };
+
+/**
+ * Headcount everywhere on the Reports page means "active employees":
+ * someone counts at a given date if they had joined by then and are still active,
+ * or were offboarded after that date. Onboarding (not yet joined) and inactive
+ * employees are not counted, so the summary, growth chart and department split agree.
+ */
+function wasEmployedAt(emp: EmployeeRow, date: Date) {
+  if (parseISO(emp.hire_date) > date) return false;
+  if (emp.status === "active") return true;
+  if (emp.status === "offboarded") return new Date(emp.updated_at) > date;
+  return false;
+}
+
+/** Joined (hire date reached) within [start, end], capped at today so future joiners aren't counted yet. */
+function joinedBetween(emp: EmployeeRow, start: Date, end: Date) {
+  const hire = parseISO(emp.hire_date);
+  const cap = end < new Date() ? end : new Date();
+  return hire >= start && hire <= cap;
+}
+
+function leftBetween(emp: EmployeeRow, start: Date, end: Date) {
+  if (emp.status !== "offboarded") return false;
+  const updatedAt = new Date(emp.updated_at);
+  return updatedAt >= start && updatedAt <= end;
+}
+
 export function useEmployeeGrowthData(year: number) {
   return useQuery({
     queryKey: ["employee-growth", year],
     queryFn: async () => {
-      // Get all employees with their hire dates
       const { data: employees, error } = await supabase
         .from("employees")
-        .select("id, hire_date, status")
+        .select("id, hire_date, status, updated_at")
         .order("hire_date", { ascending: true });
 
       if (error) throw error;
 
-      // Calculate cumulative employee count for each month
-      const months = [];
+      const now = new Date();
+      const months: { month: string; employees: number | null }[] = [];
       for (let month = 0; month < 12; month++) {
         const monthDate = new Date(year, month, 1);
         const monthEnd = endOfMonth(monthDate);
-        
-        // Count employees hired on or before this month end
-        const count = employees?.filter((emp) => {
-          const hireDate = new Date(emp.hire_date);
-          return hireDate <= monthEnd && emp.status !== "offboarded";
-        }).length || 0;
+
+        // Months that haven't started yet have no headcount (the line stops at today).
+        if (monthDate > now) {
+          months.push({ month: format(monthDate, "MMM"), employees: null });
+          continue;
+        }
+
+        const asOf = monthEnd < now ? monthEnd : now;
+        const count = (employees as EmployeeRow[] | null)?.filter((emp) => wasEmployedAt(emp, asOf)).length || 0;
 
         months.push({
           month: format(monthDate, "MMM"),
@@ -52,7 +82,8 @@ export function useDepartmentDistribution() {
     queryFn: async () => {
       const { data: departments, error: deptError } = await supabase
         .from("departments")
-        .select("id, name");
+        .select("id, name")
+        .order("name");
 
       if (deptError) throw deptError;
 
@@ -63,12 +94,19 @@ export function useDepartmentDistribution() {
 
       if (empError) throw empError;
 
-      // Count employees per department
+      // Count active employees per department
       const distribution = departments?.map((dept, index) => ({
         name: dept.name,
         value: employees?.filter((emp) => emp.department_id === dept.id).length || 0,
         color: CHART_COLORS[index % CHART_COLORS.length],
       })).filter((dept) => dept.value > 0) || [];
+
+      // Active employees without a (known) department, so the total matches headcount
+      const knownIds = new Set(departments?.map((d) => d.id));
+      const unassigned = employees?.filter((emp) => !emp.department_id || !knownIds.has(emp.department_id)).length || 0;
+      if (unassigned > 0) {
+        distribution.push({ name: "Unassigned", value: unassigned, color: "hsl(var(--muted-foreground))" });
+      }
 
       return distribution;
     },
@@ -110,13 +148,13 @@ export function useLeaveStatistics(year: number) {
         };
 
         leaveTypes?.forEach((lt) => {
-          const key = lt.name.toLowerCase().split(" ")[0]; // e.g., "Annual" -> "annual"
+          const key = lt.name; // full leave type name, used as series label
           const daysCount = leaveRequests?.filter((lr) => {
-            const reqDate = new Date(lr.start_date);
+            const reqDate = parseISO(lr.start_date);
             return lr.leave_type_id === lt.id && 
                    reqDate >= monthStart && 
                    reqDate <= monthEnd;
-          }).reduce((sum, lr) => sum + lr.days_count, 0) || 0;
+          }).reduce((sum, lr) => sum + Number(lr.days_count), 0) || 0;
 
           monthData[key] = daysCount;
         });
@@ -125,9 +163,7 @@ export function useLeaveStatistics(year: number) {
       }
 
       // Get unique leave type keys for the chart
-      const leaveTypeKeys = leaveTypes?.map((lt) => 
-        lt.name.toLowerCase().split(" ")[0]
-      ) || [];
+      const leaveTypeKeys = Array.from(new Set(leaveTypes?.map((lt) => lt.name) || []));
 
       return { monthlyData, leaveTypeKeys };
     },
@@ -171,64 +207,36 @@ export function useHeadcountSummary(year: number) {
     queryFn: async () => {
       const yearStart = startOfYear(new Date(year, 0, 1));
       const yearEnd = endOfYear(new Date(year, 0, 1));
-      const yearStartStr = format(yearStart, "yyyy-MM-dd");
-      const yearEndStr = format(yearEnd, "yyyy-MM-dd");
 
-      // Get all employees
-      const { data: employees, error } = await supabase
+      const { data, error } = await supabase
         .from("employees")
         .select("id, hire_date, status, updated_at");
 
       if (error) throw error;
+      const employees = (data || []) as EmployeeRow[];
 
-      // New hires in the selected year
-      const newHires = employees?.filter((emp) => {
-        const hireDate = new Date(emp.hire_date);
-        return hireDate >= yearStart && hireDate <= yearEnd;
-      }).length || 0;
+      // People who joined during the selected year (up to today)
+      const newHires = employees.filter((emp) => joinedBetween(emp, yearStart, yearEnd)).length;
 
-      // Terminations (offboarded employees) - we check status and if updated in this year
-      const terminations = employees?.filter((emp) => {
-        if (emp.status !== "offboarded") return false;
-        const updatedAt = new Date(emp.updated_at);
-        return updatedAt >= yearStart && updatedAt <= yearEnd;
-      }).length || 0;
+      // Offboarded during the selected year (offboarding date approximated by updated_at)
+      const terminations = employees.filter((emp) => leftBetween(emp, yearStart, yearEnd)).length;
 
-      // Net change
       const netChange = newHires - terminations;
 
-      // Current headcount (active + onboarding)
-      const currentHeadcount = employees?.filter(
-        (emp) => emp.status === "active" || emp.status === "onboarding"
-      ).length || 0;
+      // Current headcount: active employees (same population as the growth chart and department split)
+      const currentHeadcount = employees.filter((emp) => emp.status === "active").length;
 
-      // Headcount at start of year (employees hired before year start and not offboarded before year start)
-      const startOfYearHeadcount = employees?.filter((emp) => {
-        const hireDate = new Date(emp.hire_date);
-        if (hireDate >= yearStart) return false;
-        if (emp.status === "offboarded") {
-          const updatedAt = new Date(emp.updated_at);
-          return updatedAt >= yearStart;
-        }
-        return true;
-      }).length || 0;
+      // Headcount just before the year started
+      const dayBeforeYear = new Date(yearStart.getTime() - 1);
+      const startOfYearHeadcount = employees.filter((emp) => wasEmployedAt(emp, dayBeforeYear)).length;
 
-      // Monthly breakdown for the year
       const monthlyBreakdown = [];
       for (let month = 0; month < 12; month++) {
         const monthStart = startOfMonth(new Date(year, month, 1));
         const monthEnd = endOfMonth(new Date(year, month, 1));
 
-        const monthlyHires = employees?.filter((emp) => {
-          const hireDate = new Date(emp.hire_date);
-          return hireDate >= monthStart && hireDate <= monthEnd;
-        }).length || 0;
-
-        const monthlyTerminations = employees?.filter((emp) => {
-          if (emp.status !== "offboarded") return false;
-          const updatedAt = new Date(emp.updated_at);
-          return updatedAt >= monthStart && updatedAt <= monthEnd;
-        }).length || 0;
+        const monthlyHires = employees.filter((emp) => joinedBetween(emp, monthStart, monthEnd)).length;
+        const monthlyTerminations = employees.filter((emp) => leftBetween(emp, monthStart, monthEnd)).length;
 
         monthlyBreakdown.push({
           month: format(monthStart, "MMM"),

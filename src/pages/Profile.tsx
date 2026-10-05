@@ -16,7 +16,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Checkbox } from "@/components/ui/checkbox";
+import { WorkingDaysPicker } from "@/components/employees/WorkingDaysPicker";
+import { statusBadgeClass, formatStatus } from "@/lib/statusStyles";
 import { Loader2, User, Mail, Phone, MapPin, Building2, Calendar, Briefcase, Save, Shield, FileText, Clock, Wallet, Files, Package, Star } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
@@ -67,6 +68,10 @@ interface ProfileForm {
 }
 
 const ALLOWED_TABS = ["profile", "leaves", "attendance", "assets", "reviews", "payslips", "documents"] as const;
+
+// Read-only and not-yet-editable fields stay legible (no 50% fade).
+const READ_ONLY_FIELD = "cursor-default bg-muted/50 text-foreground focus-visible:ring-1";
+const EDITABLE_FIELD = "disabled:cursor-default disabled:bg-muted/50 disabled:opacity-100";
 
 const Profile = () => {
   const { user } = useAuth();
@@ -255,7 +260,7 @@ const Profile = () => {
     <DashboardLayout>
       <div className="space-y-6">
         <div>
-          <h2 className="text-2xl font-bold text-foreground">My Profile</h2>
+          <h1 className="text-2xl font-bold text-foreground sm:text-3xl">My profile</h1>
           <p className="text-muted-foreground">View and manage your personal information</p>
         </div>
 
@@ -263,7 +268,7 @@ const Profile = () => {
           <Card>
             <CardContent className="py-12 text-center">
               <User className="mx-auto h-12 w-12 text-muted-foreground" />
-              <h3 className="mt-4 text-lg font-semibold">No Employee Profile</h3>
+              <h3 className="mt-4 text-lg font-semibold">No employee profile</h3>
               <p className="mt-2 text-muted-foreground">
                 Your account is not linked to an employee profile yet. Please contact HR.
               </p>
@@ -271,34 +276,34 @@ const Profile = () => {
           </Card>
         ) : (
           <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
-            <TabsList className="flex flex-wrap h-auto gap-1 w-full lg:w-auto lg:inline-flex">
-              <TabsTrigger value="profile" className="gap-2">
-                <User className="h-4 w-4" />
-                <span className="hidden sm:inline">Profile</span>
+            <TabsList className="flex w-full justify-start lg:inline-flex lg:w-auto">
+              <TabsTrigger value="profile" className="shrink-0 gap-2">
+                <User className="h-4 w-4" aria-hidden="true" />
+                Profile
               </TabsTrigger>
-              <TabsTrigger value="leaves" className="gap-2">
-                <Calendar className="h-4 w-4" />
-                <span className="hidden sm:inline">Leaves</span>
+              <TabsTrigger value="leaves" className="shrink-0 gap-2">
+                <Calendar className="h-4 w-4" aria-hidden="true" />
+                Leaves
               </TabsTrigger>
-              <TabsTrigger value="attendance" className="gap-2">
-                <Clock className="h-4 w-4" />
-                <span className="hidden sm:inline">Attendance</span>
+              <TabsTrigger value="attendance" className="shrink-0 gap-2">
+                <Clock className="h-4 w-4" aria-hidden="true" />
+                Attendance
               </TabsTrigger>
-              <TabsTrigger value="assets" className="gap-2">
-                <Package className="h-4 w-4" />
-                <span className="hidden sm:inline">Assets</span>
+              <TabsTrigger value="assets" className="shrink-0 gap-2">
+                <Package className="h-4 w-4" aria-hidden="true" />
+                Assets
               </TabsTrigger>
-              <TabsTrigger value="reviews" className="gap-2">
-                <Star className="h-4 w-4" />
-                <span className="hidden sm:inline">Reviews</span>
+              <TabsTrigger value="reviews" className="shrink-0 gap-2">
+                <Star className="h-4 w-4" aria-hidden="true" />
+                Reviews
               </TabsTrigger>
-              <TabsTrigger value="payslips" className="gap-2">
-                <Wallet className="h-4 w-4" />
-                <span className="hidden sm:inline">Payslips</span>
+              <TabsTrigger value="payslips" className="shrink-0 gap-2">
+                <Wallet className="h-4 w-4" aria-hidden="true" />
+                Payslips
               </TabsTrigger>
-              <TabsTrigger value="documents" className="gap-2">
-                <Files className="h-4 w-4" />
-                <span className="hidden sm:inline">Documents</span>
+              <TabsTrigger value="documents" className="shrink-0 gap-2">
+                <Files className="h-4 w-4" aria-hidden="true" />
+                Documents
               </TabsTrigger>
             </TabsList>
 
@@ -317,25 +322,25 @@ const Profile = () => {
                         {employee.first_name} {employee.last_name}
                       </h3>
                       <p className="text-muted-foreground">{employee.designation}</p>
-                      <Badge className="mt-2" variant={employee.status === 'active' ? 'default' : 'secondary'}>
-                        {employee.status}
+                      <Badge className={`mt-2 ${statusBadgeClass(employee.status)}`} variant="outline">
+                        {formatStatus(employee.status)}
                       </Badge>
                       <Separator className="my-4 w-full" />
                       <div className="w-full space-y-3 text-left text-sm">
                         <div className="flex items-center gap-2 text-muted-foreground">
-                          <Mail className="h-4 w-4" />
-                          <span className="truncate">{employee.email}</span>
+                          <Mail className="h-4 w-4 shrink-0" aria-hidden="true" />
+                          <span className="truncate" title={employee.email}>{employee.email}</span>
                         </div>
                         <div className="flex items-center gap-2 text-muted-foreground">
-                          <Building2 className="h-4 w-4" />
+                          <Building2 className="h-4 w-4 shrink-0" aria-hidden="true" />
                           <span>{employee.department?.name || "No Department"}</span>
                         </div>
                         <div className="flex items-center gap-2 text-muted-foreground">
-                          <Briefcase className="h-4 w-4" />
+                          <Briefcase className="h-4 w-4 shrink-0" aria-hidden="true" />
                           <span>{employee.employee_code}</span>
                         </div>
                         <div className="flex items-center gap-2 text-muted-foreground">
-                          <Calendar className="h-4 w-4" />
+                          <Calendar className="h-4 w-4 shrink-0" aria-hidden="true" />
                           <span>Joined {formatDate(employee.hire_date)}</span>
                         </div>
                       </div>
@@ -345,17 +350,17 @@ const Profile = () => {
 
                 {/* Details Card */}
                 <Card className="md:col-span-2">
-                  <CardHeader className="flex flex-row items-center justify-between">
+                  <CardHeader className="flex flex-col gap-3 space-y-0 sm:flex-row sm:items-center sm:justify-between">
                     <div>
-                      <CardTitle>Personal Information</CardTitle>
+                      <CardTitle>Personal information</CardTitle>
                       <CardDescription>Update your contact details</CardDescription>
                     </div>
                     {!isEditing ? (
-                      <Button variant="outline" onClick={() => setIsEditing(true)}>
+                      <Button variant="outline" onClick={() => setIsEditing(true)} className="self-start sm:self-auto">
                         Edit
                       </Button>
                     ) : (
-                      <div className="flex gap-2">
+                      <div className="flex shrink-0 gap-2">
                         <Button variant="outline" onClick={() => {
                           setIsEditing(false);
                           const formatTimeForInput = (time: string | null) => {
@@ -387,62 +392,77 @@ const Profile = () => {
                   <CardContent className="space-y-6">
                     <div className="grid gap-4 sm:grid-cols-2">
                       <div className="space-y-2">
-                        <Label>First Name</Label>
-                        <Input value={employee.first_name} disabled />
+                        <Label htmlFor="profile-first-name">First name</Label>
+                        <Input id="profile-first-name" value={employee.first_name} readOnly className={READ_ONLY_FIELD} />
                       </div>
                       <div className="space-y-2">
-                        <Label>Last Name</Label>
-                        <Input value={employee.last_name} disabled />
+                        <Label htmlFor="profile-last-name">Last name</Label>
+                        <Input id="profile-last-name" value={employee.last_name} readOnly className={READ_ONLY_FIELD} />
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="profile-email">Email</Label>
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                        <Input id="profile-email" value={employee.email} readOnly className={`min-w-0 flex-1 ${READ_ONLY_FIELD}`} />
+                        <ChangeEmailDialog currentEmail={employee.email} />
                       </div>
                     </div>
 
                     <div className="grid gap-4 sm:grid-cols-2">
                       <div className="space-y-2">
-                        <Label>Email</Label>
-                        <div className="flex items-center gap-2">
-                          <Input value={employee.email} disabled className="flex-1" />
-                          <ChangeEmailDialog currentEmail={employee.email} />
-                        </div>
-                      </div>
-                      <div className="space-y-2">
-                        <Label>Phone</Label>
-                        <Input 
+                        <Label htmlFor="profile-phone">Phone</Label>
+                        <Input
+                          id="profile-phone"
+                          type="tel"
                           value={formData.phone}
                           onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
                           disabled={!isEditing}
+                          className={EDITABLE_FIELD}
                           placeholder="Enter phone number"
                         />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="profile-department">Department</Label>
+                        <Input id="profile-department" value={employee.department?.name || "Not assigned"} readOnly className={READ_ONLY_FIELD} aria-describedby="profile-department-hint" />
+                        <p id="profile-department-hint" className="text-xs text-muted-foreground">Contact HR to change department assignment</p>
                       </div>
                     </div>
 
                     <Separator />
 
                     <div className="space-y-2">
-                      <Label>Address</Label>
-                      <Input 
+                      <Label htmlFor="profile-address">Address</Label>
+                      <Input
+                        id="profile-address"
                         value={formData.address}
                         onChange={(e) => setFormData(prev => ({ ...prev, address: e.target.value }))}
                         disabled={!isEditing}
+                        className={EDITABLE_FIELD}
                         placeholder="Enter your address"
                       />
                     </div>
 
                     <div className="grid gap-4 sm:grid-cols-2">
                       <div className="space-y-2">
-                        <Label>City</Label>
-                        <Input 
+                        <Label htmlFor="profile-city">City</Label>
+                        <Input
+                          id="profile-city"
                           value={formData.city}
                           onChange={(e) => setFormData(prev => ({ ...prev, city: e.target.value }))}
                           disabled={!isEditing}
+                          className={EDITABLE_FIELD}
                           placeholder="Enter city"
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label>Country</Label>
-                        <Input 
+                        <Label htmlFor="profile-country">Country</Label>
+                        <Input
+                          id="profile-country"
                           value={formData.country}
                           onChange={(e) => setFormData(prev => ({ ...prev, country: e.target.value }))}
                           disabled={!isEditing}
+                          className={EDITABLE_FIELD}
                           placeholder="Enter country"
                         />
                       </div>
@@ -451,24 +471,26 @@ const Profile = () => {
                     <Separator />
 
                     <div className="grid gap-4 sm:grid-cols-2">
-                      <div className="space-y-2">
-                        <Label>Date of Birth</Label>
-                        <Input 
+                      <div className="min-w-0 space-y-2">
+                        <Label htmlFor="profile-dob">Date of birth</Label>
+                        <Input
+                          id="profile-dob"
                           type="date"
                           value={formData.date_of_birth}
                           onChange={(e) => setFormData(prev => ({ ...prev, date_of_birth: e.target.value }))}
                           disabled={!isEditing}
+                          className={`min-w-0 ${EDITABLE_FIELD}`}
                           max={new Date(new Date().getFullYear() - 18, new Date().getMonth(), new Date().getDate()).toISOString().split('T')[0]}
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label>Gender</Label>
+                        <Label htmlFor="profile-gender">Gender</Label>
                         <Select
                           value={formData.gender}
                           onValueChange={(value) => setFormData(prev => ({ ...prev, gender: value }))}
                           disabled={!isEditing}
                         >
-                          <SelectTrigger>
+                          <SelectTrigger id="profile-gender" className={EDITABLE_FIELD}>
                             <SelectValue placeholder="Select gender" />
                           </SelectTrigger>
                           <SelectContent>
@@ -481,76 +503,51 @@ const Profile = () => {
                       </div>
                     </div>
 
-                    <div className="space-y-2">
-                      <Label>Department</Label>
-                      <Input value={employee.department?.name || "Not Assigned"} disabled />
-                      <p className="text-xs text-muted-foreground">Contact HR to change department assignment</p>
-                    </div>
-
                     <Separator />
 
                     {/* Working Schedule Section */}
                     <div className="space-y-4">
-                      <div className="flex items-center gap-2">
-                        <Clock className="h-4 w-4 text-muted-foreground" />
-                        <Label className="text-base font-medium">Working Schedule</Label>
+                      <div>
+                        <h4 className="flex items-center gap-2 text-base font-medium">
+                          <Clock className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+                          Working schedule
+                        </h4>
+                        <p className="text-sm text-muted-foreground">Set your working hours and days for attendance reminders</p>
                       </div>
-                      <p className="text-sm text-muted-foreground">Set your working hours and days for attendance reminders</p>
-                      
+
                       <div className="grid gap-4 sm:grid-cols-2">
-                        <div className="space-y-2">
-                          <Label>Work Start Time</Label>
-                          <Input 
+                        <div className="min-w-0 space-y-2">
+                          <Label htmlFor="profile-start-time">Work start time</Label>
+                          <Input
+                            id="profile-start-time"
                             type="time"
                             value={formData.working_hours_start}
                             onChange={(e) => setFormData(prev => ({ ...prev, working_hours_start: e.target.value }))}
                             disabled={!isEditing}
+                            className={`min-w-0 ${EDITABLE_FIELD}`}
                           />
                         </div>
-                        <div className="space-y-2">
-                          <Label>Work End Time</Label>
-                          <Input 
+                        <div className="min-w-0 space-y-2">
+                          <Label htmlFor="profile-end-time">Work end time</Label>
+                          <Input
+                            id="profile-end-time"
                             type="time"
                             value={formData.working_hours_end}
                             onChange={(e) => setFormData(prev => ({ ...prev, working_hours_end: e.target.value }))}
                             disabled={!isEditing}
+                            className={`min-w-0 ${EDITABLE_FIELD}`}
                           />
                         </div>
                       </div>
 
                       <div className="space-y-2">
-                        <Label>Working Days</Label>
-                        <div className="flex flex-wrap gap-3">
-                          {[
-                            { value: 0, label: 'Sun' },
-                            { value: 1, label: 'Mon' },
-                            { value: 2, label: 'Tue' },
-                            { value: 3, label: 'Wed' },
-                            { value: 4, label: 'Thu' },
-                            { value: 5, label: 'Fri' },
-                            { value: 6, label: 'Sat' },
-                          ].map((day) => (
-                            <div key={day.value} className="flex items-center space-x-2">
-                              <Checkbox
-                                id={`day-${day.value}`}
-                                checked={formData.working_days.includes(day.value)}
-                                onCheckedChange={(checked) => {
-                                  if (!isEditing) return;
-                                  setFormData(prev => ({
-                                    ...prev,
-                                    working_days: checked
-                                      ? [...prev.working_days, day.value].sort((a, b) => a - b)
-                                      : prev.working_days.filter(d => d !== day.value)
-                                  }));
-                                }}
-                                disabled={!isEditing}
-                              />
-                              <Label htmlFor={`day-${day.value}`} className="text-sm font-normal cursor-pointer">
-                                {day.label}
-                              </Label>
-                            </div>
-                          ))}
-                        </div>
+                        <Label id="profile-working-days-label">Working days</Label>
+                        <WorkingDaysPicker
+                          labelledBy="profile-working-days-label"
+                          value={formData.working_days}
+                          readOnly={!isEditing}
+                          onChange={(days) => setFormData(prev => ({ ...prev, working_days: days }))}
+                        />
                       </div>
                     </div>
                   </CardContent>

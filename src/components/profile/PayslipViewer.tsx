@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -19,6 +19,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { statusBadgeClass, formatStatus } from "@/lib/statusStyles";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -77,16 +78,11 @@ const formatCurrency = (amount: number) => {
   }).format(amount);
 };
 
-const getStatusBadge = (status: string) => {
-  switch (status) {
-    case "paid":
-      return <Badge className="bg-green-500/10 text-green-600 border-green-500/20">Paid</Badge>;
-    case "processed":
-      return <Badge className="bg-blue-500/10 text-blue-600 border-blue-500/20">Processed</Badge>;
-    default:
-      return <Badge variant="secondary">Draft</Badge>;
-  }
-};
+const getStatusBadge = (status: string) => (
+  <Badge variant="outline" className={statusBadgeClass(status)}>
+    {formatStatus(status || "draft")}
+  </Badge>
+);
 
 export function PayslipViewer({ employeeId, employeeName, employeeCode }: PayslipViewerProps) {
   const currentDate = new Date();
@@ -223,14 +219,14 @@ export function PayslipViewer({ employeeId, employeeName, employeeCode }: Paysli
       <CardHeader>
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-2">
-            <Wallet className="h-5 w-5 text-primary" />
+            <Wallet className="h-5 w-5 text-primary" aria-hidden="true" />
             <div>
-              <CardTitle>My Payslips</CardTitle>
+              <CardTitle>My payslips</CardTitle>
               <CardDescription>View and download your salary statements</CardDescription>
             </div>
           </div>
           <Select value={selectedYear} onValueChange={setSelectedYear}>
-            <SelectTrigger className="w-[120px]">
+            <SelectTrigger className="w-[120px]" aria-label="Year">
               <SelectValue placeholder="Year" />
             </SelectTrigger>
             <SelectContent>
@@ -248,14 +244,14 @@ export function PayslipViewer({ employeeId, employeeName, employeeCode }: Paysli
         {salaryStructure && (
           <Card className="bg-muted/30">
             <CardHeader className="pb-3">
-              <CardTitle className="text-base">Salary Structure Breakdown</CardTitle>
+              <CardTitle className="text-base">Salary structure</CardTitle>
               <CardDescription>Your current salary components</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="grid gap-6 md:grid-cols-2">
                 {/* Earnings */}
                 <div className="space-y-3">
-                  <div className="flex items-center gap-2 text-green-600">
+                  <div className="flex items-center gap-2 text-emerald-700">
                     <Plus className="h-4 w-4" />
                     <span className="font-semibold">Earnings</span>
                   </div>
@@ -267,7 +263,7 @@ export function PayslipViewer({ employeeId, employeeName, employeeCode }: Paysli
                     {allowanceBreakdown.map((item) => (
                       <div key={item.label} className="flex justify-between">
                         <span className="text-muted-foreground">{item.label}</span>
-                        <span className="font-medium text-green-600">+{formatCurrency(item.amount)}</span>
+                        <span className="font-medium text-emerald-700">+{formatCurrency(item.amount)}</span>
                       </div>
                     ))}
                     <Separator />
@@ -288,7 +284,7 @@ export function PayslipViewer({ employeeId, employeeName, employeeCode }: Paysli
 
                 {/* Deductions */}
                 <div className="space-y-3">
-                  <div className="flex items-center gap-2 text-red-600">
+                  <div className="flex items-center gap-2 text-red-700">
                     <Minus className="h-4 w-4" />
                     <span className="font-semibold">Deductions</span>
                   </div>
@@ -298,13 +294,13 @@ export function PayslipViewer({ employeeId, employeeName, employeeCode }: Paysli
                         {deductionBreakdown.map((item) => (
                           <div key={item.label} className="flex justify-between">
                             <span className="text-muted-foreground">{item.label}</span>
-                            <span className="font-medium text-red-600">-{formatCurrency(item.amount)}</span>
+                            <span className="font-medium text-red-700">-{formatCurrency(item.amount)}</span>
                           </div>
                         ))}
                         <Separator />
                         <div className="flex justify-between font-semibold">
                           <span>Total Deductions</span>
-                          <span className="text-red-600">
+                          <span className="text-red-700">
                             -{formatCurrency(
                               (salaryStructure.tax_deduction || 0) +
                                 (salaryStructure.pf_deduction || 0)
@@ -349,8 +345,41 @@ export function PayslipViewer({ employeeId, employeeName, employeeCode }: Paysli
           </div>
         ) : payrollRecords && payrollRecords.length > 0 ? (
           <div className="space-y-3">
-            <h3 className="font-semibold">Payslip History</h3>
-            <div className="rounded-md border">
+            <h3 className="font-semibold">Payslip history</h3>
+            <ul className="space-y-2 sm:hidden">
+              {payrollRecords.map((record) => {
+                const monthName = MONTHS.find((m) => m.value === String(record.month))?.label || "";
+                return (
+                  <li key={record.id} className="rounded-lg border p-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="font-medium">{monthName} {record.year}</p>
+                      {getStatusBadge(record.status)}
+                    </div>
+                    <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-sm">
+                      <dt className="text-muted-foreground">Basic</dt>
+                      <dd className="text-right">{formatCurrency(record.basic_salary)}</dd>
+                      <dt className="text-muted-foreground">Allowances</dt>
+                      <dd className="text-right text-emerald-700">+{formatCurrency(Number(record.total_allowances) || 0)}</dd>
+                      <dt className="text-muted-foreground">Deductions</dt>
+                      <dd className="text-right text-red-700">-{formatCurrency(Number(record.total_deductions) || 0)}</dd>
+                      <dt className="font-medium">Net salary</dt>
+                      <dd className="text-right font-semibold">{formatCurrency(record.net_salary)}</dd>
+                    </dl>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="mt-3 h-10 w-full"
+                      onClick={() => handleDownloadPayslip(record)}
+                      disabled={record.status === "draft"}
+                    >
+                      <Download className="mr-2 h-4 w-4" aria-hidden="true" />
+                      Download PDF
+                    </Button>
+                  </li>
+                );
+              })}
+            </ul>
+            <div className="hidden rounded-md border sm:block">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -369,17 +398,28 @@ export function PayslipViewer({ employeeId, employeeName, employeeCode }: Paysli
                     const monthName = MONTHS.find((m) => m.value === String(record.month))?.label || "";
                     const isExpanded = expandedRecord === record.id;
                     return (
-                      <>
-                        <TableRow key={record.id} className="cursor-pointer" onClick={() => setExpandedRecord(isExpanded ? null : record.id)}>
+                      <Fragment key={record.id}>
+                        <TableRow className="cursor-pointer" onClick={() => setExpandedRecord(isExpanded ? null : record.id)}>
                           <TableCell>
-                            {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                            <button
+                              type="button"
+                              className="rounded p-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                              aria-expanded={isExpanded}
+                              aria-label={`${isExpanded ? "Hide" : "Show"} breakdown for ${monthName} ${record.year}`}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setExpandedRecord(isExpanded ? null : record.id);
+                              }}
+                            >
+                              {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                            </button>
                           </TableCell>
                           <TableCell className="font-medium">{monthName}</TableCell>
                           <TableCell className="text-right">{formatCurrency(record.basic_salary)}</TableCell>
-                          <TableCell className="text-right text-green-600">
+                          <TableCell className="text-right text-emerald-700">
                             +{formatCurrency(Number(record.total_allowances) || 0)}
                           </TableCell>
-                          <TableCell className="text-right text-red-600">
+                          <TableCell className="text-right text-red-700">
                             -{formatCurrency(Number(record.total_deductions) || 0)}
                           </TableCell>
                           <TableCell className="text-right font-semibold">{formatCurrency(record.net_salary)}</TableCell>
@@ -393,8 +433,9 @@ export function PayslipViewer({ employeeId, employeeName, employeeCode }: Paysli
                                 handleDownloadPayslip(record);
                               }}
                               disabled={record.status === "draft"}
+                              aria-label={`Download ${monthName} ${record.year} payslip as PDF`}
                             >
-                              <Download className="h-4 w-4 mr-1" />
+                              <Download className="h-4 w-4 mr-1" aria-hidden="true" />
                               PDF
                             </Button>
                           </TableCell>
@@ -404,7 +445,7 @@ export function PayslipViewer({ employeeId, employeeName, employeeCode }: Paysli
                             <TableCell colSpan={8} className="bg-muted/30 p-4">
                               <div className="grid gap-4 md:grid-cols-2">
                                 <div className="space-y-2">
-                                  <p className="font-medium text-green-600 flex items-center gap-1">
+                                  <p className="font-medium text-emerald-700 flex items-center gap-1">
                                     <Plus className="h-3 w-3" /> Earnings Breakdown
                                   </p>
                                   <div className="space-y-1 text-sm">
@@ -416,19 +457,19 @@ export function PayslipViewer({ employeeId, employeeName, employeeCode }: Paysli
                                       allowanceBreakdown.map((item) => (
                                         <div key={item.label} className="flex justify-between">
                                           <span className="text-muted-foreground">{item.label}</span>
-                                          <span className="text-green-600">+{formatCurrency(item.amount)}</span>
+                                          <span className="text-emerald-700">+{formatCurrency(item.amount)}</span>
                                         </div>
                                       ))
                                     ) : (
                                       <div className="flex justify-between">
                                         <span className="text-muted-foreground">Total Allowances</span>
-                                        <span className="text-green-600">+{formatCurrency(Number(record.total_allowances) || 0)}</span>
+                                        <span className="text-emerald-700">+{formatCurrency(Number(record.total_allowances) || 0)}</span>
                                       </div>
                                     )}
                                   </div>
                                 </div>
                                 <div className="space-y-2">
-                                  <p className="font-medium text-red-600 flex items-center gap-1">
+                                  <p className="font-medium text-red-700 flex items-center gap-1">
                                     <Minus className="h-3 w-3" /> Deductions Breakdown
                                   </p>
                                   <div className="space-y-1 text-sm">
@@ -436,13 +477,13 @@ export function PayslipViewer({ employeeId, employeeName, employeeCode }: Paysli
                                       deductionBreakdown.map((item) => (
                                         <div key={item.label} className="flex justify-between">
                                           <span className="text-muted-foreground">{item.label}</span>
-                                          <span className="text-red-600">-{formatCurrency(item.amount)}</span>
+                                          <span className="text-red-700">-{formatCurrency(item.amount)}</span>
                                         </div>
                                       ))
                                     ) : (
                                       <div className="flex justify-between">
                                         <span className="text-muted-foreground">Total Deductions</span>
-                                        <span className="text-red-600">-{formatCurrency(Number(record.total_deductions) || 0)}</span>
+                                        <span className="text-red-700">-{formatCurrency(Number(record.total_deductions) || 0)}</span>
                                       </div>
                                     )}
                                   </div>
@@ -451,7 +492,7 @@ export function PayslipViewer({ employeeId, employeeName, employeeCode }: Paysli
                             </TableCell>
                           </TableRow>
                         )}
-                      </>
+                      </Fragment>
                     );
                   })}
                 </TableBody>
@@ -461,7 +502,7 @@ export function PayslipViewer({ employeeId, employeeName, employeeCode }: Paysli
         ) : (
           <div className="flex flex-col items-center justify-center py-12 text-center">
             <FileText className="h-12 w-12 text-muted-foreground mb-4" />
-            <p className="text-lg font-medium">No Payslips Found</p>
+            <p className="text-lg font-medium">No payslips found</p>
             <p className="text-sm text-muted-foreground">
               There are no payroll records for {selectedYear}
             </p>

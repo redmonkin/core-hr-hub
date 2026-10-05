@@ -32,7 +32,7 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination";
-import { format, startOfMonth, endOfMonth, eachDayOfInterval } from "date-fns";
+import { format, parseISO } from "date-fns";
 import { useAttendance, useTodayAttendance, useClockIn, useClockOut, useAttendanceReport, LocationData, WorkMode } from "@/hooks/useAttendance";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useActiveBreak, useBreaksForRecord, usePause, useResume, calculateTotalBreakHours } from "@/hooks/useAttendanceBreaks";
@@ -42,6 +42,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { statusBadgeClass, formatStatus, toneClass } from "@/lib/statusStyles";
 
 const MONTHS = [
   { value: "0", label: "January" },
@@ -59,13 +60,20 @@ const MONTHS = [
 ];
 
 function getStatusBadge(status: string) {
-  const variants: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
-    present: "default",
-    late: "secondary",
-    absent: "destructive",
-    "half-day": "outline",
-  };
-  return <Badge variant={variants[status] || "outline"}>{status}</Badge>;
+  return <Badge variant="outline" className={statusBadgeClass(status)}>{formatStatus(status)}</Badge>;
+}
+
+function WorkModeBadge({ mode }: { mode: WorkMode | null }) {
+  if (!mode) return <span className="text-xs text-muted-foreground">-</span>;
+  return (
+    <Badge variant="outline" className={`text-xs ${mode === "wfo" ? toneClass("info") : toneClass("neutral")}`}>
+      {mode === "wfo" ? (
+        <><Building2 className="mr-1 h-3 w-3" aria-hidden="true" /> Office</>
+      ) : (
+        <><Home className="mr-1 h-3 w-3" aria-hidden="true" /> Home</>
+      )}
+    </Badge>
+  );
 }
 
 const Attendance = () => {
@@ -449,14 +457,14 @@ const Attendance = () => {
     <DashboardLayout>
       <div className="space-y-6">
         {/* Header */}
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h2 className="text-2xl font-bold text-foreground">Attendance</h2>
+            <h1 className="text-2xl font-bold text-foreground sm:text-3xl">Attendance</h1>
             <p className="text-muted-foreground">Track your daily attendance and view history</p>
           </div>
           <div className="flex items-center gap-2">
             <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-              <SelectTrigger className="w-[140px]">
+              <SelectTrigger className="w-[140px]" aria-label="Month">
                 <SelectValue placeholder="Month" />
               </SelectTrigger>
               <SelectContent>
@@ -468,7 +476,7 @@ const Attendance = () => {
               </SelectContent>
             </Select>
             <Select value={selectedYear} onValueChange={setSelectedYear}>
-              <SelectTrigger className="w-[100px]">
+              <SelectTrigger className="w-[100px]" aria-label="Year">
                 <SelectValue placeholder="Year" />
               </SelectTrigger>
               <SelectContent>
@@ -508,7 +516,7 @@ const Attendance = () => {
                               : "--:--"}
                           </p>
                           {canViewAttendanceInsights && todayRecord?.clock_in && calculateLateArrival(todayRecord.clock_in) > 0 && (
-                            <Badge variant="destructive" className="text-xs">
+                            <Badge variant="outline" className={`text-xs ${toneClass("danger")}`}>
                               <AlertTriangle className="h-3 w-3 mr-1" />
                               {formatLateDuration(calculateLateArrival(todayRecord.clock_in))} late
                             </Badge>
@@ -700,7 +708,7 @@ const Attendance = () => {
                           <Badge 
                             key={day} 
                             variant={isActive ? "default" : "outline"}
-                            className={`${isToday ? 'ring-2 ring-primary ring-offset-2' : ''} ${!isActive ? 'opacity-50' : ''}`}
+                            className={`${isToday ? 'ring-2 ring-primary ring-offset-2' : ''} ${!isActive ? 'text-muted-foreground' : ''}`}
                           >
                             {day}
                           </Badge>
@@ -711,9 +719,9 @@ const Attendance = () => {
                 </div>
                 <div className="flex flex-col items-start gap-2 sm:items-end">
                   {isWorkingDay(currentEmployee.working_days) ? (
-                    <Badge variant="default" className="bg-green-600">Working Day</Badge>
+                    <Badge variant="outline" className={toneClass("success")}>Working day</Badge>
                   ) : (
-                    <Badge variant="secondary">Day Off</Badge>
+                    <Badge variant="outline" className={toneClass("neutral")}>Day off</Badge>
                   )}
                   <a href="/profile" className="text-sm text-primary hover:underline">
                     Edit Schedule →
@@ -750,29 +758,29 @@ const Attendance = () => {
                 );
               }
               return (
-                <div className="grid gap-4 sm:grid-cols-5">
-                  <div className="rounded-lg border bg-muted/50 p-4">
-                    <p className="text-sm text-muted-foreground">Present Days</p>
-                    <p className="text-2xl font-bold">{myData.presentDays}</p>
+                <div className={`grid grid-cols-2 gap-3 sm:gap-4 ${canViewAttendanceInsights ? "sm:grid-cols-3 lg:grid-cols-5" : "sm:grid-cols-4"}`}>
+                  <div className="rounded-lg border bg-muted/50 p-3 sm:p-4">
+                    <p className="text-sm text-muted-foreground">Present days</p>
+                    <p className="text-xl font-bold sm:text-2xl">{myData.presentDays}</p>
                   </div>
-                  <div className="rounded-lg border bg-primary/10 p-4">
-                    <p className="text-sm text-muted-foreground">From Office</p>
-                    <p className="text-2xl font-bold text-primary">{myData.wfoDays}</p>
+                  <div className="rounded-lg border bg-primary/10 p-3 sm:p-4">
+                    <p className="text-sm text-muted-foreground">From office</p>
+                    <p className="text-xl font-bold text-primary sm:text-2xl">{myData.wfoDays}</p>
                   </div>
-                  <div className="rounded-lg border bg-muted/50 p-4">
-                    <p className="text-sm text-muted-foreground">Total Hours</p>
-                    <p className="text-2xl font-bold">{myData.totalHours.toFixed(1)}h</p>
+                  <div className="rounded-lg border bg-muted/50 p-3 sm:p-4">
+                    <p className="text-sm text-muted-foreground">Total hours</p>
+                    <p className="text-xl font-bold sm:text-2xl">{myData.totalHours.toFixed(1)}h</p>
                   </div>
-                  <div className="rounded-lg border bg-muted/50 p-4">
-                    <p className="text-sm text-muted-foreground">Avg Hours/Day</p>
-                    <p className="text-2xl font-bold">
+                  <div className="rounded-lg border bg-muted/50 p-3 sm:p-4">
+                    <p className="text-sm text-muted-foreground">Avg hours/day</p>
+                    <p className="text-xl font-bold sm:text-2xl">
                       {myData.totalDays > 0 ? (myData.totalHours / myData.totalDays).toFixed(1) : "0"}h
                     </p>
                   </div>
                   {canViewAttendanceInsights && (
-                    <div className="rounded-lg border bg-muted/50 p-4">
-                      <p className="text-sm text-muted-foreground">Late Arrivals</p>
-                      <p className="text-2xl font-bold">{myData.lateDays}</p>
+                    <div className="col-span-2 rounded-lg border bg-muted/50 p-3 sm:col-span-1 sm:p-4">
+                      <p className="text-sm text-muted-foreground">Late arrivals</p>
+                      <p className="text-xl font-bold sm:text-2xl">{myData.lateDays}</p>
                     </div>
                   )}
                 </div>
@@ -791,21 +799,15 @@ const Attendance = () => {
             {attendanceRecords && attendanceRecords.length > 0 && (
               <div className="flex flex-wrap items-center gap-3">
                 {canViewAttendanceInsights && countLateArrivals() > 0 && (
-                  <div className="flex items-center gap-2 rounded-lg bg-red-50 px-3 py-2 border border-red-100">
-                    <AlertTriangle className="h-4 w-4 text-red-500" />
-                    <div className="text-sm">
-                      <span className="text-muted-foreground">Late Arrivals: </span>
-                      <span className="font-semibold text-red-600">{countLateArrivals()}</span>
-                    </div>
+                  <div className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm ${toneClass("danger")}`}>
+                    <AlertTriangle className="h-4 w-4" aria-hidden="true" />
+                    <span>Late arrivals: <span className="font-semibold">{countLateArrivals()}</span></span>
                   </div>
                 )}
                 {canViewAttendanceInsights && (
-                  <div className="flex items-center gap-2 rounded-lg bg-muted px-3 py-2">
-                    <Timer className="h-4 w-4 text-orange-500" />
-                    <div className="text-sm">
-                      <span className="text-muted-foreground">Overtime: </span>
-                      <span className="font-semibold text-orange-600">{calculateMonthlyOvertime().toFixed(2)} hrs</span>
-                    </div>
+                  <div className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm ${toneClass("warning")}`}>
+                    <Timer className="h-4 w-4" aria-hidden="true" />
+                    <span>Overtime: <span className="font-semibold">{calculateMonthlyOvertime().toFixed(2)} hrs</span></span>
                   </div>
                 )}
               </div>
@@ -816,7 +818,71 @@ const Attendance = () => {
               <Skeleton className="h-64 w-full" />
             ) : attendanceRecords && attendanceRecords.length > 0 ? (
             <>
-              <div className="rounded-md border overflow-x-auto">
+              {/* Mobile: stacked cards */}
+              <ul className="space-y-3 sm:hidden">
+                {historyPagination.paginatedItems.map((record) => {
+                  const overtime = calculateOvertime(record);
+                  const lateMinutes = calculateLateArrival(record.clock_in, record.employee);
+                  return (
+                    <li key={record.id} className="rounded-lg border p-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="font-medium">{format(parseISO(record.date), "EEE, MMM d, yyyy")}</p>
+                        {getStatusBadge(record.status)}
+                      </div>
+                      <dl className="mt-2 grid grid-cols-3 gap-2 text-sm">
+                        <div>
+                          <dt className="text-xs text-muted-foreground">Clock in</dt>
+                          <dd className="font-medium">{record.clock_in ? format(new Date(record.clock_in), "hh:mm a") : "-"}</dd>
+                        </div>
+                        <div>
+                          <dt className="text-xs text-muted-foreground">Clock out</dt>
+                          <dd className="font-medium">{record.clock_out ? format(new Date(record.clock_out), "hh:mm a") : "-"}</dd>
+                        </div>
+                        <div>
+                          <dt className="text-xs text-muted-foreground">Total</dt>
+                          <dd className="font-medium">{record.total_hours ? `${record.total_hours.toFixed(2)} hrs` : "-"}</dd>
+                        </div>
+                      </dl>
+                      <div className="mt-2 flex flex-wrap items-center gap-2">
+                        <WorkModeBadge mode={record.work_mode} />
+                        {canViewAttendanceInsights && lateMinutes > 0 && (
+                          <Badge variant="outline" className={`text-xs ${toneClass("danger")}`}>
+                            <AlertTriangle className="mr-1 h-3 w-3" aria-hidden="true" />
+                            {formatLateDuration(lateMinutes)} late
+                          </Badge>
+                        )}
+                        {canViewAttendanceInsights && overtime > 0 && (
+                          <Badge variant="outline" className={`text-xs ${toneClass("warning")}`}>
+                            +{overtime.toFixed(2)} hrs overtime
+                          </Badge>
+                        )}
+                      </div>
+                      {(record.clock_in_location_name || record.clock_out_location_name) && (
+                        <div className="mt-2 space-y-1 text-xs text-muted-foreground">
+                          {record.clock_in_location_name && (
+                            <p className="flex items-start gap-1.5">
+                              <MapPin className="mt-0.5 h-3 w-3 shrink-0 text-primary" aria-hidden="true" />
+                              <span className="min-w-0 break-words">In: {record.clock_in_location_name}</span>
+                            </p>
+                          )}
+                          {record.clock_out_location_name && (
+                            <p className="flex items-start gap-1.5">
+                              <MapPin className="mt-0.5 h-3 w-3 shrink-0 text-primary" aria-hidden="true" />
+                              <span className="min-w-0 break-words">Out: {record.clock_out_location_name}</span>
+                            </p>
+                          )}
+                        </div>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+              <div
+                className="hidden overflow-x-auto rounded-md border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:block"
+                tabIndex={0}
+                role="region"
+                aria-label="Attendance history table"
+              >
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -828,7 +894,6 @@ const Attendance = () => {
                       >
                         Date
                       </SortableTableHead>
-                      <TableHead>Employee</TableHead>
                       <TableHead>Clock In</TableHead>
                       <TableHead>Clock Out</TableHead>
                       <SortableTableHead
@@ -858,31 +923,19 @@ const Attendance = () => {
                       const lateMinutes = calculateLateArrival(record.clock_in, record.employee);
                       return (
                         <TableRow key={record.id}>
-                          <TableCell>{format(new Date(record.date), "MMM d, yyyy")}</TableCell>
+                          <TableCell className="whitespace-nowrap">{format(parseISO(record.date), "MMM d, yyyy")}</TableCell>
                           <TableCell>
-                            <div className="flex flex-col">
-                              <span className="font-medium">
-                                {record.employee 
-                                  ? `${record.employee.first_name} ${record.employee.last_name}` 
-                                  : "-"}
-                              </span>
-                              {record.employee?.employee_code && (
-                                <span className="text-xs text-muted-foreground">{record.employee.employee_code}</span>
-                              )}
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 whitespace-nowrap">
                               {record.clock_in ? format(new Date(record.clock_in), "hh:mm a") : "-"}
                               {canViewAttendanceInsights && lateMinutes > 0 && (
-                                <Badge variant="destructive" className="text-xs">
+                                <Badge variant="outline" className={`text-xs ${toneClass("danger")}`}>
                                   <AlertTriangle className="h-3 w-3 mr-1" />
                                   {formatLateDuration(lateMinutes)} late
                                 </Badge>
                               )}
                             </div>
                           </TableCell>
-                          <TableCell>
+                          <TableCell className="whitespace-nowrap">
                             {record.clock_out ? format(new Date(record.clock_out), "hh:mm a") : "-"}
                           </TableCell>
                           <TableCell>
@@ -891,7 +944,7 @@ const Attendance = () => {
                           {canViewAttendanceInsights && (
                             <TableCell>
                               {overtime > 0 ? (
-                                <Badge variant="secondary" className="text-xs">
+                                <Badge variant="outline" className={`whitespace-nowrap text-xs ${toneClass("warning")}`}>
                                   +{overtime.toFixed(2)} hrs
                                 </Badge>
                               ) : (
@@ -900,17 +953,7 @@ const Attendance = () => {
                             </TableCell>
                           )}
                           <TableCell>
-                            {record.work_mode ? (
-                              <Badge variant={record.work_mode === 'wfo' ? 'default' : 'secondary'} className="text-xs">
-                                {record.work_mode === 'wfo' ? (
-                                  <><Building2 className="h-3 w-3 mr-1" /> Office</>
-                                ) : (
-                                  <><Home className="h-3 w-3 mr-1" /> Home</>
-                                )}
-                              </Badge>
-                            ) : (
-                              <span className="text-muted-foreground text-xs">-</span>
-                            )}
+                            <WorkModeBadge mode={record.work_mode} />
                           </TableCell>
                           <TableCell>
                             {(record.clock_in_location_name || record.clock_out_location_name) ? (
@@ -967,7 +1010,7 @@ const Attendance = () => {
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <span>Show</span>
                     <Select value={historyPagination.pageSize.toString()} onValueChange={(v) => historyPagination.setPageSize(Number(v))}>
-                      <SelectTrigger className="h-8 w-[70px]">
+                      <SelectTrigger className="h-8 w-[70px]" aria-label="Rows per page">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>

@@ -30,6 +30,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useCompanyBranding } from "@/hooks/useCompanyBranding";
 import { format, startOfMonth, endOfMonth } from "date-fns";
+import { statusBadgeClass, formatStatus } from "@/lib/statusStyles";
 
 export interface PayrollRecord {
   id: string;
@@ -75,16 +76,10 @@ interface PayrollTableProps {
   canManage?: boolean;
 }
 
-const statusStyles = {
-  paid: "bg-emerald-500/10 text-emerald-600 border-emerald-500/20",
-  pending: "bg-amber-500/10 text-amber-600 border-amber-500/20",
-  processing: "bg-primary/10 text-primary border-primary/20",
-};
-
 const statusIcons = {
-  paid: <CheckCircle className="mr-1 h-3 w-3" />,
-  pending: <Clock className="mr-1 h-3 w-3" />,
-  processing: <CreditCard className="mr-1 h-3 w-3" />,
+  paid: <CheckCircle className="mr-1 h-3 w-3" aria-hidden="true" />,
+  pending: <Clock className="mr-1 h-3 w-3" aria-hidden="true" />,
+  processing: <CreditCard className="mr-1 h-3 w-3" aria-hidden="true" />,
 };
 
 export function PayrollTable({
@@ -261,21 +256,119 @@ export function PayrollTable({
       setDownloadingId(null);
     }
   };
+  const initials = (name: string) => name.split(" ").map((n) => n[0]).join("");
+
+  const renderStatus = (record: PayrollRecord) => (
+    <div className="flex flex-col items-start gap-1">
+      <Badge variant="outline" className={`${statusBadgeClass(record.status)} inline-flex items-center whitespace-nowrap`}>
+        {statusIcons[record.status]}
+        {formatStatus(record.status)}
+      </Badge>
+      {record.paidAt && (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span className="inline-flex cursor-help items-center whitespace-nowrap text-xs text-muted-foreground" tabIndex={0}>
+              <CalendarCheck className="mr-1 h-3 w-3" aria-hidden="true" />
+              {record.paidAt}
+            </span>
+          </TooltipTrigger>
+          <TooltipContent>Paid on {record.paidAt}</TooltipContent>
+        </Tooltip>
+      )}
+    </div>
+  );
+
+  const renderActions = (record: PayrollRecord) => (
+    <div className="flex items-center justify-end gap-1">
+      <Button
+        variant="ghost"
+        size="icon"
+        className="h-10 w-10 sm:h-8 sm:w-8"
+        onClick={() => onView?.(record)}
+        aria-label={`View payslip for ${record.employee.name}, ${record.month}`}
+        title="View payslip"
+      >
+        <Eye className="h-4 w-4" aria-hidden="true" />
+      </Button>
+      <Button
+        variant="ghost"
+        size="icon"
+        className="h-10 w-10 sm:h-8 sm:w-8"
+        onClick={() => downloadPayslipPDF(record)}
+        disabled={downloadingId === record.id}
+        aria-label={`Download payslip PDF for ${record.employee.name}, ${record.month}`}
+        title="Download payslip"
+      >
+        {downloadingId === record.id ? (
+          <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+        ) : (
+          <Download className="h-4 w-4" aria-hidden="true" />
+        )}
+      </Button>
+      {canManage && (
+        <DropdownMenu modal={false}>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-10 w-10 sm:h-8 sm:w-8"
+              aria-label={`More actions for ${record.employee.name}, ${record.month}`}
+              title="More actions"
+            >
+              <MoreVertical className="h-4 w-4" aria-hidden="true" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => onEditDetails?.(record)}>
+              <Pencil className="mr-2 h-4 w-4" aria-hidden="true" />
+              Edit payroll details
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            {record.status === "pending" && (
+              <DropdownMenuItem onClick={() => onMarkProcessed?.(record)}>
+                <CreditCard className="mr-2 h-4 w-4" aria-hidden="true" />
+                Mark as processed
+              </DropdownMenuItem>
+            )}
+            {(record.status === "pending" || record.status === "processing") && (
+              <DropdownMenuItem onClick={() => onMarkPaid?.(record)}>
+                <CheckCircle className="mr-2 h-4 w-4" aria-hidden="true" />
+                Mark as paid
+              </DropdownMenuItem>
+            )}
+            {(record.status === "processing" || record.status === "paid") && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={() => onRevertToPending?.(record)}
+                  className="text-amber-700 focus:text-amber-700 dark:text-amber-400"
+                >
+                  <Clock className="mr-2 h-4 w-4" aria-hidden="true" />
+                  Revert to pending
+                </DropdownMenuItem>
+              </>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )}
+    </div>
+  );
+
   return (
     <div className="space-y-3">
       {/* Bulk Actions Bar */}
       {canManage && selectedIds.size > 0 && (
-        <div className="flex items-center justify-between rounded-lg border border-primary/20 bg-primary/5 px-4 py-3">
+        <div className="flex flex-col gap-2 rounded-lg border border-primary/20 bg-primary/5 px-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-4">
           <div className="flex items-center gap-3">
             <span className="text-sm font-medium">
               {selectedIds.size} record{selectedIds.size > 1 ? "s" : ""} selected
             </span>
             <Button variant="ghost" size="sm" onClick={clearSelection}>
-              <X className="mr-1 h-4 w-4" />
+              <X className="mr-1 h-4 w-4" aria-hidden="true" />
               Clear
             </Button>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {canMarkProcessed && (
               <Button
                 size="sm"
@@ -284,7 +377,7 @@ export function PayrollTable({
                 disabled={isBulkUpdating}
               >
                 {isBulkUpdating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CreditCard className="mr-2 h-4 w-4" />}
-                Mark as Processed
+                Mark as processed
               </Button>
             )}
             {canMarkPaid && (
@@ -294,26 +387,87 @@ export function PayrollTable({
                 disabled={isBulkUpdating}
               >
                 {isBulkUpdating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle className="mr-2 h-4 w-4" />}
-                Mark as Paid
+                Mark as paid
               </Button>
             )}
             {canRevert && (
               <Button
                 size="sm"
                 variant="outline"
-                className="text-amber-600 border-amber-600/30 hover:bg-amber-500/10"
+                className="border-amber-600/30 text-amber-700 hover:bg-amber-500/10 dark:text-amber-400"
                 onClick={handleBulkRevert}
                 disabled={isBulkUpdating}
               >
                 {isBulkUpdating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Clock className="mr-2 h-4 w-4" />}
-                Revert to Pending
+                Revert to pending
               </Button>
             )}
           </div>
         </div>
       )}
 
-      <div className="rounded-xl border border-border bg-card">
+      {/* Mobile: stacked cards */}
+      <div className="space-y-3 sm:hidden" data-testid="payroll-cards">
+        {canManage && records.length > 1 && (
+          <label className="flex min-h-10 items-center gap-3 px-1 text-sm text-muted-foreground">
+            <Checkbox
+              checked={selectedIds.size === records.length && records.length > 0}
+              onCheckedChange={toggleSelectAll}
+            />
+            Select all
+          </label>
+        )}
+        {records.map((record) => (
+          <div
+            key={record.id}
+            className={`rounded-xl border border-border bg-card p-4 ${selectedIds.has(record.id) ? "ring-2 ring-primary/40" : ""}`}
+          >
+            <div className="flex items-start gap-3">
+              {canManage && (
+                <Checkbox
+                  className="mt-3"
+                  checked={selectedIds.has(record.id)}
+                  onCheckedChange={() => toggleSelection(record.id)}
+                  aria-label={`Select ${record.employee.name}`}
+                />
+              )}
+              <Avatar className="h-10 w-10 shrink-0">
+                <AvatarImage src={record.employee.avatar} alt="" />
+                <AvatarFallback>{initials(record.employee.name)}</AvatarFallback>
+              </Avatar>
+              <div className="min-w-0 flex-1">
+                <p className="truncate font-medium text-foreground">{record.employee.name}</p>
+                <p className="truncate text-xs text-muted-foreground">{record.month}</p>
+              </div>
+              <div className="shrink-0 text-right">
+                <p className="text-xs text-muted-foreground">Net salary</p>
+                <p className="font-semibold text-foreground">₹{record.netSalary.toLocaleString("en-IN")}</p>
+              </div>
+            </div>
+            <dl className="mt-3 grid grid-cols-3 gap-2 text-sm">
+              <div>
+                <dt className="text-xs text-muted-foreground">Basic</dt>
+                <dd className="text-foreground">₹{record.basic.toLocaleString("en-IN")}</dd>
+              </div>
+              <div>
+                <dt className="text-xs text-muted-foreground">Allowances</dt>
+                <dd className="text-emerald-700 dark:text-emerald-400">+₹{record.allowances.toLocaleString("en-IN")}</dd>
+              </div>
+              <div>
+                <dt className="text-xs text-muted-foreground">Deductions</dt>
+                <dd className="text-destructive">-₹{record.deductions.toLocaleString("en-IN")}</dd>
+              </div>
+            </dl>
+            <div className="mt-3 flex items-center justify-between gap-3 border-t border-border pt-2">
+              {renderStatus(record)}
+              <div className="-mr-2 shrink-0">{renderActions(record)}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Desktop / tablet: table */}
+      <div className="hidden rounded-xl border border-border bg-card sm:block">
         <Table>
           <TableHeader>
             <TableRow>
@@ -331,7 +485,7 @@ export function PayrollTable({
               <TableHead className="text-right">Basic</TableHead>
               <TableHead className="text-right">Allowances</TableHead>
               <TableHead className="text-right">Deductions</TableHead>
-              <TableHead className="text-right">Net Salary</TableHead>
+              <TableHead className="text-right">Net salary</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
@@ -351,114 +505,30 @@ export function PayrollTable({
                 <TableCell>
                   <div className="flex items-center gap-3">
                     <Avatar className="h-9 w-9">
-                      <AvatarImage src={record.employee.avatar} />
-                      <AvatarFallback>
-                        {record.employee.name.split(" ").map((n) => n[0]).join("")}
-                      </AvatarFallback>
+                      <AvatarImage src={record.employee.avatar} alt="" />
+                      <AvatarFallback>{initials(record.employee.name)}</AvatarFallback>
                     </Avatar>
-                    <div>
+                    <div className="min-w-0">
                       <p className="font-medium text-foreground">{record.employee.name}</p>
-                      <p className="text-xs text-muted-foreground">{record.employee.email}</p>
+                      <p className="max-w-[200px] truncate text-xs text-muted-foreground" title={record.employee.email}>{record.employee.email}</p>
                     </div>
                   </div>
                 </TableCell>
-                <TableCell className="text-muted-foreground">{record.month}</TableCell>
-                <TableCell className="text-right text-muted-foreground">
+                <TableCell className="whitespace-nowrap text-muted-foreground">{record.month}</TableCell>
+                <TableCell className="whitespace-nowrap text-right text-muted-foreground">
                   ₹{record.basic.toLocaleString('en-IN')}
                 </TableCell>
-                <TableCell className="text-right text-emerald-600">
+                <TableCell className="whitespace-nowrap text-right text-emerald-700 dark:text-emerald-400">
                   +₹{record.allowances.toLocaleString('en-IN')}
                 </TableCell>
-                <TableCell className="text-right text-destructive">
+                <TableCell className="whitespace-nowrap text-right text-destructive">
                   -₹{record.deductions.toLocaleString('en-IN')}
                 </TableCell>
-                <TableCell className="text-right font-semibold text-foreground">
+                <TableCell className="whitespace-nowrap text-right font-semibold text-foreground">
                   ₹{record.netSalary.toLocaleString('en-IN')}
                 </TableCell>
-                <TableCell>
-                  <div className="flex flex-col gap-1">
-                    <Badge variant="outline" className={`${statusStyles[record.status]} inline-flex items-center`}>
-                      {statusIcons[record.status]}
-                      {record.status}
-                    </Badge>
-                    {record.paidAt && (
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <span className="inline-flex items-center text-xs text-muted-foreground cursor-help">
-                            <CalendarCheck className="mr-1 h-3 w-3" />
-                            {record.paidAt}
-                          </span>
-                        </TooltipTrigger>
-                        <TooltipContent>Paid on {record.paidAt}</TooltipContent>
-                      </Tooltip>
-                    )}
-                  </div>
-                </TableCell>
-                <TableCell className="text-right">
-                  <div className="flex items-center justify-end gap-1">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8"
-                      onClick={() => onView?.(record)}
-                    >
-                      <Eye className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8"
-                      onClick={() => downloadPayslipPDF(record)}
-                      disabled={downloadingId === record.id}
-                    >
-                      {downloadingId === record.id ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Download className="h-4 w-4" />
-                      )}
-                    </Button>
-                    {canManage && (
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                          <MoreVertical className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => onEditDetails?.(record)}>
-                          <Pencil className="mr-2 h-4 w-4" />
-                          Edit Payroll Details
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        {record.status === "pending" && (
-                          <DropdownMenuItem onClick={() => onMarkProcessed?.(record)}>
-                            <CreditCard className="mr-2 h-4 w-4" />
-                            Mark as Processed
-                          </DropdownMenuItem>
-                        )}
-                        {(record.status === "pending" || record.status === "processing") && (
-                          <DropdownMenuItem onClick={() => onMarkPaid?.(record)}>
-                            <CheckCircle className="mr-2 h-4 w-4" />
-                            Mark as Paid
-                          </DropdownMenuItem>
-                        )}
-                        {(record.status === "processing" || record.status === "paid") && (
-                          <>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem 
-                              onClick={() => onRevertToPending?.(record)}
-                              className="text-amber-600"
-                            >
-                              <Clock className="mr-2 h-4 w-4" />
-                              Revert to Pending
-                            </DropdownMenuItem>
-                          </>
-                        )}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                    )}
-                  </div>
-                </TableCell>
+                <TableCell>{renderStatus(record)}</TableCell>
+                <TableCell className="text-right">{renderActions(record)}</TableCell>
               </TableRow>
             ))}
           </TableBody>

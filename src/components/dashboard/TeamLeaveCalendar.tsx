@@ -7,7 +7,19 @@ import { Calendar } from "@/components/ui/calendar";
 import { ChevronLeft, ChevronRight, Users, CalendarDays } from "lucide-react";
 import { useTeamLeaves, useIsManager } from "@/hooks/useTeamLeaves";
 import { Skeleton } from "@/components/ui/skeleton";
-import { format, isSameDay, isWithinInterval, parseISO, addMonths, subMonths } from "date-fns";
+import {
+  format,
+  isSameDay,
+  isWithinInterval,
+  parseISO,
+  addMonths,
+  subMonths,
+  startOfMonth,
+  endOfMonth,
+  eachDayOfInterval,
+  max as maxDate,
+  min as minDate,
+} from "date-fns";
 import { cn } from "@/lib/utils";
 
 export function TeamLeaveCalendar() {
@@ -15,7 +27,16 @@ export function TeamLeaveCalendar() {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   
   const { data: isManager, isLoading: loadingManager } = useIsManager();
-  const { data: teamLeaves = [], isLoading } = useTeamLeaves(currentMonth);
+  const { data: fetchedLeaves = [], isLoading } = useTeamLeaves(currentMonth);
+
+  // Only keep leaves that actually overlap the month on screen (the query's date filter is loose).
+  const monthStart = startOfMonth(currentMonth);
+  const monthEnd = endOfMonth(currentMonth);
+  const teamLeaves = fetchedLeaves.filter((leave) => {
+    const start = parseISO(leave.start_date);
+    const end = parseISO(leave.end_date);
+    return start <= monthEnd && end >= monthStart;
+  });
 
   // Don't render if user is not a manager
   if (loadingManager) {
@@ -51,47 +72,51 @@ export function TeamLeaveCalendar() {
 
   // Get all dates that have leaves
   const leaveDates = teamLeaves.flatMap((leave) => {
-    const dates: Date[] = [];
-    const start = parseISO(leave.start_date);
-    const end = parseISO(leave.end_date);
-    const current = new Date(start);
-    while (current <= end) {
-      dates.push(new Date(current));
-      current.setDate(current.getDate() + 1);
-    }
-    return dates;
+    const start = maxDate([parseISO(leave.start_date), monthStart]);
+    const end = minDate([parseISO(leave.end_date), monthEnd]);
+    return start <= end ? eachDayOfInterval({ start, end }) : [];
   });
 
   const modifiers = {
     hasLeave: leaveDates,
   };
 
-  const modifiersStyles = {
-    hasLeave: {
-      backgroundColor: "hsl(var(--warning) / 0.2)",
-      borderRadius: "50%",
-    },
+  const modifiersClassNames = {
+    hasLeave:
+      "bg-amber-100 text-amber-900 font-semibold hover:bg-amber-200 dark:bg-amber-900/40 dark:text-amber-100",
   };
 
   return (
     <Card>
       <CardHeader className="pb-2">
-        <div className="flex items-center justify-between gap-2 flex-wrap">
-          <CardTitle className="text-lg font-semibold flex items-center gap-2">
-            <Users className="h-5 w-5 text-primary" />
-            Team Calendar
-          </CardTitle>
-          <div className="flex items-center gap-1">
-            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handlePrevMonth}>
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <span className="text-sm font-medium min-w-[100px] text-center">
-              {format(currentMonth, "MMM yyyy")}
-            </span>
-            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleNextMonth}>
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-          </div>
+        <CardTitle className="text-lg font-semibold flex items-center gap-2">
+          <Users className="h-5 w-5 text-primary" aria-hidden="true" />
+          Team calendar
+        </CardTitle>
+        <div className="flex items-center justify-between pt-2">
+          <Button
+            variant="outline"
+            size="icon"
+            className="h-9 w-9"
+            onClick={handlePrevMonth}
+            aria-label="Previous month"
+            title="Previous month"
+          >
+            <ChevronLeft className="h-4 w-4" aria-hidden="true" />
+          </Button>
+          <span className="text-sm font-medium" aria-live="polite">
+            {format(currentMonth, "MMMM yyyy")}
+          </span>
+          <Button
+            variant="outline"
+            size="icon"
+            className="h-9 w-9"
+            onClick={handleNextMonth}
+            aria-label="Next month"
+            title="Next month"
+          >
+            <ChevronRight className="h-4 w-4" aria-hidden="true" />
+          </Button>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -101,12 +126,13 @@ export function TeamLeaveCalendar() {
           <>
             <Calendar
               mode="single"
+              showOutsideDays={false}
               selected={selectedDate}
               onSelect={setSelectedDate}
               month={currentMonth}
               onMonthChange={setCurrentMonth}
               modifiers={modifiers}
-              modifiersStyles={modifiersStyles}
+              modifiersClassNames={modifiersClassNames}
               className={cn("p-0 pointer-events-auto")}
               classNames={{
                 months: "flex flex-col w-full",
@@ -119,8 +145,8 @@ export function TeamLeaveCalendar() {
                 row: "flex w-full mt-1 justify-between",
                 cell: "flex-1 text-center text-sm p-0 relative aspect-square",
                 day: "h-full w-full p-0 font-normal hover:bg-accent rounded-full flex items-center justify-center",
-                day_selected: "bg-primary text-primary-foreground hover:bg-primary",
-                day_today: "border border-primary",
+                day_selected: "!bg-primary !text-primary-foreground hover:!bg-primary",
+                day_today: "ring-1 ring-inset ring-primary",
                 day_outside: "text-muted-foreground opacity-50",
               }}
             />
@@ -128,7 +154,7 @@ export function TeamLeaveCalendar() {
             {/* Leaves for selected date */}
             <div className="space-y-2">
               <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-                <CalendarDays className="h-4 w-4" />
+                <CalendarDays className="h-4 w-4" aria-hidden="true" />
                 {selectedDate ? format(selectedDate, "EEEE, MMMM d") : "Select a date"}
               </div>
 
@@ -148,10 +174,12 @@ export function TeamLeaveCalendar() {
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium truncate">{leave.employee_name}</p>
                         <p className="text-xs text-muted-foreground">
-                          {format(parseISO(leave.start_date), "MMM d")} - {format(parseISO(leave.end_date), "MMM d")}
+                          {leave.start_date === leave.end_date
+                            ? format(parseISO(leave.start_date), "MMM d")
+                            : `${format(parseISO(leave.start_date), "MMM d")} – ${format(parseISO(leave.end_date), "MMM d")}`}
                         </p>
                       </div>
-                      <Badge variant="secondary" className="text-xs shrink-0">
+                      <Badge variant="outline" className="text-xs shrink-0 whitespace-nowrap">
                         {leave.leave_type}
                       </Badge>
                     </div>
@@ -161,10 +189,14 @@ export function TeamLeaveCalendar() {
                 <p className="text-sm text-muted-foreground py-2">No team members on leave</p>
               ) : (
                 <p className="text-sm text-muted-foreground py-2">
-                  {teamLeaves.length > 0 
-                    ? `${teamLeaves.length} approved leave${teamLeaves.length !== 1 ? "s" : ""} this month`
-                    : "No approved leaves this month"
-                  }
+                  {teamLeaves.length > 0 ? (
+                    <>
+                      <span className="mr-1.5 inline-block h-2.5 w-2.5 rounded-full bg-amber-300 align-middle" aria-hidden="true" />
+                      {`${teamLeaves.length} approved leave${teamLeaves.length !== 1 ? "s" : ""} in ${format(currentMonth, "MMMM")} — tap a highlighted day for details`}
+                    </>
+                  ) : (
+                    `No approved leaves in ${format(currentMonth, "MMMM")}`
+                  )}
                 </p>
               )}
             </div>

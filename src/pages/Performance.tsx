@@ -11,6 +11,7 @@ import { PerformanceAnalytics } from "@/components/performance/PerformanceAnalyt
 import { TeamGoalsView } from "@/components/performance/TeamGoalsView";
 import { TeamReviewsManager } from "@/components/performance/TeamReviewsManager";
 import { TeamAnalytics } from "@/components/performance/TeamAnalytics";
+import { cn } from "@/lib/utils";
 
 const Performance = () => {
   const { user } = useAuth();
@@ -61,13 +62,13 @@ const Performance = () => {
       <DashboardLayout>
         <div className="space-y-6">
           <div>
-            <h2 className="text-2xl font-bold text-foreground">Performance</h2>
+            <h1 className="text-2xl font-bold text-foreground sm:text-3xl">Performance</h1>
             <p className="text-muted-foreground">Track KPIs and view performance reviews</p>
           </div>
           <Card>
             <CardContent className="py-12 text-center">
               <User className="mx-auto h-12 w-12 text-muted-foreground" />
-              <h3 className="mt-4 text-lg font-semibold">No Employee Profile</h3>
+              <h2 className="mt-4 text-lg font-semibold">No employee profile</h2>
               <p className="mt-2 text-muted-foreground">
                 Your account is not linked to an employee profile yet. Please contact HR.
               </p>
@@ -80,11 +81,23 @@ const Performance = () => {
 
   const employeeName = `${employeeData.first_name} ${employeeData.last_name}`;
 
+  const tabs = [
+    { value: "kpis", label: "KPIs", icon: Target },
+    { value: "reviews", label: "Reviews", icon: FileText },
+    { value: "analytics", label: "Analytics", icon: BarChart3 },
+    ...(employeeData.isManager
+      ? [
+          { value: "team", label: "Team", icon: Users },
+          { value: "team-analytics", label: "Team Analytics", icon: TrendingUp },
+        ]
+      : []),
+  ];
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
         <div>
-          <h2 className="text-2xl font-bold text-foreground">Performance</h2>
+          <h1 className="text-2xl font-bold text-foreground sm:text-3xl">Performance</h1>
           <p className="text-muted-foreground">
             {employeeData.isManager 
               ? "Track your KPIs, view reviews, and manage your team's performance"
@@ -94,31 +107,22 @@ const Performance = () => {
         </div>
 
         <Tabs defaultValue="kpis" className="space-y-4">
-          <TabsList>
-            <TabsTrigger value="kpis" className="gap-2">
-              <Target className="h-4 w-4" />
-              KPIs
-            </TabsTrigger>
-            <TabsTrigger value="reviews" className="gap-2">
-              <FileText className="h-4 w-4" />
-              Reviews
-            </TabsTrigger>
-            <TabsTrigger value="analytics" className="gap-2">
-              <BarChart3 className="h-4 w-4" />
-              Analytics
-            </TabsTrigger>
-            {employeeData.isManager && (
-              <TabsTrigger value="team" className="gap-2">
-                <Users className="h-4 w-4" />
-                Team
-              </TabsTrigger>
+          <TabsList
+            className={cn(
+              "grid h-auto w-full gap-1 sm:inline-flex sm:h-10 sm:w-auto",
+              employeeData.isManager ? "grid-cols-5" : "grid-cols-3",
             )}
-            {employeeData.isManager && (
-              <TabsTrigger value="team-analytics" className="gap-2">
-                <TrendingUp className="h-4 w-4" />
-                Team Analytics
+          >
+            {tabs.map(({ value, label, icon: Icon }) => (
+              <TabsTrigger
+                key={value}
+                value={value}
+                className="h-full min-w-0 flex-col gap-1 whitespace-normal px-1 py-1.5 text-xs leading-tight sm:flex-row sm:gap-2 sm:whitespace-nowrap sm:px-3 sm:text-sm"
+              >
+                <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
+                <span className="text-center">{label}</span>
               </TabsTrigger>
-            )}
+            ))}
           </TabsList>
 
           <TabsContent value="kpis">

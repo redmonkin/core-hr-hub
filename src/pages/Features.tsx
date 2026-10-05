@@ -1,7 +1,4 @@
 import React from "react";
-import { Link } from "react-router-dom";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { 
   Users, 
   Calendar, 
@@ -15,7 +12,6 @@ import {
   Settings,
   Building2,
   Target,
-  ArrowRight,
   CheckCircle,
   UserPlus,
   FolderOpen,
@@ -36,11 +32,13 @@ import {
   Eye,
   UserCog,
   Sliders,
-  Cog
+  Cog,
+  Sparkles
 } from "lucide-react";
-import hrHubLogo from "@/assets/hr-hub-logo.svg";
 import Footer from "@/components/layout/Footer";
-import { isProductionDomain } from "@/lib/domain";
+import PublicHeader from "@/components/layout/PublicHeader";
+import PublicCtaSection from "@/components/layout/PublicCtaSection";
+import PublicPageBadge from "@/components/layout/PublicPageBadge";
 import employeeMgmtImg from "@/assets/features/employee-management.png";
 import leaveAttendanceImg from "@/assets/features/leave-attendance.png";
 import documentsImg from "@/assets/features/documents.png";
@@ -186,50 +184,17 @@ const featureSections = [
 ] as const;
 
 const Features = () => {
-  const isProduction = isProductionDomain();
-
   return (
     <div className="min-h-screen bg-background">
-      {/* Navigation */}
-      <nav className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-2">
-            <img src={hrHubLogo} alt="Peoplo" className="h-8 w-auto" />
-            <span className="text-xl font-bold">Peoplo</span>
-          </Link>
-          <div className="hidden md:flex items-center gap-8">
-            <Link to="/features" className="text-sm font-medium text-foreground transition-colors">
-              Features
-            </Link>
-            <Link to="/how-it-works" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
-              How It Works
-            </Link>
-            <Link to="/pricing" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
-              Pricing
-            </Link>
-          </div>
-          <div className="flex items-center gap-3">
-            <Link to="/auth">
-              <Button variant="ghost" size="sm">Sign In</Button>
-            </Link>
-            {isProduction && (
-              <a href="https://cal.com/littlemissbot/business-consultancy" target="_blank" rel="noopener noreferrer">
-                <Button size="sm">Request Demo</Button>
-              </a>
-            )}
-          </div>
-        </div>
-      </nav>
+      <PublicHeader />
 
       {/* Hero */}
       <section className="relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-primary/5" />
         <div className="container mx-auto px-4 py-20 lg:py-28 relative">
           <div className="max-w-4xl mx-auto text-center space-y-6">
-            <Badge variant="secondary" className="px-4 py-1.5 text-sm font-medium">
-              Platform Features
-            </Badge>
-            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight leading-relaxed">
+            <PublicPageBadge icon={<Sparkles />}>Platform features</PublicPageBadge>
+            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight leading-tight">
               Everything You Need to{" "}
               <span className="text-primary">Manage Your Workforce</span>
             </h1>
@@ -271,12 +236,15 @@ const Features = () => {
                 </div>
                 <div className={`${feature.reversed ? 'lg:order-1' : ''}`}>
                   {('image' in feature) && feature.image ? (
-                    <div className="rounded-2xl overflow-hidden border border-border shadow-2xl bg-muted">
+                    <div className="aspect-[1920/1158] rounded-2xl overflow-hidden border border-border shadow-2xl bg-muted">
                       <img
                         src={feature.image}
                         alt={`${feature.title} interface preview`}
                         loading="lazy"
-                        className="w-full h-auto block"
+                        decoding="async"
+                        width={1920}
+                        height={1158}
+                        className="block h-full w-full object-cover object-top"
                       />
                     </div>
                   ) : (
@@ -293,32 +261,7 @@ const Features = () => {
         ))}
       </section>
 
-      {/* CTA Section */}
-      <section className="bg-primary text-primary-foreground py-20">
-        <div className="container mx-auto px-4 text-center">
-          <div className="max-w-3xl mx-auto space-y-6">
-            <h2 className="text-3xl md:text-4xl font-bold">
-              Ready to Transform Your HR Operations?
-            </h2>
-            <p className="text-primary-foreground/80 text-lg">
-              Join thousands of companies that have modernized their HR with Peoplo. 
-              Start your free trial today — no credit card required.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center pt-4">
-              <Link to="/auth">
-                <Button size="lg" variant="secondary" className="gap-2 px-8 h-12">
-                  Start Free Trial <ArrowRight className="h-4 w-4" />
-                </Button>
-              </Link>
-              <a href="https://cal.com/littlemissbot/business-consultancy" target="_blank" rel="noopener noreferrer">
-                <Button size="lg" variant="secondary" className="gap-2 px-8 h-12">
-                  Talk to Sales
-                </Button>
-              </a>
-            </div>
-          </div>
-        </div>
-      </section>
+      <PublicCtaSection />
 
       <Footer />
     </div>

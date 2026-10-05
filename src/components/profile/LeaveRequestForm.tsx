@@ -16,14 +16,20 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useCompanyHolidays } from "@/hooks/useCompanyHolidays";
 import { Badge } from "@/components/ui/badge";
+import { DialogFooter } from "@/components/ui/dialog";
+import { pluralizeDays } from "@/lib/statusStyles";
 
 const UNPAID_LEAVE_NAME = "Unpaid Leave";
 
 interface LeaveRequestFormProps {
   employeeId: string;
+  /** "card" renders a standalone card (Profile); "dialog" renders bare fields + a DialogFooter. */
+  variant?: "card" | "dialog";
+  onCancel?: () => void;
+  onSubmitted?: () => void;
 }
 
-export function LeaveRequestForm({ employeeId }: LeaveRequestFormProps) {
+export function LeaveRequestForm({ employeeId, variant = "card", onCancel, onSubmitted }: LeaveRequestFormProps) {
   const [leaveTypeId, setLeaveTypeId] = useState<string>("");
   const [startDate, setStartDate] = useState<Date>();
   const [endDate, setEndDate] = useState<Date>();
@@ -153,22 +159,17 @@ export function LeaveRequestForm({ employeeId }: LeaveRequestFormProps) {
     setStartDate(undefined);
     setEndDate(undefined);
     setReason("");
+    onSubmitted?.();
   };
 
   const selectedBalance = leaveTypeId && !isUnpaid ? leaveBalances[leaveTypeId] : null;
   const exceedsBalance = !!selectedBalance && daysCount > 0 && (selectedBalance.remaining - daysCount) < 0;
   const isValid = leaveTypeId && startDate && endDate && daysCount > 0 && reason.trim().length >= 10 && !exceedsBalance;
 
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Send className="h-5 w-5" />
-          Request Time Off
-        </CardTitle>
-        <CardDescription>Submit a new leave request for approval</CardDescription>
-      </CardHeader>
-      <CardContent>
+  const isDialog = variant === "dialog";
+  const fieldId = `leave-${variant}`;
+
+  const form = (
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Leave balance summary */}
           {leaveTypes && leaveTypes.length > 0 && (
@@ -184,7 +185,7 @@ export function LeaveRequestForm({ employeeId }: LeaveRequestFormProps) {
                       className="cursor-pointer text-xs py-1 px-2.5"
                       onClick={() => setLeaveTypeId(type.id)}
                     >
-                      {type.name}: ∞
+                      {type.name}: Unlimited
                     </Badge>
                   );
                 }
@@ -208,9 +209,9 @@ export function LeaveRequestForm({ employeeId }: LeaveRequestFormProps) {
           )}
 
           <div className="space-y-2">
-            <Label>Leave Type</Label>
+            <Label htmlFor={`${fieldId}-type`}>Leave type</Label>
             <Select value={leaveTypeId} onValueChange={setLeaveTypeId}>
-              <SelectTrigger>
+              <SelectTrigger id={`${fieldId}-type`}>
                 <SelectValue placeholder="Select leave type" />
               </SelectTrigger>
               <SelectContent>
@@ -256,7 +257,7 @@ export function LeaveRequestForm({ employeeId }: LeaveRequestFormProps) {
                 <div className="flex items-center justify-between mt-1 pt-1 border-t">
                   <span className="text-muted-foreground">After this request</span>
                   <span className={cn("font-semibold", (selectedBalance.remaining - daysCount) < 0 ? "text-destructive" : "text-primary")}>
-                    {selectedBalance.remaining - daysCount} days
+                    {pluralizeDays(selectedBalance.remaining - daysCount)}
                   </span>
                 </div>
               )}
@@ -274,10 +275,12 @@ export function LeaveRequestForm({ employeeId }: LeaveRequestFormProps) {
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label>Start Date</Label>
+              <Label htmlFor={`${fieldId}-start`}>Start date</Label>
               <Popover>
                 <PopoverTrigger asChild>
                   <Button
+                    id={`${fieldId}-start`}
+                    type="button"
                     variant="outline"
                     className={cn(
                       "w-full justify-start text-left font-normal",
@@ -285,7 +288,7 @@ export function LeaveRequestForm({ employeeId }: LeaveRequestFormProps) {
                     )}
                   >
                     <CalendarIcon className="mr-2 h-4 w-4" />
-                    {startDate ? format(startDate, "PPP") : "Pick a date"}
+                    {startDate ? format(startDate, "MMM d, yyyy") : "Pick a date"}
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="start">
@@ -307,10 +310,12 @@ export function LeaveRequestForm({ employeeId }: LeaveRequestFormProps) {
             </div>
 
             <div className="space-y-2">
-              <Label>End Date</Label>
+              <Label htmlFor={`${fieldId}-end`}>End date</Label>
               <Popover>
                 <PopoverTrigger asChild>
                   <Button
+                    id={`${fieldId}-end`}
+                    type="button"
                     variant="outline"
                     className={cn(
                       "w-full justify-start text-left font-normal",
@@ -318,7 +323,7 @@ export function LeaveRequestForm({ employeeId }: LeaveRequestFormProps) {
                     )}
                   >
                     <CalendarIcon className="mr-2 h-4 w-4" />
-                    {endDate ? format(endDate, "PPP") : "Pick a date"}
+                    {endDate ? format(endDate, "MMM d, yyyy") : "Pick a date"}
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="start">
@@ -337,7 +342,7 @@ export function LeaveRequestForm({ employeeId }: LeaveRequestFormProps) {
 
           {daysCount > 0 && (
             <p className="text-sm text-muted-foreground">
-              Duration: <span className="font-medium text-foreground">{daysCount} day{daysCount !== 1 ? "s" : ""}</span>
+              Duration: <span className="font-medium text-foreground">{pluralizeDays(daysCount)}</span>
             </p>
           )}
 
@@ -351,8 +356,9 @@ export function LeaveRequestForm({ employeeId }: LeaveRequestFormProps) {
           )}
 
           <div className="space-y-2">
-            <Label>Reason <span className="text-destructive">*</span></Label>
+            <Label htmlFor={`${fieldId}-reason`}>Reason <span className="text-destructive">*</span></Label>
             <Textarea
+              id={`${fieldId}-reason`}
               value={reason}
               onChange={(e) => setReason(e.target.value)}
               placeholder="Provide a reason for your leave request (min. 10 characters)..."
@@ -364,16 +370,45 @@ export function LeaveRequestForm({ employeeId }: LeaveRequestFormProps) {
             )}
           </div>
 
-          <Button type="submit" disabled={!isValid || submitMutation.isPending} className="w-full">
-            {submitMutation.isPending ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <Send className="mr-2 h-4 w-4" />
-            )}
-            Submit Request
-          </Button>
+          {isDialog ? (
+            <DialogFooter className="sm:pt-2">
+              <Button type="button" variant="outline" onClick={onCancel}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={!isValid || submitMutation.isPending}>
+                {submitMutation.isPending ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Send className="mr-2 h-4 w-4" />
+                )}
+                Submit request
+              </Button>
+            </DialogFooter>
+          ) : (
+            <Button type="submit" disabled={!isValid || submitMutation.isPending} className="w-full">
+              {submitMutation.isPending ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Send className="mr-2 h-4 w-4" />
+              )}
+              Submit request
+            </Button>
+          )}
         </form>
-      </CardContent>
+  );
+
+  if (isDialog) return form;
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Send className="h-5 w-5" />
+          Request Time Off
+        </CardTitle>
+        <CardDescription>Submit a new leave request for approval</CardDescription>
+      </CardHeader>
+      <CardContent>{form}</CardContent>
     </Card>
   );
 }

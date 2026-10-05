@@ -18,11 +18,12 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { format, addMonths, subMonths, isSameDay, parseISO } from "date-fns";
+import { toneClass } from "@/lib/statusStyles";
 const EVENT_TYPES = [{
   value: "holiday",
   label: "Public Holiday",
   icon: PartyPopper,
-  color: "bg-destructive/10 text-destructive"
+  color: "bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-300"
 }, {
   value: "company",
   label: "Company Event",
@@ -32,7 +33,7 @@ const EVENT_TYPES = [{
   value: "meeting",
   label: "All-Hands Meeting",
   icon: Users,
-  color: "bg-secondary text-secondary-foreground"
+  color: "bg-violet-50 text-violet-700 dark:bg-violet-950 dark:text-violet-300"
 }, {
   value: "other",
   label: "Other",
@@ -138,7 +139,9 @@ const CompanyCalendar = () => {
     setIsCreateOpen(true);
   };
   const getEventTypeConfig = (type: string) => {
-    return EVENT_TYPES.find(t => t.value === type) || EVENT_TYPES[3];
+    // Legacy rows use the DB default "event" — treat those as company events
+    const normalized = type === "event" ? "company" : type;
+    return EVENT_TYPES.find(t => t.value === normalized) || EVENT_TYPES[3];
   };
   const sendNotifications = async () => {
     setIsSendingNotifications(true);
@@ -157,25 +160,46 @@ const CompanyCalendar = () => {
     }
   };
   const eventsOnSelectedDate = selectedDate ? events?.filter(e => isSameDay(parseISO(e.event_date), selectedDate)) : [];
-  const eventDates = events?.map(e => parseISO(e.event_date)) || [];
+  const isHolidayEvent = (e: CompanyEvent) => e.is_holiday || e.event_type === "holiday";
+  const holidayDates = events?.filter(isHolidayEvent).map(e => parseISO(e.event_date)) || [];
+  const eventDates = events?.filter(e => !isHolidayEvent(e)).map(e => parseISO(e.event_date)) || [];
+  const holidayCount = events?.filter(isHolidayEvent).length || 0;
+  // Everything that isn't a holiday (company events, all-hands, other) counts as a company event
+  const companyEventCount = events?.filter(e => !isHolidayEvent(e)).length || 0;
+  const calendarStats = [{
+    label: "Holidays",
+    value: holidayCount,
+    icon: PartyPopper,
+    tile: "bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-300"
+  }, {
+    label: "Company events",
+    value: companyEventCount,
+    icon: Briefcase,
+    tile: "bg-primary/10 text-primary"
+  }, {
+    label: "Total events",
+    value: events?.length || 0,
+    icon: CalendarDays,
+    tile: "bg-muted text-foreground"
+  }];
   return <DashboardLayout>
       <div className="space-y-6">
         {/* Header */}
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h2 className="text-2xl font-bold text-foreground">Calendar</h2>
+            <h1 className="text-2xl font-bold text-foreground sm:text-3xl">Calendar</h1>
             <p className="text-muted-foreground">View holidays and company events</p>
           </div>
           {canManageEvents && <div className="flex gap-2">
-              <Button variant="outline" onClick={sendNotifications} disabled={isSendingNotifications}>
+              <Button variant="outline" className="flex-1 sm:flex-none" onClick={sendNotifications} disabled={isSendingNotifications}>
                 <Mail className="mr-2 h-4 w-4" />
-                {isSendingNotifications ? "Sending..." : "Send Notifications"}
+                {isSendingNotifications ? "Sending..." : "Send notifications"}
               </Button>
               <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
                 <DialogTrigger asChild>
-                  <Button onClick={() => resetForm()}>
+                  <Button className="flex-1 sm:flex-none" onClick={() => resetForm()}>
                     <Plus className="mr-2 h-4 w-4" />
-                    Add Event
+                    Add event
                   </Button>
                 </DialogTrigger>
               <DialogContent>
@@ -204,7 +228,7 @@ const CompanyCalendar = () => {
                     ...formData,
                     event_type: value
                   })}>
-                      <SelectTrigger>
+                      <SelectTrigger id="event_type">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -243,79 +267,78 @@ const CompanyCalendar = () => {
         </div>
 
         {/* Stats */}
-        <div className="grid gap-4 sm:grid-cols-3">
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-4">
-                <div className="rounded-xl bg-destructive/10 p-3">
-                  <PartyPopper className="h-6 w-6 text-destructive" />
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Holidays This Month</p>
-                  <p className="text-2xl font-bold">
-                    {events?.filter(e => e.is_holiday).length || 0}
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-4">
-                <div className="rounded-xl bg-primary/10 p-3">
-                  <Briefcase className="h-6 w-6 text-primary" />
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Company Events</p>
-                  <p className="text-2xl font-bold">
-                    {events?.filter(e => e.event_type === "company").length || 0}
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-4">
-                <div className="rounded-xl bg-secondary/50 p-3">
-                  <CalendarDays className="h-6 w-6 text-secondary-foreground" />
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Total Events</p>
-                  <p className="text-2xl font-bold">{events?.length || 0}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+        <div className="grid grid-cols-3 gap-3 sm:gap-4">
+          {calendarStats.map(stat => {
+            const Icon = stat.icon;
+            return <Card key={stat.label}>
+                <CardContent className="flex flex-col items-start gap-2 p-3 sm:flex-row sm:items-center sm:gap-4 sm:p-6">
+                  <div className={`shrink-0 rounded-xl p-2 sm:p-3 ${stat.tile}`}>
+                    <Icon className="h-5 w-5 sm:h-6 sm:w-6" aria-hidden="true" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xl font-bold sm:text-2xl">{stat.value}</p>
+                    <p className="text-sm text-muted-foreground">{stat.label}<span className="hidden sm:inline"> this month</span></p>
+                  </div>
+                </CardContent>
+              </Card>;
+          })}
         </div>
 
         <div className="grid gap-6 lg:grid-cols-3">
           {/* Calendar */}
           <Card className="lg:col-span-2">
-            <CardHeader className="flex flex-row items-center justify-between">
+            <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0">
               <div>
-                <CardTitle>{format(currentMonth, "MMMM yyyy")}</CardTitle>
+                <CardTitle aria-live="polite">{format(currentMonth, "MMMM yyyy")}</CardTitle>
                 <CardDescription>Click on a date to view events</CardDescription>
               </div>
-              <div className="flex gap-2">
-                <Button variant="outline" size="icon" onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}>
+              <div className="flex shrink-0 gap-2">
+                <Button variant="outline" size="icon" onClick={() => setCurrentMonth(subMonths(currentMonth, 1))} aria-label="Previous month" title="Previous month">
                   <ChevronLeft className="h-4 w-4" />
                 </Button>
-                <Button variant="outline" size="icon" onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}>
+                <Button variant="outline" size="icon" onClick={() => setCurrentMonth(addMonths(currentMonth, 1))} aria-label="Next month" title="Next month">
                   <ChevronRight className="h-4 w-4" />
                 </Button>
               </div>
             </CardHeader>
             <CardContent>
-              {isLoading ? <Skeleton className="h-[300px] w-full" /> : <Calendar mode="single" selected={selectedDate} onSelect={setSelectedDate} month={currentMonth} onMonthChange={setCurrentMonth} className="rounded-md border p-3" modifiers={{
-              hasEvent: eventDates
-            }} modifiersStyles={{
-              hasEvent: {
-                fontWeight: "bold",
-                backgroundColor: "hsl(var(--primary) / 0.1)",
-                color: "hsl(var(--primary))"
-              }
-            }} />}
+              {isLoading ? <Skeleton className="h-[300px] w-full" /> : <>
+                  <Calendar mode="single" selected={selectedDate} onSelect={setSelectedDate} month={currentMonth} onMonthChange={setCurrentMonth} className="p-0" modifiers={{
+                hasEvent: eventDates,
+                hasHoliday: holidayDates
+              }} modifiersClassNames={{
+                hasEvent: "bg-primary/10 font-semibold text-primary aria-selected:bg-primary aria-selected:text-primary-foreground",
+                hasHoliday: "bg-red-50 font-semibold text-red-700 dark:bg-red-950 dark:text-red-300 aria-selected:bg-primary aria-selected:text-primary-foreground"
+              }} classNames={{
+                months: "w-full",
+                month: "w-full space-y-4",
+                caption: "hidden",
+                table: "w-full border-collapse",
+                head_row: "grid grid-cols-7",
+                head_cell: "py-1 text-center text-xs font-medium text-muted-foreground sm:text-sm",
+                row: "mt-1 grid grid-cols-7 gap-1",
+                cell: "relative p-0 text-center text-sm focus-within:relative focus-within:z-20",
+                day: "inline-flex h-10 w-full items-center justify-center rounded-md text-sm font-normal transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:h-14 sm:text-base",
+                day_selected: "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground",
+                day_today: "ring-2 ring-inset ring-primary",
+                day_outside: "text-muted-foreground aria-selected:text-primary-foreground",
+                day_disabled: "text-muted-foreground opacity-50"
+              }} />
+                  <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 border-t pt-4 text-xs text-muted-foreground">
+                    <div className="flex items-center gap-1.5">
+                      <div className="h-3 w-3 rounded-sm bg-red-100 ring-1 ring-red-300 dark:bg-red-950" />
+                      <span>Holiday</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <div className="h-3 w-3 rounded-sm bg-primary/10 ring-1 ring-primary/40" />
+                      <span>Event</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <div className="h-3 w-3 rounded-sm ring-2 ring-inset ring-primary" />
+                      <span>Today</span>
+                    </div>
+                  </div>
+                </>}
             </CardContent>
           </Card>
 
@@ -323,10 +346,10 @@ const CompanyCalendar = () => {
           <Card>
             <CardHeader>
               <CardTitle>
-                {selectedDate ? format(selectedDate, "MMMM d, yyyy") : "Upcoming Events"}
+                {selectedDate ? format(selectedDate, "MMM d, yyyy") : "Events this month"}
               </CardTitle>
               <CardDescription>
-                {selectedDate ? "Events on this date" : "Events this month"}
+                {selectedDate ? <>Events on this date · <button type="button" className="underline-offset-4 hover:underline" onClick={() => setSelectedDate(undefined)}>Show all</button></> : format(currentMonth, "MMMM yyyy")}
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -343,26 +366,26 @@ const CompanyCalendar = () => {
                 const typeConfig = getEventTypeConfig(event.event_type);
                 const Icon = typeConfig.icon;
                 return <div key={event.id} className="rounded-lg border p-4 transition-colors hover:bg-muted/50">
-                          <div className="flex items-start justify-between">
-                            <div className="flex items-start gap-3">
-                              <div className={`rounded-lg p-2 ${typeConfig.color}`}>
-                                <Icon className="h-4 w-4" />
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex min-w-0 items-start gap-3">
+                              <div className={`shrink-0 rounded-lg p-2 ${typeConfig.color}`}>
+                                <Icon className="h-4 w-4" aria-hidden="true" />
                               </div>
-                              <div>
+                              <div className="min-w-0">
                                 <p className="font-medium">{event.title}</p>
                                 <p className="text-sm text-muted-foreground">
                                   {format(parseISO(event.event_date), "MMM d, yyyy")}
                                 </p>
-                                {event.is_holiday && <Badge variant="destructive" className="mt-1">
+                                {event.is_holiday && <Badge variant="outline" className={`mt-1 ${toneClass("danger")}`}>
                                     Holiday
                                   </Badge>}
                               </div>
                             </div>
-                            {canManageEvents && <div className="flex gap-1">
+                            {canManageEvents && <div className="flex shrink-0 gap-1">
                                 <Dialog open={editingEvent?.id === event.id} onOpenChange={open => !open && setEditingEvent(null)}>
                                   <DialogTrigger asChild>
-                                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(event)}>
-                                      <Pencil className="h-3 w-3" />
+                                    <Button variant="ghost" size="icon" className="h-10 w-10 sm:h-8 sm:w-8" onClick={() => openEdit(event)} aria-label={`Edit ${event.title}`} title="Edit event">
+                                      <Pencil className="h-4 w-4" />
                                     </Button>
                                   </DialogTrigger>
                                   <DialogContent>
@@ -391,7 +414,7 @@ const CompanyCalendar = () => {
                                 ...formData,
                                 event_type: value
                               })}>
-                                          <SelectTrigger>
+                                          <SelectTrigger id="edit-event_type">
                                             <SelectValue />
                                           </SelectTrigger>
                                           <SelectContent>
@@ -431,8 +454,8 @@ const CompanyCalendar = () => {
 
                                 <AlertDialog>
                                   <AlertDialogTrigger asChild>
-                                    <Button variant="ghost" size="icon" className="h-8 w-8">
-                                      <Trash2 className="h-3 w-3 text-destructive" />
+                                    <Button variant="ghost" size="icon" className="h-10 w-10 sm:h-8 sm:w-8" aria-label={`Delete ${event.title}`} title="Delete event">
+                                      <Trash2 className="h-4 w-4 text-destructive" />
                                     </Button>
                                   </AlertDialogTrigger>
                                   <AlertDialogContent>

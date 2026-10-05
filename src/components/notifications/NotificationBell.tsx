@@ -1,30 +1,51 @@
-import { Bell, Check, CheckCheck } from "lucide-react";
+import { AlertTriangle, Bell, CheckCheck, CheckCircle2, Info, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Badge } from "@/components/ui/badge";
-import { 
-  useNotifications, 
-  useUnreadNotificationsCount, 
+import {
+  useNotifications,
+  useUnreadNotificationsCount,
   useMarkNotificationRead,
-  useMarkAllNotificationsRead 
+  useMarkAllNotificationsRead,
+  type Notification,
 } from "@/hooks/useNotifications";
 import { formatDistanceToNow } from "date-fns";
 import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 
+/** The list query is capped at 50 rows; beyond that only the server count is exact. */
+const LIST_LIMIT = 50;
+
+const typeIcon = (type: string) => {
+  switch (type) {
+    case "warning":
+      return <AlertTriangle className="h-4 w-4 text-amber-600" aria-hidden="true" />;
+    case "error":
+      return <XCircle className="h-4 w-4 text-destructive" aria-hidden="true" />;
+    case "success":
+      return <CheckCircle2 className="h-4 w-4 text-emerald-600" aria-hidden="true" />;
+    default:
+      return <Info className="h-4 w-4 text-primary" aria-hidden="true" />;
+  }
+};
+
 export const NotificationBell = () => {
   const navigate = useNavigate();
-  const { data: notifications = [], isLoading } = useNotifications();
-  const { data: unreadCount = 0 } = useUnreadNotificationsCount();
+  const { data: notifications = [], isLoading, isSuccess } = useNotifications();
+  const { data: serverUnreadCount = 0 } = useUnreadNotificationsCount();
   const markRead = useMarkNotificationRead();
   const markAllRead = useMarkAllNotificationsRead();
 
-  const handleNotificationClick = (notification: typeof notifications[0]) => {
+  // Keep the badge consistent with what the panel shows: once the list has loaded,
+  // count the unread items in it (unless the list is truncated).
+  const listUnreadCount = notifications.filter((n) => !n.read).length;
+  const unreadCount =
+    isSuccess && notifications.length < LIST_LIMIT ? listUnreadCount : Math.max(serverUnreadCount, listUnreadCount);
+
+  const handleNotificationClick = (notification: Notification) => {
     if (!notification.read) {
       markRead.mutate(notification.id);
     }
@@ -33,90 +54,105 @@ export const NotificationBell = () => {
     }
   };
 
-  const getTypeStyles = (type: string) => {
-    switch (type) {
-      case "warning":
-        return "border-l-4 border-l-orange-500 bg-orange-50 dark:bg-orange-950/20";
-      case "error":
-        return "border-l-4 border-l-red-500 bg-red-50 dark:bg-red-950/20";
-      case "success":
-        return "border-l-4 border-l-green-500 bg-green-50 dark:bg-green-950/20";
-      default:
-        return "border-l-4 border-l-blue-500 bg-blue-50 dark:bg-blue-950/20";
-    }
-  };
+  const triggerLabel =
+    unreadCount > 0 ? `Notifications, ${unreadCount} unread` : "Notifications";
 
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button variant="ghost" size="icon" className="relative">
-          <Bell className="h-5 w-5" />
+        <Button variant="ghost" size="icon" className="relative" aria-label={triggerLabel} title="Notifications">
+          <Bell className="h-5 w-5" aria-hidden="true" />
           {unreadCount > 0 && (
-            <Badge 
-              variant="destructive" 
-              className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs"
+            <span
+              aria-hidden="true"
+              className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-destructive px-1 text-xs font-semibold text-destructive-foreground"
             >
               {unreadCount > 9 ? "9+" : unreadCount}
-            </Badge>
+            </span>
           )}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-80 p-0" align="end">
-        <div className="flex items-center justify-between p-4 border-b">
-          <h4 className="font-semibold">Notifications</h4>
+      <PopoverContent
+        className="w-[calc(100vw-1.5rem)] max-w-sm p-0"
+        align="end"
+        collisionPadding={12}
+        aria-label="Notifications"
+      >
+        <div className="flex items-center justify-between gap-2 border-b px-4 py-3">
+          <div className="min-w-0">
+            <h2 className="font-semibold leading-tight">Notifications</h2>
+            <p className="text-xs text-muted-foreground">
+              {unreadCount > 0 ? `${unreadCount} unread` : "You're all caught up"}
+            </p>
+          </div>
           {unreadCount > 0 && (
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              className="text-xs h-7"
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 shrink-0 text-xs"
               onClick={() => markAllRead.mutate()}
               disabled={markAllRead.isPending}
             >
-              <CheckCheck className="h-3 w-3 mr-1" />
+              <CheckCheck className="mr-1 h-3.5 w-3.5" aria-hidden="true" />
               Mark all read
             </Button>
           )}
         </div>
-        <ScrollArea className="h-80">
+        <div className="max-h-[min(24rem,60vh)] overflow-y-auto">
           {isLoading ? (
-            <div className="p-4 text-center text-muted-foreground">
-              Loading...
-            </div>
+            <div className="p-6 text-center text-sm text-muted-foreground">Loading…</div>
           ) : notifications.length === 0 ? (
-            <div className="p-4 text-center text-muted-foreground">
-              No notifications
+            <div className="flex flex-col items-center gap-2 p-6 text-center text-sm text-muted-foreground">
+              <Bell className="h-6 w-6 text-muted-foreground/60" aria-hidden="true" />
+              No notifications yet
             </div>
           ) : (
-            <div className="divide-y">
-              {notifications.map((notification) => (
-                <div
-                  key={notification.id}
-                  className={cn(
-                    "p-3 cursor-pointer hover:bg-muted/50 transition-colors",
-                    getTypeStyles(notification.type),
-                    !notification.read && "font-medium"
-                  )}
-                  onClick={() => handleNotificationClick(notification)}
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm truncate">{notification.title}</p>
-                      <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
-                        {notification.message}
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {formatDistanceToNow(new Date(notification.created_at), { addSuffix: true })}
-                      </p>
-                    </div>
-                    {!notification.read && (
-                      <div className="h-2 w-2 bg-primary rounded-full flex-shrink-0 mt-1" />
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
+            <ul className="divide-y">
+              {notifications.map((notification) => {
+                const unread = !notification.read;
+                return (
+                  <li key={notification.id}>
+                    <button
+                      type="button"
+                      onClick={() => handleNotificationClick(notification)}
+                      className={cn(
+                        "relative flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-accent focus-visible:bg-accent focus-visible:outline-none",
+                        unread && "bg-primary/5",
+                      )}
+                    >
+                      {unread && (
+                        <span aria-hidden="true" className="absolute inset-y-0 left-0 w-1 bg-primary" />
+                      )}
+                      <span className="mt-0.5 shrink-0">{typeIcon(notification.type)}</span>
+                      <span className="min-w-0 flex-1">
+                        <span
+                          className={cn(
+                            "block truncate text-sm",
+                            unread ? "font-semibold text-foreground" : "font-normal text-muted-foreground",
+                          )}
+                        >
+                          {notification.title}
+                        </span>
+                        <span className="mt-0.5 block text-xs text-muted-foreground line-clamp-2">
+                          {notification.message}
+                        </span>
+                        <span className="mt-1 block text-xs text-muted-foreground">
+                          {formatDistanceToNow(new Date(notification.created_at), { addSuffix: true })}
+                        </span>
+                      </span>
+                      {unread && (
+                        <>
+                          <span aria-hidden="true" className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-primary" />
+                          <span className="sr-only">(unread)</span>
+                        </>
+                      )}
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
           )}
-        </ScrollArea>
+        </div>
       </PopoverContent>
     </Popover>
   );

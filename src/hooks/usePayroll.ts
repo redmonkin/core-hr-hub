@@ -119,13 +119,14 @@ export function usePayrollRecords(month?: number, year?: number) {
   });
 }
 
-export function usePayrollStats() {
+/** Stats for one pay period (defaults to the current month). */
+export function usePayrollStats(month?: number, year?: number) {
   return useQuery({
-    queryKey: ["payroll-stats"],
+    queryKey: ["payroll-stats", month, year],
     queryFn: async () => {
       const currentDate = new Date();
-      const currentMonth = currentDate.getMonth() + 1;
-      const currentYear = currentDate.getFullYear();
+      const currentMonth = month ?? currentDate.getMonth() + 1;
+      const currentYear = year ?? currentDate.getFullYear();
 
       const { data: records, error } = await supabase
         .from("payroll_records")

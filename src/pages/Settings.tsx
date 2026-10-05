@@ -38,6 +38,7 @@ import { EmployeeCodeSettings } from "@/components/settings/EmployeeCodeSettings
 import DomainWhitelistSettings from "@/components/settings/DomainWhitelistSettings";
 import OfficeLocationSettings from "@/components/settings/OfficeLocationSettings";
 import { BrandingSettings } from "@/components/settings/BrandingSettings";
+import { toneClass } from "@/lib/statusStyles";
 
 // Fetch leave types
 const useLeaveTypes = () => {
@@ -304,62 +305,55 @@ const Settings = () => {
     <DashboardLayout>
       <div className="space-y-6">
         <div>
-          <h2 className="text-2xl font-bold text-foreground">Settings</h2>
+          <h1 className="text-2xl font-bold text-foreground sm:text-3xl">Settings</h1>
           <p className="text-muted-foreground">Manage system configurations</p>
         </div>
 
         <Tabs value={activeTab} onValueChange={(v) => setRequestedTab(v as SettingsTab)}>
-          <TabsList className="grid h-auto w-full grid-cols-2 gap-1 sm:inline-flex sm:h-10 sm:w-auto">
+          <TabsList className="grid h-auto w-full grid-cols-2 gap-1 sm:inline-flex sm:h-10 sm:w-auto" aria-label="Settings sections">
             {tabAllowed["user-roles"] && (
               <TabsTrigger
                 value="user-roles"
-                className="w-full justify-center gap-2 sm:w-auto"
+                className="min-h-10 w-full justify-start gap-2 sm:min-h-0 sm:w-auto sm:justify-center"
               >
-                <Users className="h-4 w-4" />
-                <span className="hidden sm:inline">Users &amp; Access</span>
-                <span className="sm:hidden">Users</span>
+                <Users className="h-4 w-4" aria-hidden="true" />
+                <span>Users &amp; access</span>
               </TabsTrigger>
             )}
             {tabAllowed.departments && (
-              <TabsTrigger value="departments" className="w-full justify-center gap-2 sm:w-auto">
-                <Building2 className="h-4 w-4" />
-                <span className="hidden sm:inline">Departments</span>
-                <span className="sm:hidden">Depts</span>
+              <TabsTrigger value="departments" className="min-h-10 w-full justify-start gap-2 sm:min-h-0 sm:w-auto sm:justify-center">
+                <Building2 className="h-4 w-4" aria-hidden="true" />
+                <span>Departments</span>
               </TabsTrigger>
             )}
             {tabAllowed["leave-types"] && (
-              <TabsTrigger value="leave-types" className="w-full justify-center gap-2 sm:w-auto">
-                <CalendarDays className="h-4 w-4" />
-                <span className="hidden sm:inline">Leave Types</span>
-                <span className="sm:hidden">Leaves</span>
+              <TabsTrigger value="leave-types" className="min-h-10 w-full justify-start gap-2 sm:min-h-0 sm:w-auto sm:justify-center">
+                <CalendarDays className="h-4 w-4" aria-hidden="true" />
+                <span>Leave types</span>
               </TabsTrigger>
             )}
             {tabAllowed["employee-id"] && (
-              <TabsTrigger value="employee-id" className="w-full justify-center gap-2 sm:w-auto">
-                <Hash className="h-4 w-4" />
-                <span className="hidden sm:inline">Employee ID</span>
-                <span className="sm:hidden">ID</span>
+              <TabsTrigger value="employee-id" className="min-h-10 w-full justify-start gap-2 sm:min-h-0 sm:w-auto sm:justify-center">
+                <Hash className="h-4 w-4" aria-hidden="true" />
+                <span>Employee ID</span>
               </TabsTrigger>
             )}
             {tabAllowed["domain-whitelist"] && (
-              <TabsTrigger value="domain-whitelist" className="w-full justify-center gap-2 sm:w-auto">
-                <Globe className="h-4 w-4" />
-                <span className="hidden sm:inline">Domain Whitelist</span>
-                <span className="sm:hidden">Domains</span>
+              <TabsTrigger value="domain-whitelist" className="min-h-10 w-full justify-start gap-2 sm:min-h-0 sm:w-auto sm:justify-center">
+                <Globe className="h-4 w-4" aria-hidden="true" />
+                <span>Domain whitelist</span>
               </TabsTrigger>
             )}
             {tabAllowed["office-location"] && (
-              <TabsTrigger value="office-location" className="w-full justify-center gap-2 sm:w-auto">
-                <MapPin className="h-4 w-4" />
-                <span className="hidden sm:inline">Office Location</span>
-                <span className="sm:hidden">Office</span>
+              <TabsTrigger value="office-location" className="min-h-10 w-full justify-start gap-2 sm:min-h-0 sm:w-auto sm:justify-center">
+                <MapPin className="h-4 w-4" aria-hidden="true" />
+                <span>Office location</span>
               </TabsTrigger>
             )}
             {tabAllowed.branding && (
-              <TabsTrigger value="branding" className="w-full justify-center gap-2 sm:w-auto">
-                <Palette className="h-4 w-4" />
-                <span className="hidden sm:inline">Branding</span>
-                <span className="sm:hidden">Brand</span>
+              <TabsTrigger value="branding" className="min-h-10 w-full justify-start gap-2 sm:min-h-0 sm:w-auto sm:justify-center">
+                <Palette className="h-4 w-4" aria-hidden="true" />
+                <span>Branding</span>
               </TabsTrigger>
             )}
           </TabsList>
@@ -382,13 +376,13 @@ const Settings = () => {
                 }}>
                   <DialogTrigger asChild>
                     <Button>
-                      <Plus className="mr-2 h-4 w-4" />
-                      Add Department
+                      <Plus className="mr-2 h-4 w-4" aria-hidden="true" />
+                      Add department
                     </Button>
                   </DialogTrigger>
                   <DialogContent>
                     <DialogHeader>
-                      <DialogTitle>{editingDept ? 'Edit Department' : 'Add Department'}</DialogTitle>
+                      <DialogTitle>{editingDept ? 'Edit department' : 'Add department'}</DialogTitle>
                       <DialogDescription>
                         {editingDept ? 'Update department details' : 'Create a new department'}
                       </DialogDescription>
@@ -434,28 +428,33 @@ const Settings = () => {
                     <TableHeader>
                       <TableRow>
                         <TableHead>Name</TableHead>
-                        <TableHead>Description</TableHead>
-                        <TableHead className="w-24">Actions</TableHead>
+                        <TableHead className="hidden sm:table-cell">Description</TableHead>
+                        <TableHead className="w-24 text-right">Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {departments.map((dept) => (
                         <TableRow key={dept.id}>
-                          <TableCell className="font-medium">{dept.name}</TableCell>
-                          <TableCell className="text-muted-foreground">{dept.description || '-'}</TableCell>
                           <TableCell>
-                            <div className="flex gap-2">
-                              <Button variant="ghost" size="icon" onClick={() => handleEditDept(dept)}>
-                                <Pencil className="h-4 w-4" />
+                            <p className="font-medium">{dept.name}</p>
+                            {dept.description && <p className="text-xs text-muted-foreground sm:hidden">{dept.description}</p>}
+                          </TableCell>
+                          <TableCell className="hidden text-muted-foreground sm:table-cell">{dept.description || '—'}</TableCell>
+                          <TableCell>
+                            <div className="flex justify-end gap-1">
+                              <Button variant="ghost" size="icon" className="h-10 w-10" onClick={() => handleEditDept(dept)} aria-label={`Edit ${dept.name}`} title="Edit">
+                                <Pencil className="h-4 w-4" aria-hidden="true" />
                               </Button>
                               <Button 
                                 variant="ghost" 
                                 size="icon" 
-                                className="text-destructive hover:text-destructive"
+                                className="h-10 w-10 text-destructive hover:text-destructive"
                                 onClick={() => deleteDeptMutation.mutate(dept.id)}
                                 disabled={deleteDeptMutation.isPending}
+                                aria-label={`Delete ${dept.name}`}
+                                title="Delete"
                               >
-                                <Trash2 className="h-4 w-4" />
+                                <Trash2 className="h-4 w-4" aria-hidden="true" />
                               </Button>
                             </div>
                           </TableCell>
@@ -475,7 +474,7 @@ const Settings = () => {
             <Card>
               <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <CardTitle>Leave Types</CardTitle>
+                  <CardTitle>Leave types</CardTitle>
                   <CardDescription>Configure available leave types and their policies</CardDescription>
                 </div>
                 <Dialog open={leaveDialogOpen} onOpenChange={(open) => {
@@ -487,13 +486,13 @@ const Settings = () => {
                 }}>
                   <DialogTrigger asChild>
                     <Button>
-                      <Plus className="mr-2 h-4 w-4" />
-                      Add Leave Type
+                      <Plus className="mr-2 h-4 w-4" aria-hidden="true" />
+                      Add leave type
                     </Button>
                   </DialogTrigger>
                   <DialogContent>
                     <DialogHeader>
-                      <DialogTitle>{editingLeave ? 'Edit Leave Type' : 'Add Leave Type'}</DialogTitle>
+                      <DialogTitle>{editingLeave ? 'Edit leave type' : 'Add leave type'}</DialogTitle>
                       <DialogDescription>
                         {editingLeave ? 'Update leave type details' : 'Create a new leave type'}
                       </DialogDescription>
@@ -519,7 +518,7 @@ const Settings = () => {
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="daysPerYear">Days Per Year</Label>
+                        <Label htmlFor="daysPerYear">Days per year</Label>
                         <Input
                           id="daysPerYear"
                           type="number"
@@ -530,7 +529,7 @@ const Settings = () => {
                       </div>
                       <div className="flex items-center justify-between rounded-lg border border-border p-3">
                         <div>
-                          <Label htmlFor="isPaid">Paid Leave</Label>
+                          <Label htmlFor="isPaid">Paid leave</Label>
                           <p className="text-xs text-muted-foreground">Employee receives salary during this leave</p>
                         </div>
                         <Switch
@@ -560,36 +559,43 @@ const Settings = () => {
                     <TableHeader>
                       <TableRow>
                         <TableHead>Name</TableHead>
-                        <TableHead>Days/Year</TableHead>
-                        <TableHead>Type</TableHead>
-                        <TableHead>Description</TableHead>
-                        <TableHead className="w-24">Actions</TableHead>
+                        <TableHead className="whitespace-nowrap">Days/year</TableHead>
+                        <TableHead className="hidden sm:table-cell">Type</TableHead>
+                        <TableHead className="hidden md:table-cell">Description</TableHead>
+                        <TableHead className="w-24 text-right">Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {leaveTypes.map((leave) => (
                         <TableRow key={leave.id}>
-                          <TableCell className="font-medium">{leave.name}</TableCell>
-                          <TableCell>{leave.days_per_year}</TableCell>
                           <TableCell>
-                            <Badge variant={leave.is_paid ? "default" : "secondary"}>
+                            <p className="font-medium">{leave.name}</p>
+                            <Badge variant="outline" className={`mt-1 sm:hidden ${toneClass(leave.is_paid ? "success" : "neutral")}`}>
                               {leave.is_paid ? "Paid" : "Unpaid"}
                             </Badge>
                           </TableCell>
-                          <TableCell className="text-muted-foreground">{leave.description || '-'}</TableCell>
+                          <TableCell>{leave.days_per_year}</TableCell>
+                          <TableCell className="hidden sm:table-cell">
+                            <Badge variant="outline" className={toneClass(leave.is_paid ? "success" : "neutral")}>
+                              {leave.is_paid ? "Paid" : "Unpaid"}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="hidden text-muted-foreground md:table-cell">{leave.description || '—'}</TableCell>
                           <TableCell>
-                            <div className="flex gap-2">
-                              <Button variant="ghost" size="icon" onClick={() => handleEditLeave(leave)}>
-                                <Pencil className="h-4 w-4" />
+                            <div className="flex justify-end gap-1">
+                              <Button variant="ghost" size="icon" className="h-10 w-10" onClick={() => handleEditLeave(leave)} aria-label={`Edit ${leave.name}`} title="Edit">
+                                <Pencil className="h-4 w-4" aria-hidden="true" />
                               </Button>
                               <Button 
                                 variant="ghost" 
                                 size="icon" 
-                                className="text-destructive hover:text-destructive"
+                                className="h-10 w-10 text-destructive hover:text-destructive"
                                 onClick={() => deleteLeaveMutation.mutate(leave.id)}
                                 disabled={deleteLeaveMutation.isPending}
+                                aria-label={`Delete ${leave.name}`}
+                                title="Delete"
                               >
-                                <Trash2 className="h-4 w-4" />
+                                <Trash2 className="h-4 w-4" aria-hidden="true" />
                               </Button>
                             </div>
                           </TableCell>
