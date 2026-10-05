@@ -6,6 +6,19 @@ When you update a self-hosted copy, read the **Upgrade notes** of every version 
 
 ## [Unreleased]
 
+### Onboarding, simplified
+
+- **One step to add and invite**: adding an employee in Onboarding creates their record and emails them an invitation to set up their account. The separate "invite to self-onboard" flow, the employee-submitted onboarding request and the Requests tab are gone.
+- **Pending shows who hasn't joined yet**: each new hire's invitation state (sent, link expired, not sent, cancelled) with **Resend** and **Cancel invitation**, plus who joined in the last 30 days.
+- **Joining is automatic**: when the new hire opens the link and chooses a password (a new welcome screen), their invitation is accepted, their record becomes active, leave balances are created, and whoever invited them is notified. "Mark as joined" is still available for people who won't use the app.
+- **Invite anyone without an account** from their row in Employees.
+- **One invitation email**, with a working link: previously Supabase's email and ours were both sent, and the second made the first link invalid. Resending to someone who never set up their account now works.
+- The daily onboarding reminder only tells HR about new hires whose link expired or who were never invited, instead of emailing every pending hire a link they couldn't use.
+
+### Upgrade notes (onboarding)
+
+- Apply `20261006100000_onboarding_invites.sql` and redeploy `invite-employee` and `onboarding-reminders`. The `onboarding-request-notification` function is no longer used and can be deleted from your project.
+
 ### License
 
 - Peoplo is now licensed under the **AGPL-3.0** (previously MIT). Versions released before this change remain available under MIT. The app shows a **Source code** link, configurable with `VITE_REPO_URL`.

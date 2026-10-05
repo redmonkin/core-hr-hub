@@ -28,7 +28,8 @@ import {
   Mail,
   Download,
   UserCog,
-  Trash2
+  Trash2,
+  Send
 } from "lucide-react";
 import { SortableTableHead } from "@/components/ui/sortable-table-head";
 import { SortDirection } from "@/hooks/useSorting";
@@ -45,6 +46,7 @@ export interface Employee {
   designation: string;
   joinDate: string;
   status: "active" | "inactive" | "onboarding" | "offboarded";
+  hasAccount?: boolean;
 }
 
 interface EmployeeTableProps {
@@ -53,6 +55,8 @@ interface EmployeeTableProps {
   onEdit?: (employee: Employee) => void;
   
   onManageDocuments?: (employee: Employee) => void;
+  /** Offered for people without a sign-in account (needs onboarding:manage). */
+  onInvite?: (employee: Employee) => void;
   /** Show edit/documents actions and bulk selection (employees:manage). */
   canManage?: boolean;
   sortKey?: keyof Employee | null;
@@ -70,6 +74,7 @@ export function EmployeeTable({
   onEdit, 
    
   onManageDocuments, 
+  onInvite,
   canManage = false,
   sortKey,
   sortDirection,
@@ -135,6 +140,12 @@ export function EmployeeTable({
               Documents
             </DropdownMenuItem>
           </>
+        )}
+        {onInvite && employee.hasAccount === false && employee.status !== "offboarded" && (
+          <DropdownMenuItem onClick={() => onInvite(employee)}>
+            <Send className="mr-2 h-4 w-4" />
+            Invite to sign in
+          </DropdownMenuItem>
         )}
       </DropdownMenuContent>
     </DropdownMenu>

@@ -168,10 +168,10 @@ export function PeopleMock() {
 /* ------------------------------------------------------------- Onboarding */
 
 export function OnboardingMock() {
-  const invites = [
-    { email: "tara@acme.in", status: "invited", label: "Invited", note: "Expires in 6 days" },
-    { email: "kabir@acme.in", status: "pending", label: "Details submitted", note: "Waiting for HR" },
-    { email: "meera@acme.in", status: "approved", label: "Joined", note: "Account ready" },
+  const hires = [
+    { name: "Tara Bose", role: "Designer · Joins Oct 12", status: "invited", label: "Invitation sent", note: "2 hours ago" },
+    { name: "Kabir Shah", role: "Engineer · Joins Oct 19", status: "pending", label: "Link expired", note: "Resend" },
+    { name: "Meera Pillai", role: "Sales · Joined Oct 1", status: "active", label: "Joined", note: "Account set up" },
   ];
   return (
     <Stage
@@ -184,35 +184,40 @@ export function OnboardingMock() {
         {
           className: "-bottom-12 -right-1 sm:-right-6",
           z: 110,
-          content: <ChipCard tone="primary" icon={<CheckCircle2 className="h-3.5 w-3.5" />} title="Kabir approved" sub="Leave balances created" />,
+          content: <ChipCard tone="primary" icon={<CheckCircle2 className="h-3.5 w-3.5" />} title="Meera joined" sub="Now active · leave balances ready" />,
         },
       ]}
     >
       <PanelHeader
-        title="Invitations"
+        title="Pending new hires"
         right={
           <span className="inline-flex items-center gap-1 rounded-md bg-primary px-2 py-1 text-[10px] font-medium text-primary-foreground">
-            <UserPlus className="h-3 w-3" /> Invite
+            <UserPlus className="h-3 w-3" /> Add and invite
           </span>
         }
       />
       <ul className="divide-y divide-border">
-        {invites.map((invite) => (
-          <li key={invite.email} className="flex items-center justify-between gap-3 px-4 py-3">
-            <div className="min-w-0">
-              <p className="truncate text-xs font-medium text-foreground">{invite.email}</p>
-              <p className="text-[10px] text-muted-foreground">{invite.note}</p>
+        {hires.map((hire) => (
+          <li key={hire.name} className="flex items-center justify-between gap-3 px-4 py-3">
+            <div className="flex min-w-0 items-center gap-2">
+              <Avatar initials={hire.name.split(" ").map((p) => p[0]).join("")} className="h-7 w-7 text-[10px]" />
+              <div className="min-w-0">
+                <p className="truncate text-xs font-medium text-foreground">{hire.name}</p>
+                <p className="truncate text-[10px] text-muted-foreground">{hire.role}</p>
+              </div>
             </div>
-            <Pill status={invite.status}>{invite.label}</Pill>
+            <div className="flex shrink-0 flex-col items-end gap-0.5">
+              <Pill status={hire.status}>{hire.label}</Pill>
+              <span className="text-[9px] text-muted-foreground">{hire.note}</span>
+            </div>
           </li>
         ))}
       </ul>
       <div className="border-t border-border px-4 py-3">
-        <p className="mb-2 text-[10px] font-medium text-muted-foreground">Kabir's onboarding</p>
         <div className="flex items-center gap-1.5">
-          {["Personal", "Bank", "Documents", "Review"].map((step, i) => (
+          {["Added", "Invited", "Password set", "Active"].map((step, i) => (
             <div key={step} className="flex-1">
-              <div className={cn("h-1.5 rounded-full", i < 3 ? "bg-primary" : "bg-muted")} />
+              <div className={cn("h-1.5 rounded-full", i < 2 ? "bg-primary" : "bg-muted")} />
               <p className="mt-1 text-[9px] text-muted-foreground">{step}</p>
             </div>
           ))}

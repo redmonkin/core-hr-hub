@@ -1,12 +1,12 @@
 import { useState, useEffect } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Lock } from "lucide-react";
+import { Loader2, Lock, PartyPopper } from "lucide-react";
 import hrHubLogo from "@/assets/hr-hub-logo.svg";
 
 const ResetPassword = () => {
@@ -17,6 +17,9 @@ const ResetPassword = () => {
   const [isValidSession, setIsValidSession] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
+  // Invitation links land here with ?welcome=1: the new hire chooses their first password.
+  const [searchParams] = useSearchParams();
+  const isWelcome = searchParams.get("welcome") === "1";
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
@@ -56,7 +59,11 @@ const ResetPassword = () => {
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } else {
-      toast({ title: "Password updated", description: "Your password has been reset successfully." });
+      toast(
+        isWelcome
+          ? { title: "You're all set", description: "Your account is ready. Sign in with your email and this password from now on." }
+          : { title: "Password updated", description: "Your password has been reset successfully." },
+      );
       navigate("/dashboard", { replace: true });
     }
   };
@@ -77,8 +84,12 @@ const ResetPassword = () => {
             <Link to="/" className="mx-auto mb-4 block w-fit" aria-label="Peoplo home">
               <img src={hrHubLogo} alt="" className="h-12 w-auto" />
             </Link>
-            <h1 className="text-2xl font-semibold leading-none tracking-tight">Invalid or expired link</h1>
-            <CardDescription>This password reset link is invalid or has expired. Please request a new one.</CardDescription>
+            <h1 className="text-2xl font-semibold leading-none tracking-tight">{isWelcome ? "This invitation has expired" : "Invalid or expired link"}</h1>
+            <CardDescription>
+              {isWelcome
+                ? "Invitation links work for 24 hours. Ask your HR team to send you a new one."
+                : "This password reset link is invalid or has expired. Please request a new one."}
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <Button className="w-full" onClick={() => navigate("/auth")}>Back to sign in</Button>
@@ -96,15 +107,25 @@ const ResetPassword = () => {
               <img src={hrHubLogo} alt="" className="h-12 w-auto" />
             </Link>
           <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
-            <Lock className="h-6 w-6 text-primary" aria-hidden="true" />
+            {isWelcome ? (
+              <PartyPopper className="h-6 w-6 text-primary" aria-hidden="true" />
+            ) : (
+              <Lock className="h-6 w-6 text-primary" aria-hidden="true" />
+            )}
           </div>
-          <h1 className="text-2xl font-semibold leading-none tracking-tight">Set a new password</h1>
-          <CardDescription>Enter your new password below.</CardDescription>
+          <h1 className="text-2xl font-semibold leading-none tracking-tight">
+            {isWelcome ? "Welcome to Peoplo" : "Set a new password"}
+          </h1>
+          <CardDescription>
+            {isWelcome
+              ? "Choose a password to finish setting up your account. You'll use it with your work email to sign in."
+              : "Enter your new password below."}
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleReset} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="new-password">New password</Label>
+              <Label htmlFor="new-password">{isWelcome ? "Password" : "New password"}</Label>
               <Input id="new-password" type="password" autoComplete="new-password" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} disabled={isLoading} />
             </div>
             <div className="space-y-2">
@@ -112,7 +133,7 @@ const ResetPassword = () => {
               <Input id="confirm-password" type="password" autoComplete="new-password" placeholder="••••••••" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} disabled={isLoading} />
             </div>
             <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" />Updating...</>) : "Update password"}
+              {isLoading ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" />Updating...</>) : isWelcome ? "Set password and continue" : "Update password"}
             </Button>
           </form>
         </CardContent>

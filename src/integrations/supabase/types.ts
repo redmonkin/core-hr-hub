@@ -1513,38 +1513,55 @@ export type Database = {
           accepted_user_id: string | null
           created_at: string
           email: string
+          employee_id: string | null
           expires_at: string | null
           full_name: string | null
           id: string
           invited_by: string | null
+          last_sent_at: string | null
           revoked_at: string | null
           roles: Database["public"]["Enums"]["app_role"][]
+          send_count: number
         }
         Insert: {
           accepted_at?: string | null
           accepted_user_id?: string | null
           created_at?: string
+          employee_id?: string | null
           email: string
           expires_at?: string | null
           full_name?: string | null
           id?: string
           invited_by?: string | null
+          last_sent_at?: string | null
           revoked_at?: string | null
           roles?: Database["public"]["Enums"]["app_role"][]
+          send_count?: number
         }
         Update: {
           accepted_at?: string | null
           accepted_user_id?: string | null
           created_at?: string
           email?: string
+          employee_id?: string | null
           expires_at?: string | null
           full_name?: string | null
           id?: string
           invited_by?: string | null
+          last_sent_at?: string | null
           revoked_at?: string | null
           roles?: Database["public"]["Enums"]["app_role"][]
+          send_count?: number
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "user_invitations_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_permissions: {
         Row: {

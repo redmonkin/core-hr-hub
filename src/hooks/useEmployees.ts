@@ -14,6 +14,8 @@ export interface Employee {
   designation: string;
   joinDate: string;
   status: "active" | "inactive" | "onboarding" | "offboarded";
+  /** Whether a sign-in account is linked to this record */
+  hasAccount?: boolean;
 }
 
 export interface EmployeeWithDetails {
@@ -47,6 +49,7 @@ export function useEmployees(options?: { enabled?: boolean }) {
           hire_date,
           status,
           avatar_url,
+          user_id,
           department:departments!employees_department_id_fkey(name)
         `)
         .order("created_at", { ascending: false });
@@ -65,6 +68,7 @@ export function useEmployees(options?: { enabled?: boolean }) {
         designation: emp.designation,
         joinDate: format(new Date(emp.hire_date), "MMM d, yyyy"),
         status: emp.status as Employee["status"],
+        hasAccount: !!emp.user_id,
       }));
     },
     enabled: options?.enabled,

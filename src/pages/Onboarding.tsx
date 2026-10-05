@@ -15,7 +15,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { WorkingDaysPicker } from "@/components/employees/WorkingDaysPicker";
-import { statusBadgeClass, formatStatus } from "@/lib/statusStyles";
+import { statusBadgeClass } from "@/lib/statusStyles";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Switch } from "@/components/ui/switch";
 import {
@@ -26,27 +26,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { CheckCircle2, Upload, User, Briefcase, FileText, Loader2, ShieldAlert, Calendar, Mail, Phone, MapPin, Pencil, X, Check, Download, ExternalLink, Send, Clock, UserPlus, Eye, XCircle, Hash } from "lucide-react";
+import { CheckCircle2, Upload, User, Briefcase, FileText, Loader2, ShieldAlert, Calendar, Mail, Phone, MapPin, Pencil, X, Check, Download, ExternalLink, Send, Clock, UserPlus, Hash } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useDepartments } from "@/hooks/useEmployees";
 import { useNextEmployeeCode, isValidEmployeeCode } from "@/hooks/useNextEmployeeCode";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { usePermissions } from "@/hooks/usePermissions";
-import { InvitationsList } from "@/components/onboarding/InvitationsList";
-import { inviteEmployee } from "@/components/onboarding/inviteEmployee";
-import { useOnboardingRequests, OnboardingRequest } from "@/hooks/useOnboardingRequests";
-import { useAuth } from "@/contexts/AuthContext";
-import { useNavigate, useLocation } from "react-router-dom";
-import { format } from "date-fns";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { PendingHires } from "@/components/onboarding/PendingHires";
+import { sendInvitation } from "@/components/onboarding/inviteEmployee";
+import { useLocation } from "react-router-dom";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -130,82 +119,12 @@ const useManagers = () => {
   });
 };
 
-// Fetch user IDs that are already linked to employees
-const useLinkedUserIds = () => {
-  return useQuery({
-    queryKey: ['linked-user-ids'],
-    queryFn: async () => {
-      const { data: employees, error } = await supabase
-        .from('employees')
-        .select('user_id')
-        .not('user_id', 'is', null);
-      
-      if (error) throw error;
-      
-      return new Set((employees || []).map(e => e.user_id).filter(Boolean) as string[]);
-    },
-  });
-};
-
-// Fetch users without employee records (available to link)
-const useUnlinkedUsers = () => {
-  return useQuery({
-    queryKey: ['unlinked-users'],
-    queryFn: async () => {
-      // Get all user IDs that are already linked to employees
-      const { data: employees, error: empError } = await supabase
-        .from('employees')
-        .select('user_id')
-        .not('user_id', 'is', null);
-      
-      if (empError) throw empError;
-      
-      const linkedUserIds = employees?.map(e => e.user_id) || [];
-      
-      // Get profiles not linked to employees
-      let query = supabase
-        .from('profiles')
-        .select('id, email, full_name, avatar_url')
-        .order('email');
-      
-      if (linkedUserIds.length > 0) {
-        query = query.not('id', 'in', `(${linkedUserIds.join(',')})`);
-      }
-      
-      const { data, error } = await query;
-      
-      if (error) throw error;
-      return data || [];
-    },
-  });
-};
-
-// No longer needed - using useNextEmployeeCode hook instead
-
-/**
- * Onboarding request documents are supplied by the applicant, so only trust
- * paths inside their own folder of the onboarding-documents bucket. Otherwise
- * an applicant could point at someone else's files and have HR copy them.
- */
-const isOwnOnboardingPath = (path: string, applicantUserId: string) =>
-  !!applicantUserId &&
-  path.startsWith(`${applicantUserId}/`) &&
-  !path.includes('..') &&
-  !path.includes('\\');
 
 interface DocumentUpload {
   file: File | null;
   uploading: boolean;
   uploaded: boolean;
   url: string | null;
-}
-
-interface SourceRequestDocuments {
-  /** The applicant's user id; every path must be inside their folder */
-  user_id: string;
-  resume_url?: string;
-  offer_letter_url?: string;
-  id_proof_url?: string;
 }
 
 interface FormData {
@@ -223,11 +142,10 @@ interface FormData {
   joinDate: string;
   salary: string;
   isDepartmentManager: boolean;
-  linkedUserId: string;
+  sendInvite: boolean;
   workingHoursStart: string;
   workingHoursEnd: string;
   workingDays: number[];
-  sourceRequestDocuments: SourceRequestDocuments | null;
 }
 
 const initialFormData: FormData = {
@@ -245,11 +163,10 @@ const initialFormData: FormData = {
   joinDate: '',
   salary: '',
   isDepartmentManager: false,
-  linkedUserId: '',
+  sendInvite: true,
   workingHoursStart: '09:00',
   workingHoursEnd: '18:00',
   workingDays: [1, 2, 3, 4, 5], // Mon-Fri
-  sourceRequestDocuments: null,
 };
 
 const REQUIRED_DOCUMENT_TYPES = [
@@ -294,14 +211,6 @@ const Onboarding = () => {
   const [documents, setDocuments] = useState<Record<string, DocumentUpload>>(initialDocuments);
   const [additionalDoc, setAdditionalDoc] = useState<{ file: File | null; type: string }>({ file: null, type: '' });
   const [isUploadingAdditional, setIsUploadingAdditional] = useState(false);
-  const [resendingInvite, setResendingInvite] = useState<string | null>(null);
-  
-  // Requests tab state
-  const [selectedRequest, setSelectedRequest] = useState<OnboardingRequest | null>(null);
-  const [approveDialogOpen, setApproveDialogOpen] = useState(false);
-  const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
-  const [requestToAction, setRequestToAction] = useState<OnboardingRequest | null>(null);
-  
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { can, isLoading: roleLoading } = usePermissions();
@@ -309,25 +218,12 @@ const Onboarding = () => {
   const canManage = can('onboarding', 'manage');
   // salary_structures inserts need payroll:manage (RLS)
   const canSetSalary = can('payroll', 'manage');
-  const { user } = useAuth();
-  const navigate = useNavigate();
-  const location = useLocation();
   
   const { data: departments = [], isLoading: loadingDepartments } = useDepartments();
   const { data: managers = [], isLoading: loadingManagers } = useManagers();
   const { data: onboardingEmployees = [], isLoading: loadingOnboarding } = useOnboardingEmployees();
-  const { data: unlinkedUsers = [], isLoading: loadingUsers } = useUnlinkedUsers();
-  const { data: linkedUserIds = new Set<string>() } = useLinkedUserIds();
   const { data: employeeDocs = [], isLoading: loadingDocs } = useEmployeeDocuments(selectedEmployee?.id || null);
-  const { requests, isLoading: loadingRequests, approveRequest, rejectRequest } = useOnboardingRequests();
   const { data: nextEmployeeCode, isLoading: loadingNextCode } = useNextEmployeeCode();
-
-  // Helper to check if an employee already exists for a user
-  const hasEmployeeRecord = (userId: string) => linkedUserIds.has(userId);
-
-  const pendingRequests = requests.filter((r) => r.status === "pending");
-  const approvedRequests = requests.filter((r) => r.status === "approved");
-  const rejectedRequests = requests.filter((r) => r.status === "rejected");
 
   // Get signed URL for document download
   const getDocumentUrl = async (filePath: string, bucket: 'employee-documents' | 'onboarding-documents' = 'employee-documents') => {
@@ -435,45 +331,18 @@ const Onboarding = () => {
 
   const createEmployeeMutation = useMutation({
     mutationFn: async (data: FormData) => {
-      // Get department name for notification
       const selectedDept = departments.find(d => d.id === data.departmentId);
-      
-      let linkedUserId = data.linkedUserId;
-      let inviteSent = false;
-      let inviteError: string | null = null;
       const warnings: string[] = [];
 
-      // If no linked user, invite the employee via email. If the invite fails
-      // (e.g. the domain isn't whitelisted) the employee record is still
-      // created, and the user is told the invite wasn't sent and why.
-      if (!linkedUserId) {
-        try {
-          const inviteResult = await inviteEmployee({
-            email: data.email.trim(),
-            first_name: data.firstName.trim(),
-            last_name: data.lastName.trim(),
-            designation: data.designation.trim(),
-            department_name: selectedDept?.name,
-            redirect_url: `${window.location.origin}/`,
-            mode: 'employee',
-          });
-          if (inviteResult.user_id) {
-            linkedUserId = inviteResult.user_id;
-            inviteSent = !inviteResult.already_exists;
-          }
-        } catch (err) {
-          inviteError = err instanceof Error ? err.message : 'Unknown error';
-        }
-      }
-
-      // Create employee
+      // New hires wait in 'onboarding' until they accept their invitation; people
+      // who won't sign in (no invitation) are active straight away.
       const { data: employee, error: employeeError } = await supabase
         .from('employees')
         .insert({
           employee_code: data.employeeCode.trim().toUpperCase(),
           first_name: data.firstName.trim(),
           last_name: data.lastName.trim(),
-          email: data.email.trim(),
+          email: data.email.trim().toLowerCase(),
           phone: data.phone.trim() || null,
           address: data.address.trim() || null,
           date_of_birth: data.dateOfBirth || null,
@@ -482,77 +351,27 @@ const Onboarding = () => {
           designation: data.designation.trim(),
           manager_id: data.managerId || null,
           hire_date: data.joinDate,
-          status: 'active',
-          user_id: linkedUserId || null,
+          status: data.sendInvite ? 'onboarding' : 'active',
           working_hours_start: data.workingHoursStart ? `${data.workingHoursStart}:00` : '09:00:00',
           working_hours_end: data.workingHoursEnd ? `${data.workingHoursEnd}:00` : '18:00:00',
           working_days: data.workingDays,
         })
         .select()
         .single();
-      
+
       if (employeeError) throw employeeError;
 
-      // Upload documents
-      const docsToUpload = Object.entries(documents).filter(([_, doc]) => doc.file);
-      const manuallyUploadedTypes = new Set(docsToUpload.map(([docType]) => docType));
-      for (const [docType, doc] of docsToUpload) {
-        if (doc.file) {
-          try {
-            await uploadDocument(employee.id, docType, doc.file);
-          } catch (err) {
-            console.error(`Failed to upload ${docType}:`, err);
-            warnings.push(`${doc.file.name} couldn't be uploaded`);
-          }
+      for (const [docType, doc] of Object.entries(documents)) {
+        if (!doc.file) continue;
+        try {
+          await uploadDocument(employee.id, docType, doc.file);
+        } catch (err) {
+          console.error(`Failed to upload ${docType}:`, err);
+          warnings.push(`${doc.file.name} couldn't be uploaded`);
         }
       }
 
-      // Copy any documents already uploaded with the onboarding request (resume,
-      // offer letter, ID proof) into this employee's documents, skipping any type
-      // the admin manually re-uploaded above.
-      if (data.sourceRequestDocuments) {
-        const requestDocs: Array<{ path?: string; docType: string; name: string }> = [
-          { path: data.sourceRequestDocuments.resume_url, docType: 'resume', name: 'Resume' },
-          { path: data.sourceRequestDocuments.offer_letter_url, docType: 'offer_letter', name: 'Offer Letter' },
-          { path: data.sourceRequestDocuments.id_proof_url, docType: 'id_proof', name: 'ID Proof' },
-        ];
-        for (const doc of requestDocs) {
-          if (!doc.path || manuallyUploadedTypes.has(doc.docType)) continue;
-          if (!isOwnOnboardingPath(doc.path, data.sourceRequestDocuments.user_id)) {
-            console.warn(`Skipped ${doc.docType}: path is outside the applicant's folder`, doc.path);
-            warnings.push(`${doc.name} from the request was skipped because its file location is invalid`);
-            continue;
-          }
-          try {
-            const { data: blob, error: downloadError } = await supabase.storage
-              .from('onboarding-documents')
-              .download(doc.path);
-            if (downloadError || !blob) throw downloadError || new Error('Empty file');
-
-            const ext = doc.path.split('.').pop();
-            const newPath = `${employee.id}/${doc.docType}_${Date.now()}.${ext}`;
-            const { error: uploadError } = await supabase.storage
-              .from('employee-documents')
-              .upload(newPath, blob);
-            if (uploadError) throw uploadError;
-
-            const { error: dbError } = await supabase
-              .from('employee_documents')
-              .insert({
-                employee_id: employee.id,
-                document_type: doc.docType,
-                document_name: doc.name,
-                file_url: newPath,
-              });
-            if (dbError) throw dbError;
-          } catch (err) {
-            console.error(`Failed to copy ${doc.docType} from onboarding request:`, err);
-            warnings.push(`${doc.name} from the request couldn't be copied`);
-          }
-        }
-      }
-
-      // If salary is provided, create salary structure (payroll:manage only)
+      // Salary structure (payroll:manage only)
       if (canSetSalary && data.salary && parseFloat(data.salary) > 0) {
         const { error: salaryError } = await supabase
           .from('salary_structures')
@@ -561,11 +380,10 @@ const Onboarding = () => {
             basic_salary: parseFloat(data.salary),
             effective_from: data.joinDate,
           });
-        
-        if (salaryError) throw salaryError;
+        if (salaryError) warnings.push(`The salary couldn't be saved (${salaryError.message})`);
       }
 
-      // Send onboarding notification (fire and forget)
+      // Tell the manager and HR about the new joiner (fire and forget)
       supabase.functions.invoke("onboarding-notification", {
         body: {
           employee_id: employee.id,
@@ -580,37 +398,55 @@ const Onboarding = () => {
         console.error("Failed to send onboarding notification:", err);
       });
 
-      return { employee, inviteSent, inviteError, linked: !!linkedUserId, warnings };
+      let invite: 'sent' | 'linked' | 'skipped' | 'failed' = 'skipped';
+      let inviteError: string | null = null;
+      if (data.sendInvite) {
+        try {
+          const result = await sendInvitation(employee.id);
+          invite = result.status === 'linked' ? 'linked' : 'sent';
+        } catch (err) {
+          invite = 'failed';
+          inviteError = err instanceof Error ? err.message : 'Unknown error';
+        }
+      }
+
+      return { employee, invite, inviteError, warnings };
     },
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ['onboarding-employees'] });
       queryClient.invalidateQueries({ queryKey: ['employees'] });
-      queryClient.invalidateQueries({ queryKey: ['unlinked-users'] });
-      queryClient.invalidateQueries({ queryKey: ['linked-user-ids'] });
       queryClient.invalidateQueries({ queryKey: ['next-employee-code'] });
+      queryClient.invalidateQueries({ queryKey: ['user-invitations'] });
       setFormData(initialFormData);
       setDocuments(initialDocuments);
-      setActiveTab('pending');
-      queryClient.invalidateQueries({ queryKey: ['user-invitations'] });
-      if (result.inviteError) {
+      const name = result.employee.first_name;
+      if (result.invite === 'failed') {
+        setActiveTab('pending');
         toast({
-          title: "Employee added, but the invite wasn't sent",
-          description: `${result.inviteError} The employee record was created without a login. Fix the issue, then use Resend Invite.`,
+          title: `${name} was added, but the invitation wasn't sent`,
+          description: `${result.inviteError} Fix the problem, then use "Send invitation" in Pending.`,
           variant: "destructive",
+        });
+      } else if (result.invite === 'sent') {
+        setActiveTab('pending');
+        toast({
+          title: "Employee added and invited",
+          description: `${name} will get an email at ${result.employee.email} to set up their account. They'll show in Pending until they do.`,
+        });
+      } else if (result.invite === 'linked') {
+        toast({
+          title: "Employee added",
+          description: `${result.employee.email} already had an account, so ${name} is linked and active.`,
         });
       } else {
         toast({
-          title: "Employee Added",
-          description: result.inviteSent
-            ? "New employee has been added and an email invite has been sent to set up their account."
-            : result.linked
-              ? "New employee has been added and linked to their existing account."
-              : "New employee has been added to the onboarding queue.",
+          title: "Employee added",
+          description: `${name} is active. They can't sign in until you invite them from their row in Employees.`,
         });
       }
       if (result.warnings.length > 0) {
         toast({
-          title: "Some documents weren't added",
+          title: "Some details weren't saved",
           description: result.warnings.join('. ') + '.',
           variant: "destructive",
         });
@@ -618,69 +454,32 @@ const Onboarding = () => {
     },
     onError: (error: Error) => {
       toast({
-        title: "Error",
-        description: error.message || "Failed to add employee. Please try again.",
+        title: "Employee not added",
+        description: error.message || "Please try again.",
         variant: "destructive",
       });
     },
   });
 
+  // Mark someone as joined without waiting for them to accept the invitation
+  // (e.g. they won't use the app). Leave balances are created by the database.
   const activateEmployeeMutation = useMutation({
     mutationFn: async (employeeId: string) => {
-      // Update employee status to active
-      const { error: updateError } = await supabase
+      const { error } = await supabase
         .from('employees')
         .update({ status: 'active' })
         .eq('id', employeeId);
-      
-      if (updateError) throw updateError;
-
-      // Initialize leave balances for the current year
-      const currentYear = new Date().getFullYear();
-      const { data: leaveTypes, error: leaveTypesError } = await supabase
-        .from('leave_types')
-        .select('id, days_per_year');
-      
-      if (leaveTypesError) throw leaveTypesError;
-
-      let balanceWarning: string | null = null;
-      if (leaveTypes && leaveTypes.length > 0) {
-        const leaveBalances = leaveTypes.map(lt => ({
-          employee_id: employeeId,
-          leave_type_id: lt.id,
-          year: currentYear,
-          total_days: lt.days_per_year,
-          used_days: 0,
-        }));
-
-        const { error: balanceError } = await supabase
-          .from('leave_balances')
-          .upsert(leaveBalances, { onConflict: 'employee_id,leave_type_id,year' });
-        
-        if (balanceError) {
-          console.error('Failed to initialize leave balances:', balanceError);
-          balanceWarning = balanceError.message;
-        }
-      }
-
-      return { employeeId, balanceWarning };
+      if (error) throw error;
+      return employeeId;
     },
-    onSuccess: ({ balanceWarning }) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['onboarding-employees'] });
       queryClient.invalidateQueries({ queryKey: ['employees'] });
       setSelectedEmployee(null);
-      if (balanceWarning) {
-        toast({
-          title: "Employee activated, leave balances not set up",
-          description: `${balanceWarning} Someone who manages leaves needs to set up their leave balances.`,
-          variant: "destructive",
-        });
-      } else {
-        toast({
-          title: "Employee Activated",
-          description: "Employee has been marked as active and leave balances have been initialized.",
-        });
-      }
+      toast({
+        title: "Marked as joined",
+        description: "They're now active and their leave balances are set up. Any invitation they have still works.",
+      });
     },
     onError: (error: Error) => {
       toast({
@@ -732,189 +531,6 @@ const Onboarding = () => {
       });
     },
   });
-
-  // Resend invite handler
-  const handleResendInvite = async (employee: OnboardingEmployee) => {
-    setResendingInvite(employee.id);
-    try {
-      const selectedDept = departments.find(d => d.id === employee.department_id);
-      
-      const inviteResult = await inviteEmployee({
-        email: employee.email,
-        first_name: employee.first_name,
-        last_name: employee.last_name,
-        designation: employee.designation || undefined,
-        department_name: selectedDept?.name,
-        redirect_url: `${window.location.origin}/`,
-        mode: 'employee',
-      });
-
-      // Update employee user_id if not already linked
-      if (inviteResult.user_id && !employee.user_id) {
-        const { error: linkError } = await supabase
-          .from('employees')
-          .update({ user_id: inviteResult.user_id })
-          .eq('id', employee.id);
-        if (linkError) throw linkError;
-
-        queryClient.invalidateQueries({ queryKey: ['onboarding-employees'] });
-      }
-      queryClient.invalidateQueries({ queryKey: ['user-invitations'] });
-
-      toast({
-        title: "Invite Sent",
-        description: inviteResult?.already_exists 
-          ? `${employee.first_name} already has an account. No new invite needed.`
-          : `A new invitation email has been sent to ${employee.email}.`,
-      });
-    } catch (error) {
-      toast({
-        title: "Invite not sent",
-        description: error instanceof Error ? error.message : "Failed to resend invite.",
-        variant: "destructive",
-      });
-    } finally {
-      setResendingInvite(null);
-    }
-  };
-
-  // Request handling functions
-  const renderRequestActions = (request: OnboardingRequest, compact: boolean) => {
-    const name = request.full_name || request.email;
-    return (
-      <>
-        <Button
-          variant="outline"
-          size="sm"
-          className={compact ? "h-9 w-9 p-0" : "h-10 flex-1"}
-          onClick={() => setSelectedRequest(request)}
-          aria-label={`View request from ${name}`}
-          title="View details"
-        >
-          <Eye className="h-4 w-4" aria-hidden="true" />
-          {!compact && <span className="ml-2">View</span>}
-        </Button>
-        {canManage && request.status === "pending" && (
-          <>
-            <Button
-              variant="outline"
-              size="sm"
-              className={`text-emerald-700 hover:bg-emerald-50 hover:text-emerald-800 ${compact ? "h-9 w-9 p-0" : "h-10 flex-1"}`}
-              onClick={() => handleApproveRequest(request)}
-              disabled={approveRequest.isPending}
-              aria-label={`Approve request from ${name}`}
-              title="Approve"
-            >
-              <Check className="h-4 w-4" aria-hidden="true" />
-              {!compact && <span className="ml-2">Approve</span>}
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className={`text-red-700 hover:bg-red-50 hover:text-red-800 ${compact ? "h-9 w-9 p-0" : "h-10 flex-1"}`}
-              onClick={() => handleRejectRequest(request)}
-              disabled={rejectRequest.isPending}
-              aria-label={`Reject request from ${name}`}
-              title="Reject"
-            >
-              <X className="h-4 w-4" aria-hidden="true" />
-              {!compact && <span className="ml-2">Reject</span>}
-            </Button>
-          </>
-        )}
-        {canManage && request.status === "approved" && !hasEmployeeRecord(request.user_id) && (
-          <Button
-            size="sm"
-            className={compact ? "" : "h-10 flex-1"}
-            onClick={() => handleCreateEmployeeFromRequest(request)}
-          >
-            <UserPlus className="mr-1 h-4 w-4" aria-hidden="true" />
-            Create employee
-          </Button>
-        )}
-        {request.status === "approved" && hasEmployeeRecord(request.user_id) && (
-          <Badge variant="outline" className={`text-xs ${statusBadgeClass("completed")}`}>
-            <CheckCircle2 className="mr-1 h-3 w-3" aria-hidden="true" />
-            Employee created
-          </Badge>
-        )}
-      </>
-    );
-  };
-
-  const getRequestStatusBadge = (status: string) => {
-    const Icon = status === "pending" ? Clock : status === "approved" ? CheckCircle2 : status === "rejected" ? XCircle : null;
-    return (
-      <Badge variant="outline" className={`whitespace-nowrap ${statusBadgeClass(status)}`}>
-        {Icon && <Icon className="mr-1 h-3 w-3" aria-hidden="true" />}
-        {formatStatus(status)}
-      </Badge>
-    );
-  };
-
-
-  const getInitials = (name: string) => {
-    return name
-      .split(" ")
-      .map((n) => n[0])
-      .join("")
-      .toUpperCase()
-      .slice(0, 2);
-  };
-
-  const handleApproveRequest = (request: OnboardingRequest) => {
-    setRequestToAction(request);
-    setApproveDialogOpen(true);
-  };
-
-  const handleRejectRequest = (request: OnboardingRequest) => {
-    setRequestToAction(request);
-    setRejectDialogOpen(true);
-  };
-
-  const confirmApprove = () => {
-    if (requestToAction && user) {
-      approveRequest.mutate({ requestId: requestToAction.id, userId: user.id });
-      setApproveDialogOpen(false);
-      setRequestToAction(null);
-    }
-  };
-
-  const confirmReject = () => {
-    if (requestToAction && user) {
-      rejectRequest.mutate({ requestId: requestToAction.id, userId: user.id });
-      setRejectDialogOpen(false);
-      setRequestToAction(null);
-    }
-  };
-
-  const handleCreateEmployeeFromRequest = (request: OnboardingRequest) => {
-    // Switch to add tab with pre-filled data
-    const nameParts = request.full_name.split(' ');
-    const firstName = nameParts[0] || '';
-    const lastName = nameParts.slice(1).join(' ') || '';
-
-    setFormData(prev => ({
-      ...prev,
-      firstName,
-      lastName,
-      email: request.email,
-      linkedUserId: request.user_id,
-      phone: request.phone || '',
-      address: request.address || '',
-      dateOfBirth: request.date_of_birth || '',
-      gender: request.gender || '',
-      designation: request.designation || '',
-      joinDate: request.joining_date || '',
-      sourceRequestDocuments: {
-        user_id: request.user_id,
-        resume_url: request.resume_url,
-        offer_letter_url: request.offer_letter_url,
-        id_proof_url: request.id_proof_url,
-      },
-    }));
-    setActiveTab('add');
-  };
 
   const openEditMode = (employee: OnboardingEmployee) => {
     // Parse working hours from TIME format (HH:MM:SS) to input format (HH:MM)
@@ -994,29 +610,6 @@ const Onboarding = () => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  // When a user is selected, auto-fill name and email
-  const handleUserSelect = (userId: string) => {
-    const actualUserId = userId === 'none' ? '' : userId;
-    handleInputChange('linkedUserId', actualUserId);
-    
-    if (actualUserId) {
-      const selectedUser = unlinkedUsers.find(u => u.id === actualUserId);
-      if (selectedUser) {
-        const nameParts = (selectedUser.full_name || '').split(' ');
-        const firstName = nameParts[0] || '';
-        const lastName = nameParts.slice(1).join(' ') || '';
-        
-        setFormData(prev => ({
-          ...prev,
-          linkedUserId: actualUserId,
-          firstName: prev.firstName || firstName,
-          lastName: prev.lastName || lastName,
-          email: prev.email || selectedUser.email || '',
-        }));
-      }
-    }
-  };
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -1063,24 +656,23 @@ const Onboarding = () => {
   const isSubmitting = createEmployeeMutation.isPending;
 
   // People with onboarding:view only can't create employees, so no Add tab
-  const availableTabs = canManage ? ['add', 'pending', 'requests', 'invitations'] : ['pending', 'requests', 'invitations'];
+  const availableTabs = canManage ? ['add', 'pending'] : ['pending'];
   const currentTab = availableTabs.includes(activeTab) ? activeTab : availableTabs[0];
-  const awaitingEmployeeRequests = approvedRequests.filter(r => !hasEmployeeRecord(r.user_id));
-  const pendingOnboardingCount = onboardingEmployees.length + awaitingEmployeeRequests.length;
+  const pendingOnboardingCount = onboardingEmployees.length;
 
   return (
     <DashboardLayout>
       <div className="space-y-6">
         {!canManage && (
           <p className="rounded-md border bg-muted/40 p-3 text-sm text-muted-foreground">
-            You have view-only access to onboarding. Ask an administrator if you need to add employees, send
-            invitations or approve requests.
+            You have view-only access to onboarding. Ask an administrator if you need to add employees or send
+            invitations.
           </p>
         )}
         <div>
           <h1 className="text-2xl font-bold text-foreground sm:text-3xl">Onboarding</h1>
           <p className="text-muted-foreground">
-            Add new employees, review join requests and track invitations
+            Add new hires and invite them to set up their account. They wait in Pending until they do.
           </p>
         </div>
         <Tabs value={currentTab} onValueChange={setActiveTab}>
@@ -1097,17 +689,6 @@ const Onboarding = () => {
                   {pendingOnboardingCount}
                 </span>
               )}
-            </TabsTrigger>
-            <TabsTrigger value="requests" className="shrink-0 px-2 sm:px-3">
-              Requests
-              {pendingRequests.length > 0 && (
-                <span className="ml-1 rounded-full bg-primary/10 px-1.5 text-xs font-semibold tabular-nums text-primary" aria-label={`${pendingRequests.length} awaiting review`}>
-                  {pendingRequests.length}
-                </span>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="invitations" className="shrink-0 px-2 sm:px-3">
-              Invitations
             </TabsTrigger>
           </TabsList>
 
@@ -1129,30 +710,6 @@ const Onboarding = () => {
                     </div>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    {/* Link User Account */}
-                    <div className="space-y-2">
-                      <Label htmlFor="linkedUser">Link to User Account</Label>
-                      <Select 
-                        disabled={loadingUsers || isSubmitting}
-                        value={formData.linkedUserId}
-                        onValueChange={handleUserSelect}
-                      >
-                        <SelectTrigger id="linkedUser">
-                          <SelectValue placeholder={loadingUsers ? "Loading..." : "Select user account (optional)"} />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="none">No linked account</SelectItem>
-                          {unlinkedUsers.map((user) => (
-                            <SelectItem key={user.id} value={user.id}>
-                              {user.full_name || user.email} {user.full_name && `(${user.email})`}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <p className="text-xs text-muted-foreground">
-                        Link this employee to an existing user account so they can log in
-                      </p>
-                    </div>
                     <div className="grid gap-4 sm:grid-cols-2">
                       <div className="space-y-2">
                         <Label htmlFor="firstName">First Name *</Label>
@@ -1485,270 +1042,62 @@ const Onboarding = () => {
                 </Card>
               </div>
 
-              <div className="flex justify-end gap-3">
-                <Button 
-                  variant="outline" 
-                  type="button"
-                  disabled={isSubmitting}
-                  onClick={() => {
-                    setFormData(initialFormData);
-                    setDocuments(initialDocuments);
-                  }}
-                >
-                  Clear Form
-                </Button>
-                <Button type="submit" disabled={isSubmitting}>
-                  {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Add Employee
-                </Button>
-              </div>
+              <Card>
+                <CardContent className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex items-start gap-3">
+                    <Switch
+                      id="sendInvite"
+                      checked={formData.sendInvite}
+                      onCheckedChange={(checked) => setFormData(prev => ({ ...prev, sendInvite: checked }))}
+                      disabled={isSubmitting}
+                      className="mt-0.5"
+                    />
+                    <div>
+                      <Label htmlFor="sendInvite" className="font-medium">Invite them to set up their account</Label>
+                      <p className="text-sm text-muted-foreground">
+                        {formData.sendInvite
+                          ? "We'll email a link to choose a password. They stay in Pending until they do, then become active."
+                          : "No email is sent. They're added as active, and you can invite them later from Employees."}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex shrink-0 justify-end gap-3">
+                    <Button
+                      variant="outline"
+                      type="button"
+                      disabled={isSubmitting}
+                      onClick={() => {
+                        setFormData(initialFormData);
+                        setDocuments(initialDocuments);
+                      }}
+                    >
+                      Clear form
+                    </Button>
+                    <Button type="submit" disabled={isSubmitting}>
+                      {isSubmitting ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      ) : formData.sendInvite ? (
+                        <Send className="mr-2 h-4 w-4" aria-hidden="true" />
+                      ) : (
+                        <UserPlus className="mr-2 h-4 w-4" aria-hidden="true" />
+                      )}
+                      {formData.sendInvite ? "Add and invite" : "Add employee"}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
             </form>
           </TabsContent>
           )}
 
-          <TabsContent value="invitations" className="mt-6">
-            <InvitationsList canManage={canManage} />
-          </TabsContent>
-
           <TabsContent value="pending" className="mt-6">
-            <div className="space-y-4">
-              {/* Approved requests awaiting employee creation */}
-              {approvedRequests.filter(r => !hasEmployeeRecord(r.user_id)).length > 0 && (
-                <>
-                  <h2 className="text-sm font-medium text-muted-foreground">Approved requests – awaiting employee creation</h2>
-                  {approvedRequests.filter(r => !hasEmployeeRecord(r.user_id)).map((request) => (
-                    <Card key={request.id}>
-                      <CardContent className="p-4 sm:p-6">
-                        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                          <div className="flex min-w-0 items-center gap-4">
-                            <Avatar className="h-12 w-12 shrink-0">
-                              <AvatarFallback>{getInitials(request.full_name)}</AvatarFallback>
-                            </Avatar>
-                            <div className="min-w-0">
-                              <h3 className="font-semibold text-foreground">{request.full_name}</h3>
-                              <p className="break-words text-sm text-muted-foreground">
-                                {request.email} · Approved on {format(new Date(request.reviewed_at || request.updated_at), "MMM d, yyyy")}
-                              </p>
-                              {request.message && (
-                                <p className="text-xs text-muted-foreground mt-1 italic">"{request.message}"</p>
-                              )}
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2 sm:gap-4 flex-wrap">
-                            <Badge variant="outline" className={statusBadgeClass("approved")}>Approved</Badge>
-                            {canManage && (
-                              <Button 
-                                size="sm"
-                                onClick={() => handleCreateEmployeeFromRequest(request)}
-                              >
-                                <UserPlus className="mr-2 h-4 w-4" />
-                                Create employee
-                              </Button>
-                            )}
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </>
-              )}
-
-              {/* Existing onboarding employees */}
-              {onboardingEmployees.length > 0 && (
-                <>
-                  <h2 className="text-sm font-medium text-muted-foreground">Employees in onboarding</h2>
-                  {onboardingEmployees.map((employee) => {
-                    const name = `${employee.first_name} ${employee.last_name}`;
-                    const departmentName = employee.departments?.name || 'Unassigned';
-                    const hireDate = employee.hire_date 
-                      ? new Date(employee.hire_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-                      : 'TBD';
-                    
-                    return (
-                      <Card key={employee.id}>
-                        <CardContent className="p-4 sm:p-6">
-                          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                            <div className="flex items-center gap-4">
-                              <Avatar className="h-12 w-12">
-                                <AvatarImage src={employee.avatar_url || undefined} />
-                                <AvatarFallback>
-                                  {name.split(" ").map((n) => n[0]).join("")}
-                                </AvatarFallback>
-                              </Avatar>
-                              <div>
-                                <h3 className="font-semibold text-foreground">{name}</h3>
-                                <p className="text-sm text-muted-foreground">
-                                  {departmentName} · Starts {hireDate}
-                                </p>
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-2 sm:gap-4 flex-wrap">
-                              <Badge variant="outline" className={statusBadgeClass("onboarding")}>Onboarding</Badge>
-                              {canManage && (
-                              <Button 
-                                variant="ghost" 
-                                size="sm"
-                                onClick={() => handleResendInvite(employee)}
-                                disabled={resendingInvite === employee.id}
-                                title="Resend login invitation email"
-                              >
-                                {resendingInvite === employee.id ? (
-                                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                ) : (
-                                  <Send className="mr-2 h-4 w-4" />
-                                )}
-                                {resendingInvite === employee.id ? 'Sending…' : 'Resend invite'}
-                              </Button>
-                              )}
-                              <Button 
-                                variant="outline" 
-                                size="sm"
-                                onClick={() => setSelectedEmployee(employee)}
-                              >
-                                View details
-                              </Button>
-                            </div>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    );
-                  })}
-                </>
-              )}
-
-              {/* Empty state */}
-              {loadingOnboarding || loadingRequests ? (
-                <Card>
-                  <CardContent className="p-6 text-center text-muted-foreground">
-                    Loading...
-                  </CardContent>
-                </Card>
-              ) : onboardingEmployees.length === 0 && approvedRequests.filter(r => !hasEmployeeRecord(r.user_id)).length === 0 ? (
-                <Card>
-                  <CardContent className="p-6 text-center text-muted-foreground">
-                    No employees currently in onboarding
-                  </CardContent>
-                </Card>
-              ) : null}
-            </div>
-          </TabsContent>
-
-          {/* Requests Tab */}
-          <TabsContent value="requests" className="mt-6">
-            <Card>
-              <CardHeader className="p-4 sm:p-6">
-                <CardTitle>Join requests</CardTitle>
-                <CardDescription>
-                  Review onboarding details submitted by invited users
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="p-4 pt-0 sm:p-6 sm:pt-0">
-                {loadingRequests ? (
-                  <div className="flex items-center justify-center py-12">
-                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                  </div>
-                ) : requests.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-12 text-center">
-                    <UserPlus className="mb-4 h-12 w-12 text-muted-foreground" />
-                    <h3 className="text-lg font-semibold text-foreground">No requests</h3>
-                    <p className="text-muted-foreground">
-                      There are no onboarding requests at this time
-                    </p>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {/* Stats */}
-                    <div className="mb-6 grid grid-cols-3 gap-3 sm:gap-4">
-                      {[
-                        { label: "Pending", value: pendingRequests.length, icon: Clock, tone: "text-amber-600" },
-                        { label: "Approved", value: approvedRequests.length, icon: CheckCircle2, tone: "text-emerald-600" },
-                        { label: "Rejected", value: rejectedRequests.length, icon: XCircle, tone: "text-red-600" },
-                      ].map((stat) => (
-                        <div key={stat.label} className="rounded-lg border p-3 sm:p-4">
-                          <div className="flex items-start justify-between gap-2">
-                            <div>
-                              <p className="text-2xl font-bold tabular-nums">{stat.value}</p>
-                              <p className="text-xs text-muted-foreground">{stat.label}</p>
-                            </div>
-                            <stat.icon className={`hidden h-5 w-5 sm:block ${stat.tone}`} aria-hidden="true" />
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-
-                    {/* Requests table (sm and up) */}
-                    <div className="hidden sm:block">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>User</TableHead>
-                          <TableHead>Email</TableHead>
-                          <TableHead className="hidden md:table-cell">Message</TableHead>
-                          <TableHead>Submitted</TableHead>
-                          <TableHead>Status</TableHead>
-                          <TableHead className="text-right">Actions</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {requests.map((request) => (
-                          <TableRow key={request.id} data-request-row>
-                            <TableCell>
-                              <div className="flex items-center gap-3">
-                                <Avatar className="h-8 w-8">
-                                  <AvatarFallback>{getInitials(request.full_name)}</AvatarFallback>
-                                </Avatar>
-                                <span className="font-medium">{request.full_name}</span>
-                              </div>
-                            </TableCell>
-                            <TableCell className="text-muted-foreground">{request.email}</TableCell>
-                            <TableCell className="hidden md:table-cell max-w-[200px] truncate text-muted-foreground">
-                              {request.message || "—"}
-                            </TableCell>
-                            <TableCell className="whitespace-nowrap text-muted-foreground">
-                              {format(new Date(request.created_at), "MMM d, yyyy")}
-                            </TableCell>
-                            <TableCell>{getRequestStatusBadge(request.status)}</TableCell>
-                            <TableCell className="text-right">
-                              <div className="flex items-center justify-end gap-2">
-                                {renderRequestActions(request, true)}
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                    </div>
-
-                    {/* Requests cards (mobile) */}
-                    <ul className="space-y-3 sm:hidden">
-                      {requests.map((request) => (
-                        <li key={request.id} data-request-row className="rounded-lg border p-3">
-                          <div className="flex items-start gap-3">
-                            <Avatar className="h-10 w-10 shrink-0">
-                              <AvatarFallback>{getInitials(request.full_name)}</AvatarFallback>
-                            </Avatar>
-                            <div className="min-w-0 flex-1">
-                              <p className="font-medium">{request.full_name}</p>
-                              <p className="truncate text-sm text-muted-foreground" title={request.email}>{request.email}</p>
-                              <p className="text-xs text-muted-foreground">
-                                Submitted {format(new Date(request.created_at), "MMM d, yyyy")}
-                              </p>
-                            </div>
-                            {getRequestStatusBadge(request.status)}
-                          </div>
-                          {request.message && (
-                            <p className="mt-2 line-clamp-2 text-sm text-muted-foreground">"{request.message}"</p>
-                          )}
-                          <div className="mt-3 flex flex-wrap gap-2">
-                            {renderRequestActions(request, false)}
-                          </div>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+            <PendingHires
+              hires={onboardingEmployees}
+              isLoading={loadingOnboarding}
+              canManage={canManage}
+              onAddEmployee={canManage ? () => setActiveTab('add') : undefined}
+              onOpenDetails={(id) => setSelectedEmployee(onboardingEmployees.find((e) => e.id === id) ?? null)}
+            />
           </TabsContent>
         </Tabs>
 
@@ -1980,14 +1329,14 @@ const Onboarding = () => {
                         ) : (
                           <CheckCircle2 className="mr-2 h-4 w-4" />
                         )}
-                        Activate Employee
+                        Mark as joined
                       </Button>
                     </AlertDialogTrigger>
                     <AlertDialogContent>
                       <AlertDialogHeader>
-                        <AlertDialogTitle>Activate Employee</AlertDialogTitle>
+                        <AlertDialogTitle>Mark {selectedEmployee.first_name} as joined?</AlertDialogTitle>
                         <AlertDialogDescription>
-                          This will mark {selectedEmployee.first_name} {selectedEmployee.last_name} as an active employee and initialize their leave balances for the current year. Are you sure?
+                          Use this if {selectedEmployee.first_name} has started but won't accept the invitation yet. They become active and get this year's leave balances. If they set up their account later, it's linked automatically.
                         </AlertDialogDescription>
                       </AlertDialogHeader>
                       <AlertDialogFooter>
@@ -1995,7 +1344,7 @@ const Onboarding = () => {
                         <AlertDialogAction
                           onClick={() => activateEmployeeMutation.mutate(selectedEmployee.id)}
                         >
-                          Activate
+                          Mark as joined
                         </AlertDialogAction>
                       </AlertDialogFooter>
                     </AlertDialogContent>
@@ -2182,195 +1531,6 @@ const Onboarding = () => {
           </DialogContent>
         </Dialog>
 
-        {/* Request Details Dialog */}
-        <Dialog open={!!selectedRequest} onOpenChange={(open) => !open && setSelectedRequest(null)}>
-          <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Request details</DialogTitle>
-              <DialogDescription>
-                Onboarding request from {selectedRequest?.full_name}
-              </DialogDescription>
-            </DialogHeader>
-            {selectedRequest && (
-              <div className="space-y-4">
-                <div className="flex items-center gap-4">
-                  <Avatar className="h-16 w-16">
-                    <AvatarFallback className="text-lg">
-                      {getInitials(selectedRequest.full_name)}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div>
-                    <h3 className="text-lg font-semibold">{selectedRequest.full_name}</h3>
-                    <p className="break-words text-muted-foreground">{selectedRequest.email}</p>
-                  </div>
-                </div>
-                <div>
-                  <h4 className="text-sm font-medium text-muted-foreground">Status</h4>
-                  <div className="mt-1">{getRequestStatusBadge(selectedRequest.status)}</div>
-                </div>
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  <div>
-                    <h4 className="text-sm font-medium text-muted-foreground">Phone</h4>
-                    <p className="mt-1 text-foreground">{selectedRequest.phone}</p>
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-medium text-muted-foreground">Designation</h4>
-                    <p className="mt-1 text-foreground">{selectedRequest.designation}</p>
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-medium text-muted-foreground">Date of Birth</h4>
-                    <p className="mt-1 text-foreground">
-                      {selectedRequest.date_of_birth && format(new Date(selectedRequest.date_of_birth), "MMM d, yyyy")}
-                    </p>
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-medium text-muted-foreground">Gender</h4>
-                    <p className="mt-1 text-foreground capitalize">{selectedRequest.gender?.replace(/_/g, ' ')}</p>
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-medium text-muted-foreground">Preferred Joining Date</h4>
-                    <p className="mt-1 text-foreground">
-                      {selectedRequest.joining_date && format(new Date(selectedRequest.joining_date), "MMM d, yyyy")}
-                    </p>
-                  </div>
-                </div>
-                <div>
-                  <h4 className="text-sm font-medium text-muted-foreground">Address</h4>
-                  <p className="mt-1 text-foreground">{selectedRequest.address}</p>
-                </div>
-                <div>
-                  <h4 className="text-sm font-medium text-muted-foreground">Documents</h4>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {[
-                      { path: selectedRequest.resume_url, label: 'Resume' },
-                      { path: selectedRequest.offer_letter_url, label: 'Offer Letter' },
-                      { path: selectedRequest.id_proof_url, label: 'ID Proof' },
-                    ].map((doc) => (
-                      doc.path && (
-                        <Button
-                          key={doc.label}
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleViewDocument(doc.path!, 'onboarding-documents')}
-                        >
-                          <Eye className="mr-2 h-3.5 w-3.5" />
-                          {doc.label}
-                        </Button>
-                      )
-                    ))}
-                  </div>
-                </div>
-                <div>
-                  <h4 className="text-sm font-medium text-muted-foreground">Message</h4>
-                  <p className="mt-1 text-foreground">
-                    {selectedRequest.message || "No message provided"}
-                  </p>
-                </div>
-                <div>
-                  <h4 className="text-sm font-medium text-muted-foreground">Submitted</h4>
-                  <p className="mt-1 text-foreground">
-                    {format(new Date(selectedRequest.created_at), "MMMM d, yyyy 'at' h:mm a")}
-                  </p>
-                </div>
-                {selectedRequest.reviewed_at && (
-                  <div>
-                    <h4 className="text-sm font-medium text-muted-foreground">Reviewed</h4>
-                    <p className="mt-1 text-foreground">
-                      {format(new Date(selectedRequest.reviewed_at), "MMMM d, yyyy 'at' h:mm a")}
-                    </p>
-                  </div>
-                )}
-              </div>
-            )}
-            <DialogFooter>
-              {canManage && selectedRequest?.status === "pending" && (
-                <>
-                  <Button
-                    variant="outline"
-                    className="text-red-700 hover:bg-red-50 hover:text-red-800"
-                    onClick={() => {
-                      handleRejectRequest(selectedRequest);
-                      setSelectedRequest(null);
-                    }}
-                  >
-                    <X className="mr-2 h-4 w-4" />
-                    Reject
-                  </Button>
-                  <Button
-                    onClick={() => {
-                      handleApproveRequest(selectedRequest);
-                      setSelectedRequest(null);
-                    }}
-                  >
-                    <Check className="mr-2 h-4 w-4" />
-                    Approve
-                  </Button>
-                </>
-              )}
-              {canManage && selectedRequest?.status === "approved" && !hasEmployeeRecord(selectedRequest.user_id) && (
-                <Button onClick={() => {
-                  handleCreateEmployeeFromRequest(selectedRequest);
-                  setSelectedRequest(null);
-                }}>
-                  <UserPlus className="mr-2 h-4 w-4" />
-                  Create employee record
-                </Button>
-              )}
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-
-        {/* Approve Request Confirmation Dialog */}
-        <AlertDialog open={approveDialogOpen} onOpenChange={setApproveDialogOpen}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Approve request?</AlertDialogTitle>
-              <AlertDialogDescription>
-                Are you sure you want to approve the onboarding request from{" "}
-                <strong>{requestToAction?.full_name}</strong>? You will then be able to create
-                an employee record for them.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction onClick={confirmApprove}>
-                {approveRequest.isPending ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                  <Check className="mr-2 h-4 w-4" />
-                )}
-                Approve
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-
-        {/* Reject Request Confirmation Dialog */}
-        <AlertDialog open={rejectDialogOpen} onOpenChange={setRejectDialogOpen}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Reject request?</AlertDialogTitle>
-              <AlertDialogDescription>
-                Are you sure you want to reject the onboarding request from{" "}
-                <strong>{requestToAction?.full_name}</strong>? This action cannot be undone.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction
-                onClick={confirmReject}
-                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              >
-                {rejectRequest.isPending ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                  <X className="mr-2 h-4 w-4" />
-                )}
-                Reject
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
       </div>
     </DashboardLayout>
   );

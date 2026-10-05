@@ -217,8 +217,11 @@ DO $$ BEGIN
       AND NOT EXISTS (SELECT 1 FROM user_roles WHERE user_id = tests.uid('alice') AND role <> 'employee'),
     '';
   INSERT INTO tests.results (name, ok, detail) SELECT
-    'invitations are marked accepted',
-    (SELECT count(*) FROM user_invitations WHERE accepted_at IS NOT NULL) = 9, '';
+    'new accounts are linked to their invitation',
+    (SELECT count(*) FROM user_invitations WHERE accepted_user_id IS NOT NULL) = 9, '';
+  INSERT INTO tests.results (name, ok, detail) SELECT
+    'invitations stay open until the account is set up',
+    (SELECT count(*) FROM user_invitations WHERE accepted_at IS NOT NULL) = 0, '';
   INSERT INTO tests.results (name, ok, detail) SELECT
     'existing employee record is linked to the new account by email',
     (SELECT user_id FROM employees WHERE id = '00000000-0000-0000-0000-00000000000a') = tests.uid('alice'), '';
@@ -248,6 +251,38 @@ SELECT tests.fails('plain employees cannot create invitations', 'alice',
   $$INSERT INTO user_invitations (email) VALUES ('friend@acme.test')$$, 'row-level security');
 SELECT tests.rows('plain employees cannot list invitations', 'alice',
   $$SELECT * FROM user_invitations$$, 0);
+
+-- Onboarding: an invitation sent with a new employee record
+INSERT INTO public.employees (id, employee_code, first_name, last_name, email, designation, hire_date, status) VALUES
+  ('00000000-0000-0000-0000-000000000099', 'E-G', 'Gina', 'G', 'gina@acme.test', 'Designer', '2026-10-01', 'onboarding');
+INSERT INTO public.user_invitations (email, full_name, employee_id, invited_by) VALUES
+  ('gina@acme.test', 'Gina G', '00000000-0000-0000-0000-000000000099', tests.uid('hr'));
+INSERT INTO auth.users (id, email) VALUES ('10000000-0000-0000-0000-000000000099', 'gina@acme.test');
+DO $$ BEGIN
+  INSERT INTO tests.results (name, ok, detail) SELECT
+    'an invited account is linked to the employee record it was sent for',
+    (SELECT user_id FROM employees WHERE id = '00000000-0000-0000-0000-000000000099') = '10000000-0000-0000-0000-000000000099', '';
+  INSERT INTO tests.results (name, ok, detail) SELECT
+    'a new hire stays in onboarding until they set up their account',
+    (SELECT status FROM employees WHERE id = '00000000-0000-0000-0000-000000000099') = 'onboarding'
+      AND NOT EXISTS (SELECT 1 FROM leave_balances WHERE employee_id = '00000000-0000-0000-0000-000000000099'), '';
+END $$;
+UPDATE auth.users SET email_confirmed_at = now(), last_sign_in_at = now()
+  WHERE id = '10000000-0000-0000-0000-000000000099';
+DO $$ BEGIN
+  INSERT INTO tests.results (name, ok, detail) SELECT
+    'setting up the account accepts the invitation',
+    (SELECT accepted_at IS NOT NULL FROM user_invitations WHERE email = 'gina@acme.test'), '';
+  INSERT INTO tests.results (name, ok, detail) SELECT
+    'setting up the account activates the employee and creates leave balances',
+    (SELECT status FROM employees WHERE id = '00000000-0000-0000-0000-000000000099') = 'active'
+      AND EXISTS (SELECT 1 FROM leave_balances WHERE employee_id = '00000000-0000-0000-0000-000000000099'), '';
+  INSERT INTO tests.results (name, ok, detail) SELECT
+    'whoever sent the invitation is notified when the new hire joins',
+    EXISTS (SELECT 1 FROM notifications WHERE user_id = tests.uid('hr') AND title = 'New hire joined'), '';
+END $$;
+SELECT tests.fails('the invitation cannot be accepted again from the client', 'hr',
+  $$SELECT public.complete_invitation('10000000-0000-0000-0000-000000000099')$$, 'permission denied');
 
 -- Domain whitelist enforced server-side
 INSERT INTO public.organization_settings (setting_key, setting_value)
@@ -317,7 +352,7 @@ SELECT tests.fails('anon cannot read the employee directory', 'anon',
 SELECT tests.rows('invited-but-not-onboarded users see no directory', 'dave',
   $$SELECT * FROM employee_directory$$, 0);
 SELECT tests.rows('employees see the whole directory', 'alice',
-  $$SELECT * FROM employee_directory$$, 5);
+  $$SELECT * FROM employee_directory$$, 6);
 SELECT tests.rows('invited-but-not-onboarded users see no departments or assets', 'dave',
   $$SELECT id FROM departments UNION ALL SELECT id FROM assets UNION ALL SELECT id FROM leave_types$$, 0);
 SELECT tests.rows('employees cannot change organisation settings', 'alice',
@@ -331,7 +366,7 @@ SELECT tests.rows('assets-only user can add assets', 'carol',
 SELECT tests.rows('assets-only user can assign assets', 'carol',
   $$INSERT INTO asset_assignments (asset_id, employee_id) VALUES ('50000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-00000000000b')$$, 1);
 SELECT tests.rows('assets-only user sees employee names for assignment', 'carol',
-  $$SELECT * FROM employees$$, 5);
+  $$SELECT * FROM employees$$, 6);
 SELECT tests.rows('assets-only user cannot see payroll', 'carol',
   $$SELECT * FROM payroll_records$$, 0);
 SELECT tests.rows('assets-only user cannot see bank details', 'carol',
@@ -352,7 +387,7 @@ SELECT tests.rows('onboarding-only user can create employee records', 'frank',
 SELECT tests.rows('onboarding-only user can upload a new joiner''s documents', 'frank',
   $$INSERT INTO storage.objects (bucket_id, name) VALUES ('employee-documents', '00000000-0000-0000-0000-00000000000b/offer.pdf') RETURNING id$$, 1);
 SELECT tests.rows('onboarding-only user sees accounts to link', 'frank',
-  $$SELECT * FROM profiles$$, 9);
+  $$SELECT * FROM profiles$$, 10);
 SELECT tests.rows('onboarding-only user cannot change existing leave balances', 'frank',
   $$UPDATE leave_balances SET total_days = 99$$, 0);
 SELECT tests.rows('onboarding-only user cannot see payroll', 'frank',

@@ -82,8 +82,8 @@ const App = () => (
                 <Route path="/dashboard" element={<ProtectedRoute><Index /></ProtectedRoute>} />
                 <Route path="/employees" element={<ProtectedRoute><Employees /></ProtectedRoute>} />
                 <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
-                {/* Redirect old onboarding-requests route to onboarding with requests tab */}
-                <Route path="/onboarding-requests" element={<Navigate to="/onboarding?tab=requests" replace />} />
+                {/* Old links to onboarding requests go to the pending new hires */}
+                <Route path="/onboarding-requests" element={<Navigate to="/onboarding?tab=pending" replace />} />
                 <Route path="/leaves" element={<ProtectedRoute><Leaves /></ProtectedRoute>} />
                 {/* Redirect old leave-approvals route to leaves */}
                 <Route path="/leave-approvals" element={<Navigate to="/leaves" replace />} />
