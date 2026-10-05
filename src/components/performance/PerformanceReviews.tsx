@@ -10,6 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { RatingStars } from "./RatingStars";
 import { format } from "date-fns";
 import { toast } from "sonner";
+import { statusBadgeClass, formatStatus } from "@/lib/statusStyles";
 
 interface PerformanceReviewsProps {
   employeeId: string;
@@ -23,12 +24,6 @@ interface KpiRating {
   employee_rating: number | null;
   manager_rating: number | null;
 }
-
-const statusColors: Record<string, string> = {
-  draft: "bg-muted text-muted-foreground",
-  submitted: "bg-primary/10 text-primary border-primary/20",
-  acknowledged: "bg-emerald-500/10 text-emerald-600 border-emerald-500/20",
-};
 
 export function PerformanceReviews({ employeeId, employeeName = "Employee" }: PerformanceReviewsProps) {
   const { user } = useAuth();
@@ -108,10 +103,12 @@ export function PerformanceReviews({ employeeId, employeeName = "Employee" }: Pe
     if (!rating) return <span className="text-muted-foreground text-sm">Not rated</span>;
     return (
       <div className="flex items-center gap-1">
-        {[1, 2, 3, 4, 5].map((star) => (
-          <Star key={star} className={`h-4 w-4 ${star <= rating ? "fill-amber-400 text-amber-400" : "text-muted-foreground/30"}`} />
-        ))}
-        <span className="ml-1 text-sm font-medium">{rating}/5</span>
+        <span className="flex items-center gap-1" role="img" aria-label={`${rating} of 5 stars`}>
+          {[1, 2, 3, 4, 5].map((star) => (
+            <Star key={star} aria-hidden="true" className={`h-4 w-4 ${star <= rating ? "fill-amber-400 text-amber-400" : "text-muted-foreground/30"}`} />
+          ))}
+        </span>
+        <span className="ml-1 text-sm font-medium" aria-hidden="true">{rating}/5</span>
       </div>
     );
   };
@@ -122,7 +119,7 @@ export function PerformanceReviews({ employeeId, employeeName = "Employee" }: Pe
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2"><FileText className="h-5 w-5" />Performance Reviews</CardTitle>
+        <CardTitle className="flex items-center gap-2"><FileText className="h-5 w-5" />Performance reviews</CardTitle>
         <CardDescription>View your performance evaluations and rate your KPIs</CardDescription>
       </CardHeader>
       <CardContent>
@@ -136,19 +133,19 @@ export function PerformanceReviews({ employeeId, employeeName = "Employee" }: Pe
 
               return (
                 <div key={review.id} className="rounded-lg border p-4 space-y-3">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <h4 className="font-medium">{review.review_period}</h4>
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <h3 className="font-medium">{review.review_period}</h3>
                       <p className="text-sm text-muted-foreground">
-                        {format(new Date(review.review_date), "MMMM d, yyyy")}
+                        {format(new Date(review.review_date), "MMM d, yyyy")}
                         {review.reviewer && <> • Reviewed by {review.reviewer.first_name} {review.reviewer.last_name}</>}
                       </p>
                     </div>
-                    <Badge variant="outline" className={statusColors[review.status]}>{review.status}</Badge>
+                    <Badge variant="outline" className={`shrink-0 ${statusBadgeClass(review.status)}`}>{formatStatus(review.status)}</Badge>
                   </div>
 
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-muted-foreground">Overall Rating:</span>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-sm text-muted-foreground">Overall rating:</span>
                     {renderStars(review.overall_rating)}
                   </div>
 
@@ -159,10 +156,15 @@ export function PerformanceReviews({ employeeId, employeeName = "Employee" }: Pe
                         variant="outline"
                         size="sm"
                         onClick={() => setExpandedReview(isExpanded ? null : review.id)}
+                        aria-expanded={isExpanded}
                         className="gap-2"
                       >
                         <Target className="h-4 w-4" />
-                        {isExpanded ? "Hide KPI Ratings" : `Rate KPIs (${goals.length})`}
+                        {isExpanded
+                          ? "Hide KPI ratings"
+                          : canSelfRate(review.status)
+                            ? `Rate KPIs (${goals.length})`
+                            : `View KPI ratings (${goals.length})`}
                       </Button>
 
                       {isExpanded && (
@@ -175,12 +177,12 @@ export function PerformanceReviews({ employeeId, employeeName = "Employee" }: Pe
                           {goals.map((goal) => {
                             const rating = ratingsMap[goal.id];
                             return (
-                              <div key={goal.id} className="flex items-center justify-between gap-3 p-2 rounded border bg-background">
+                              <div key={goal.id} className="flex flex-col gap-2 rounded border bg-background p-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
                                 <div className="flex-1 min-w-0">
-                                  <p className="text-sm font-medium truncate">{goal.title}</p>
+                                  <p className="text-sm font-medium break-words">{goal.title}</p>
                                   <p className="text-xs text-muted-foreground">{goal.category}</p>
                                 </div>
-                                <div className="flex flex-col gap-1 items-end">
+                                <div className="flex flex-col gap-1 sm:items-end">
                                   <RatingStars
                                     label="Self"
                                     value={rating?.employee_rating ?? null}
@@ -206,10 +208,10 @@ export function PerformanceReviews({ employeeId, employeeName = "Employee" }: Pe
                   )}
 
                   {review.strengths && (
-                    <div className="space-y-1"><p className="text-sm font-medium text-emerald-600">Strengths</p><p className="text-sm text-muted-foreground">{review.strengths}</p></div>
+                    <div className="space-y-1"><p className="text-sm font-medium text-emerald-700 dark:text-emerald-400">Strengths</p><p className="text-sm text-muted-foreground">{review.strengths}</p></div>
                   )}
                   {review.areas_for_improvement && (
-                    <div className="space-y-1"><p className="text-sm font-medium text-amber-600">Areas for Improvement</p><p className="text-sm text-muted-foreground">{review.areas_for_improvement}</p></div>
+                    <div className="space-y-1"><p className="text-sm font-medium text-amber-800 dark:text-amber-400">Areas for improvement</p><p className="text-sm text-muted-foreground">{review.areas_for_improvement}</p></div>
                   )}
                   {review.comments && (
                     <div className="space-y-1"><p className="text-sm font-medium">Comments</p><p className="text-sm text-muted-foreground">{review.comments}</p></div>
@@ -218,15 +220,15 @@ export function PerformanceReviews({ employeeId, employeeName = "Employee" }: Pe
                   {review.status === "submitted" && user && (
                     <div className="pt-2 border-t">
                       <Button size="sm" onClick={() => acknowledgeMutation.mutate({ reviewId: review.id, userId: user.id, employeeName, reviewPeriod: review.review_period })} disabled={acknowledgeMutation.isPending}>
-                        <CheckCircle className="h-4 w-4 mr-2" />{acknowledgeMutation.isPending ? "Acknowledging..." : "Acknowledge Review"}
+                        <CheckCircle className="h-4 w-4 mr-2" />{acknowledgeMutation.isPending ? "Acknowledging..." : "Acknowledge review"}
                       </Button>
                     </div>
                   )}
 
                   {review.acknowledged_at && (
                     <div className="pt-2 border-t text-sm text-muted-foreground">
-                      <CheckCircle className="h-4 w-4 inline mr-1 text-emerald-600" />
-                      Acknowledged on {format(new Date(review.acknowledged_at), "MMMM d, yyyy")}
+                      <CheckCircle className="h-4 w-4 inline mr-1 text-emerald-600" aria-hidden="true" />
+                      Acknowledged on {format(new Date(review.acknowledged_at), "MMM d, yyyy")}
                     </div>
                   )}
                 </div>
@@ -235,7 +237,7 @@ export function PerformanceReviews({ employeeId, employeeName = "Employee" }: Pe
           </div>
         ) : (
           <div className="text-center py-8 text-muted-foreground">
-            <FileText className="mx-auto h-8 w-8 mb-2 opacity-50" /><p>No performance reviews yet</p><p className="text-sm">Reviews will appear here once your manager initiates one</p>
+            <FileText className="mx-auto h-8 w-8 mb-2 opacity-50" /><p>No performance reviews yet</p><p className="text-sm">Reviews will appear here once a review is started for you</p>
           </div>
         )}
       </CardContent>

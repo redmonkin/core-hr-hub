@@ -37,6 +37,7 @@ import {
   PieChart,
   Pie,
   Cell,
+  Legend,
 } from "recharts";
 
 interface PerformanceAnalyticsProps {
@@ -112,10 +113,10 @@ export function PerformanceAnalytics({ employeeId }: PerformanceAnalyticsProps) 
   }, [] as { status: string; count: number }[]);
 
   const statusLabels: Record<string, string> = {
-    not_started: "Not Started",
-    in_progress: "In Progress",
+    not_started: "Not started",
+    in_progress: "In progress",
     completed: "Completed",
-    on_hold: "On Hold",
+    on_hold: "On hold",
   };
 
   const statusColors: Record<string, string> = {
@@ -300,60 +301,64 @@ export function PerformanceAnalytics({ employeeId }: PerformanceAnalyticsProps) 
       {/* Date Range Filter */}
       <Card>
         <CardContent className="space-y-4 pt-6">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div className="flex flex-wrap items-center gap-4">
-              <span className="text-sm font-medium">Date Range:</span>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className={cn(
-                      "w-[160px] justify-start text-left font-normal",
-                      !startDate && "text-muted-foreground"
-                    )}
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {startDate ? format(startDate, "PP") : "Start"}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={startDate}
-                    onSelect={setStartDate}
-                    initialFocus
-                    className="pointer-events-auto"
-                  />
-                </PopoverContent>
-              </Popover>
-              <span className="text-muted-foreground">to</span>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className={cn(
-                      "w-[160px] justify-start text-left font-normal",
-                      !endDate && "text-muted-foreground"
-                    )}
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {endDate ? format(endDate, "PP") : "End"}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={endDate}
-                    onSelect={setEndDate}
-                    initialFocus
-                    className="pointer-events-auto"
-                  />
-                </PopoverContent>
-              </Popover>
+          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-4">
+              <span className="text-sm font-medium">Date range</span>
+              <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 sm:flex">
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      aria-label={startDate ? `Start date, ${format(startDate, "MMM d, yyyy")}` : "Start date"}
+                      className={cn(
+                        "w-full justify-start px-3 text-left font-normal sm:w-[160px]",
+                        !startDate && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 hidden h-4 w-4 shrink-0 sm:block" aria-hidden="true" />
+                      <span className="truncate">{startDate ? format(startDate, "MMM d, yyyy") : "Start"}</span>
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={startDate}
+                      onSelect={setStartDate}
+                      initialFocus
+                      className="pointer-events-auto"
+                    />
+                  </PopoverContent>
+                </Popover>
+                <span className="text-sm text-muted-foreground">to</span>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      aria-label={endDate ? `End date, ${format(endDate, "MMM d, yyyy")}` : "End date"}
+                      className={cn(
+                        "w-full justify-start px-3 text-left font-normal sm:w-[160px]",
+                        !endDate && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 hidden h-4 w-4 shrink-0 sm:block" aria-hidden="true" />
+                      <span className="truncate">{endDate ? format(endDate, "MMM d, yyyy") : "End"}</span>
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="end">
+                    <Calendar
+                      mode="single"
+                      selected={endDate}
+                      onSelect={setEndDate}
+                      initialFocus
+                      className="pointer-events-auto"
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
             </div>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm">
+                <Button variant="outline" size="sm" className="self-start sm:self-auto">
                   <Download className="mr-2 h-4 w-4" />
                   Export
                 </Button>
@@ -371,6 +376,8 @@ export function PerformanceAnalytics({ employeeId }: PerformanceAnalyticsProps) 
             </DropdownMenu>
           </div>
           <DatePresets
+            startDate={startDate}
+            endDate={endDate}
             onSelect={(start, end) => {
               setStartDate(start);
               setEndDate(end);
@@ -380,29 +387,31 @@ export function PerformanceAnalytics({ employeeId }: PerformanceAnalyticsProps) 
       </Card>
 
       {/* Summary Stats */}
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-4">
         <Card>
-          <CardContent className="pt-6">
+          <CardContent className="p-4 sm:p-6">
             <div className="text-2xl font-bold">{filteredGoals.length}</div>
             <p className="text-sm text-muted-foreground">Total KPIs</p>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="pt-6">
+          <CardContent className="p-4 sm:p-6">
             <div className="text-2xl font-bold">{avgProgress}%</div>
-            <p className="text-sm text-muted-foreground">Avg. Progress</p>
+            <p className="text-sm text-muted-foreground">Avg. progress</p>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="pt-6">
+          <CardContent className="p-4 sm:p-6">
             <div className="text-2xl font-bold">{filteredReviews.length}</div>
             <p className="text-sm text-muted-foreground">Reviews</p>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="pt-6">
-            <div className="text-2xl font-bold">{avgRating}</div>
-            <p className="text-sm text-muted-foreground">Avg. Rating</p>
+          <CardContent className="p-4 sm:p-6">
+            <div className="text-2xl font-bold">{ratingsWithValue.length ? avgRating : "—"}</div>
+            <p className="text-sm text-muted-foreground">
+              {ratingsWithValue.length ? "Avg. rating" : "No ratings yet"}
+            </p>
           </CardContent>
         </Card>
       </div>
@@ -415,25 +424,31 @@ export function PerformanceAnalytics({ employeeId }: PerformanceAnalyticsProps) 
           </CardHeader>
           <CardContent>
             {hasKPIData ? (
+              <div
+                role="img"
+                aria-label={`KPI status: ${goalStatusData
+                  .map((d) => `${statusLabels[d.status] || d.status} ${d.count}`)
+                  .join(", ")}`}
+              >
               <ResponsiveContainer width="100%" height={250}>
                 <PieChart>
                   <Pie
                     data={goalStatusData}
                     cx="50%"
-                    cy="50%"
+                    cy="45%"
                     innerRadius={60}
                     outerRadius={80}
-                    paddingAngle={5}
+                    paddingAngle={goalStatusData.length > 1 ? 3 : 0}
+                    stroke={goalStatusData.length > 1 ? undefined : "none"}
                     dataKey="count"
                     nameKey="status"
-                    label={({ status, count }) =>
-                      `${statusLabels[status] || status}: ${count}`
-                    }
+                    isAnimationActive={false}
                   >
                     {goalStatusData.map((entry, index) => (
                       <Cell
                         key={`cell-${index}`}
                         fill={statusColors[entry.status] || "hsl(var(--muted))"}
+                        aria-label={`${statusLabels[entry.status] || entry.status}: ${entry.count}`}
                       />
                     ))}
                   </Pie>
@@ -443,8 +458,22 @@ export function PerformanceAnalytics({ employeeId }: PerformanceAnalyticsProps) 
                       statusLabels[name as string] || name,
                     ]}
                   />
+                  <Legend
+                    verticalAlign="bottom"
+                    iconType="circle"
+                    formatter={(value: string, entry) => {
+                      const count = (entry?.payload as { count?: number } | undefined)?.count;
+                      return (
+                        <span className="text-sm text-foreground">
+                          {statusLabels[value] || value}
+                          {count !== undefined ? ` (${count})` : ""}
+                        </span>
+                      );
+                    }}
+                  />
                 </PieChart>
               </ResponsiveContainer>
+              </div>
             ) : (
               <div className="flex h-[250px] items-center justify-center text-muted-foreground">
                 No KPI data in selected range
@@ -460,6 +489,7 @@ export function PerformanceAnalytics({ employeeId }: PerformanceAnalyticsProps) 
           </CardHeader>
           <CardContent>
             {hasReviewData && ratingTrend.length > 0 ? (
+              <div role="img" aria-label="Performance rating trend over time">
               <ResponsiveContainer width="100%" height={250}>
                 <LineChart data={ratingTrend}>
                   <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
@@ -484,6 +514,7 @@ export function PerformanceAnalytics({ employeeId }: PerformanceAnalyticsProps) 
                   />
                 </LineChart>
               </ResponsiveContainer>
+              </div>
             ) : (
               <div className="flex h-[250px] items-center justify-center text-muted-foreground">
                 No review data in selected range
@@ -499,6 +530,7 @@ export function PerformanceAnalytics({ employeeId }: PerformanceAnalyticsProps) 
           </CardHeader>
           <CardContent>
             {monthlyGoalsTrend.length > 0 ? (
+              <div role="img" aria-label="KPIs completed per month">
               <ResponsiveContainer width="100%" height={250}>
                 <BarChart data={monthlyGoalsTrend}>
                   <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
@@ -520,6 +552,7 @@ export function PerformanceAnalytics({ employeeId }: PerformanceAnalyticsProps) 
                   />
                 </BarChart>
               </ResponsiveContainer>
+              </div>
             ) : (
               <div className="flex h-[250px] items-center justify-center text-muted-foreground">
                 No completed KPIs in selected range

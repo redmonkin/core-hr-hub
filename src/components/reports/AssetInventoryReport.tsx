@@ -7,6 +7,7 @@ import { Download, Package } from "lucide-react";
 import { useAssetReport } from "@/hooks/useAssetReport";
 import { useCompanyBranding } from "@/hooks/useCompanyBranding";
 import { drawPdfHeader, drawPdfFooter, fetchImageAsDataUrl, formatCurrencyForPdf, PDF_TABLE_HEAD_STYLE, PDF_COLORS } from "@/lib/pdfTheme";
+import { statusBadgeClass, formatStatus } from "@/lib/statusStyles";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
@@ -18,13 +19,11 @@ function formatCurrency(amount: number) {
 }
 
 function getStatusBadge(status: string) {
-  const variants: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
-    available: "default",
-    assigned: "secondary",
-    maintenance: "outline",
-    retired: "destructive",
-  };
-  return <Badge variant={variants[status] || "outline"}>{status}</Badge>;
+  return (
+    <Badge variant="outline" className={`whitespace-nowrap ${statusBadgeClass(status)}`}>
+      {formatStatus(status)}
+    </Badge>
+  );
 }
 
 export function AssetInventoryReport() {
@@ -122,15 +121,15 @@ export function AssetInventoryReport() {
 
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Package className="h-5 w-5 text-primary" />
-          <div>
-            <CardTitle>Asset Inventory Report</CardTitle>
+      <CardHeader className="flex flex-col gap-4 space-y-0 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex min-w-0 items-start gap-2">
+          <Package className="mt-1 h-5 w-5 shrink-0 text-primary" aria-hidden="true" />
+          <div className="min-w-0 space-y-1.5">
+            <CardTitle>Asset inventory report</CardTitle>
             <CardDescription>Complete inventory of all company assets</CardDescription>
           </div>
         </div>
-        <Button onClick={exportToPDF} disabled={isLoading || !report}>
+        <Button onClick={exportToPDF} disabled={isLoading || !report} className="w-full shrink-0 sm:w-auto">
           <Download className="mr-2 h-4 w-4" />
           Export PDF
         </Button>
@@ -148,22 +147,24 @@ export function AssetInventoryReport() {
         ) : report ? (
           <div className="space-y-6">
             {/* Summary cards */}
-            <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-              <div className="rounded-lg border bg-card p-4">
-                <p className="text-sm text-muted-foreground">Total Assets</p>
+            <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-4">
+              <div className="min-w-0 rounded-lg border bg-card p-3 sm:p-4">
+                <p className="text-sm text-muted-foreground">Total assets</p>
                 <p className="text-2xl font-bold">{report.totalAssets}</p>
               </div>
-              <div className="rounded-lg border bg-card p-4">
-                <p className="text-sm text-muted-foreground">Total Value</p>
-                <p className="text-2xl font-bold">{formatCurrency(report.totalValue)}</p>
+              <div className="min-w-0 rounded-lg border bg-card p-3 sm:p-4">
+                <p className="text-sm text-muted-foreground">Total value</p>
+                <p className="break-words text-lg font-bold sm:text-2xl">
+                  {new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(report.totalValue)}
+                </p>
               </div>
-              <div className="rounded-lg border bg-card p-4">
+              <div className="min-w-0 rounded-lg border bg-card p-3 sm:p-4">
                 <p className="text-sm text-muted-foreground">Available</p>
                 <p className="text-2xl font-bold">
                   {report.byStatus.find((s) => s.status === "available")?.count || 0}
                 </p>
               </div>
-              <div className="rounded-lg border bg-card p-4">
+              <div className="min-w-0 rounded-lg border bg-card p-3 sm:p-4">
                 <p className="text-sm text-muted-foreground">Assigned</p>
                 <p className="text-2xl font-bold">
                   {report.byStatus.find((s) => s.status === "assigned")?.count || 0}
@@ -172,16 +173,16 @@ export function AssetInventoryReport() {
             </div>
 
             {/* Asset table */}
-            <div className="rounded-md border">
+            <div className="hidden rounded-md border sm:block">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Asset Code</TableHead>
+                    <TableHead>Asset code</TableHead>
                     <TableHead>Name</TableHead>
                     <TableHead>Category</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Cost</TableHead>
-                    <TableHead>Assigned To</TableHead>
+                    <TableHead>Assigned to</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -206,6 +207,35 @@ export function AssetInventoryReport() {
                 </TableBody>
               </Table>
             </div>
+            <ul className="space-y-3 sm:hidden" aria-label="Assets">
+              {report.records.length === 0 ? (
+                <li className="py-6 text-center text-sm text-muted-foreground">No assets found</li>
+              ) : (
+                report.records.map((asset) => (
+                  <li key={asset.id} className="rounded-lg border p-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="truncate font-medium">{asset.name}</p>
+                        <p className="truncate text-xs text-muted-foreground">
+                          {[asset.assetCode, asset.category].filter(Boolean).join(" • ")}
+                        </p>
+                      </div>
+                      {getStatusBadge(asset.status)}
+                    </div>
+                    <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                      <div>
+                        <dt className="text-xs text-muted-foreground">Cost</dt>
+                        <dd className="tabular-nums">{formatCurrency(asset.purchaseCost)}</dd>
+                      </div>
+                      <div className="min-w-0">
+                        <dt className="text-xs text-muted-foreground">Assigned to</dt>
+                        <dd className="truncate">{asset.assignedTo || "—"}</dd>
+                      </div>
+                    </dl>
+                  </li>
+                ))
+              )}
+            </ul>
           </div>
         ) : null}
       </CardContent>

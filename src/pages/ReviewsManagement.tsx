@@ -24,25 +24,22 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
+import { statusBadgeClass, formatStatus } from "@/lib/statusStyles";
 
-const REVIEW_PERIODS = [
-  "Q1 2024",
-  "Q2 2024",
-  "Q3 2024",
-  "Q4 2024",
-  "Q1 2025",
-  "Q2 2025",
-  "Q3 2025",
-  "Q4 2025",
-  "Annual 2024",
-  "Annual 2025",
-];
-
-const statusColors: Record<string, string> = {
-  draft: "bg-muted text-muted-foreground",
-  submitted: "bg-primary/10 text-primary border-primary/20",
-  acknowledged: "bg-emerald-500/10 text-emerald-600 border-emerald-500/20",
+// Quarter, half-year and annual cycles for last year and this year (e.g. "Q1 2026", "Annual 2026").
+const buildReviewPeriods = () => {
+  const year = new Date().getFullYear();
+  return [year - 1, year].flatMap((y) => [
+    `Q1 ${y}`,
+    `Q2 ${y}`,
+    `Q3 ${y}`,
+    `Q4 ${y}`,
+    `H1 ${y}`,
+    `H2 ${y}`,
+    `Annual ${y}`,
+  ]);
 };
+const REVIEW_PERIODS = buildReviewPeriods();
 
 const ReviewsManagement = () => {
   const { user } = useAuth();
@@ -118,14 +115,22 @@ const ReviewsManagement = () => {
   };
 
   const renderStars = (rating: number | null) => {
-    if (!rating) return <span className="text-muted-foreground">-</span>;
+    if (!rating) {
+      return (
+        <span className="text-muted-foreground">
+          <span aria-hidden="true">—</span>
+          <span className="sr-only">Not rated</span>
+        </span>
+      );
+    }
     return (
-      <div className="flex items-center gap-0.5">
+      <div className="flex items-center gap-0.5" role="img" aria-label={`${rating} of 5 stars`}>
         {[1, 2, 3, 4, 5].map((star) => (
           <Star
             key={star}
+            aria-hidden="true"
             className={`h-3.5 w-3.5 ${
-              star <= rating ? "text-amber-500 fill-amber-500" : "text-muted-foreground"
+              star <= rating ? "text-amber-500 fill-amber-500" : "text-muted-foreground/40"
             }`}
           />
         ))}
@@ -134,17 +139,20 @@ const ReviewsManagement = () => {
   };
 
   const StarRating = ({ value, onChange }: { value: number; onChange: (v: number) => void }) => (
-    <div className="flex items-center gap-1">
+    <div className="flex items-center gap-1" role="group" aria-labelledby="review-overall-rating">
       {[1, 2, 3, 4, 5].map((star) => (
         <button
           key={star}
           type="button"
           onClick={() => onChange(star)}
-          className="p-1 hover:scale-110 transition-transform"
+          aria-label={`${star} of 5 stars`}
+          aria-pressed={value === star}
+          className="rounded p-1 transition-transform hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <Star
+            aria-hidden="true"
             className={`h-6 w-6 ${
-              star <= value ? "text-amber-500 fill-amber-500" : "text-muted-foreground"
+              star <= value ? "text-amber-500 fill-amber-500" : "text-muted-foreground/40"
             }`}
           />
         </button>
@@ -170,13 +178,13 @@ const ReviewsManagement = () => {
       <DashboardLayout>
         <div className="space-y-6">
           <div>
-            <h2 className="text-2xl font-bold text-foreground">Reviews Management</h2>
+            <h1 className="text-2xl font-bold text-foreground sm:text-3xl">Reviews management</h1>
             <p className="text-muted-foreground">Create and manage performance reviews</p>
           </div>
           <Card>
             <CardContent className="py-12 text-center">
               <ShieldX className="mx-auto h-12 w-12 text-muted-foreground" />
-              <h3 className="mt-4 text-lg font-semibold">Access Denied</h3>
+              <h2 className="mt-4 text-lg font-semibold">Access denied</h2>
               <p className="mt-2 text-muted-foreground">
                 You need access to the Performance module to see all reviews.
               </p>
@@ -192,16 +200,16 @@ const ReviewsManagement = () => {
       <div className="space-y-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h2 className="text-2xl font-bold text-foreground">Reviews Management</h2>
+            <h1 className="text-2xl font-bold text-foreground sm:text-3xl">Reviews management</h1>
             <p className="text-muted-foreground">Create and manage employee performance reviews</p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-[160px]">
+              <SelectTrigger className="w-full sm:w-[160px]" aria-label="Filter by status">
                 <SelectValue placeholder="Filter by status" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Statuses</SelectItem>
+                <SelectItem value="all">All statuses</SelectItem>
                 <SelectItem value="draft">Draft</SelectItem>
                 <SelectItem value="submitted">Submitted</SelectItem>
                 <SelectItem value="acknowledged">Acknowledged</SelectItem>
@@ -221,7 +229,8 @@ const ReviewsManagement = () => {
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
           </div>
         ) : filteredReviews && filteredReviews.length > 0 ? (
-          <Card>
+          <>
+          <Card className="hidden sm:block">
             <CardContent className="p-0">
               <Table>
                 <TableHeader>
@@ -258,11 +267,11 @@ const ReviewsManagement = () => {
                       <TableCell>
                         {review.reviewer 
                           ? `${review.reviewer.first_name} ${review.reviewer.last_name}`
-                          : "-"}
+                          : "—"}
                       </TableCell>
                       <TableCell>
-                        <Badge variant="outline" className={statusColors[review.status]}>
-                          {review.status}
+                        <Badge variant="outline" className={statusBadgeClass(review.status)}>
+                          {formatStatus(review.status)}
                         </Badge>
                       </TableCell>
                     </TableRow>
@@ -271,31 +280,88 @@ const ReviewsManagement = () => {
               </Table>
             </CardContent>
           </Card>
+          <ul className="space-y-3 sm:hidden" aria-label="Performance reviews">
+            {filteredReviews.map((review) => (
+              <li key={review.id}>
+                <Card>
+                  <CardContent className="space-y-3 p-4">
+                    <div className="flex items-start gap-3">
+                      <Avatar className="h-9 w-9 shrink-0">
+                        <AvatarFallback className="text-xs">
+                          {review.employee?.first_name?.[0]}{review.employee?.last_name?.[0]}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate font-medium">
+                          {review.employee?.first_name} {review.employee?.last_name}
+                        </p>
+                        <p className="truncate text-xs text-muted-foreground">{review.employee?.designation}</p>
+                      </div>
+                      <Badge variant="outline" className={`shrink-0 ${statusBadgeClass(review.status)}`}>
+                        {formatStatus(review.status)}
+                      </Badge>
+                    </div>
+                    <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                      <div>
+                        <dt className="text-xs text-muted-foreground">Period</dt>
+                        <dd>{review.review_period}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-xs text-muted-foreground">Date</dt>
+                        <dd>{format(new Date(review.review_date), "MMM d, yyyy")}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-xs text-muted-foreground">Rating</dt>
+                        <dd>{renderStars(review.overall_rating)}</dd>
+                      </div>
+                      <div className="min-w-0">
+                        <dt className="text-xs text-muted-foreground">Reviewer</dt>
+                        <dd className="truncate">
+                          {review.reviewer
+                            ? `${review.reviewer.first_name} ${review.reviewer.last_name}`
+                            : "—"}
+                        </dd>
+                      </div>
+                    </dl>
+                  </CardContent>
+                </Card>
+              </li>
+            ))}
+          </ul>
+          </>
         ) : (
           <Card>
             <CardContent className="py-12 text-center">
               <FileText className="mx-auto h-12 w-12 text-muted-foreground" />
-              <h3 className="mt-4 text-lg font-semibold">No Reviews Yet</h3>
-              <p className="mt-2 text-muted-foreground">Create the first performance review</p>
+              <h2 className="mt-4 text-lg font-semibold">
+                {statusFilter === "all" ? "No reviews yet" : `No ${formatStatus(statusFilter).toLowerCase()} reviews`}
+              </h2>
+              <p className="mt-2 text-muted-foreground">
+                {statusFilter !== "all"
+                  ? "Try a different status filter."
+                  : canManage
+                    ? "Create the first performance review to get started."
+                    : "Performance reviews will appear here once they are created."}
+              </p>
             </CardContent>
           </Card>
         )}
 
         {/* Create Review Dialog */}
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-w-2xl">
             <DialogHeader>
-              <DialogTitle>Create Performance Review</DialogTitle>
+              <DialogTitle>Create performance review</DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <Label>Employee</Label>
+                  <Label htmlFor="review-employee">Employee</Label>
                   <Select
                     value={formData.employee_id}
                     onValueChange={(value) => setFormData({ ...formData, employee_id: value })}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger id="review-employee">
                       <SelectValue placeholder="Select employee" />
                     </SelectTrigger>
                     <SelectContent>
@@ -308,12 +374,12 @@ const ReviewsManagement = () => {
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label>Review Period</Label>
+                  <Label htmlFor="review-period">Review period</Label>
                   <Select
                     value={formData.review_period}
                     onValueChange={(value) => setFormData({ ...formData, review_period: value })}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger id="review-period">
                       <SelectValue placeholder="Select period" />
                     </SelectTrigger>
                     <SelectContent>
@@ -329,20 +395,21 @@ const ReviewsManagement = () => {
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <Label>Review Date</Label>
+                  <Label htmlFor="review-date">Review date</Label>
                   <Input
+                    id="review-date"
                     type="date"
                     value={formData.review_date}
                     onChange={(e) => setFormData({ ...formData, review_date: e.target.value })}
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Status</Label>
+                  <Label htmlFor="review-status">Status</Label>
                   <Select
                     value={formData.status}
                     onValueChange={(value) => setFormData({ ...formData, status: value })}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger id="review-status">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -355,7 +422,7 @@ const ReviewsManagement = () => {
               </div>
 
               <div className="space-y-2">
-                <Label>Overall Rating</Label>
+                <p className="text-sm font-medium" id="review-overall-rating">Overall rating</p>
                 <StarRating
                   value={formData.overall_rating}
                   onChange={(v) => setFormData({ ...formData, overall_rating: v })}
@@ -363,8 +430,9 @@ const ReviewsManagement = () => {
               </div>
 
               <div className="space-y-2">
-                <Label>Strengths</Label>
+                <Label htmlFor="review-strengths">Strengths</Label>
                 <Textarea
+                  id="review-strengths"
                   value={formData.strengths}
                   onChange={(e) => setFormData({ ...formData, strengths: e.target.value })}
                   placeholder="What are the employee's key strengths?"
@@ -373,8 +441,9 @@ const ReviewsManagement = () => {
               </div>
 
               <div className="space-y-2">
-                <Label>Areas for Improvement</Label>
+                <Label htmlFor="review-improvement">Areas for improvement</Label>
                 <Textarea
+                  id="review-improvement"
                   value={formData.areas_for_improvement}
                   onChange={(e) => setFormData({ ...formData, areas_for_improvement: e.target.value })}
                   placeholder="What areas could the employee improve?"
@@ -383,8 +452,9 @@ const ReviewsManagement = () => {
               </div>
 
               <div className="space-y-2">
-                <Label>Additional Comments</Label>
+                <Label htmlFor="review-comments">Additional comments</Label>
                 <Textarea
+                  id="review-comments"
                   value={formData.comments}
                   onChange={(e) => setFormData({ ...formData, comments: e.target.value })}
                   placeholder="Any additional feedback or comments..."

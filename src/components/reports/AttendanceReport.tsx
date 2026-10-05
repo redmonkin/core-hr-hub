@@ -23,6 +23,7 @@ import { Download, Clock, AlertTriangle, Timer, Loader2 } from "lucide-react";
 import { useAttendanceReportData } from "@/hooks/useAttendanceReport";
 import { useCompanyBranding } from "@/hooks/useCompanyBranding";
 import { drawPdfHeader, drawPdfFooter, fetchImageAsDataUrl, PDF_TABLE_HEAD_STYLE, PDF_COLORS } from "@/lib/pdfTheme";
+import { toneClass } from "@/lib/statusStyles";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
@@ -162,13 +163,13 @@ export function AttendanceReport() {
           <div>
             <CardTitle className="flex items-center gap-2">
               <Clock className="h-5 w-5" />
-              Attendance Report
+              Attendance report
             </CardTitle>
             <CardDescription>Late arrivals and overtime tracking</CardDescription>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center">
             <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-              <SelectTrigger className="w-[130px]">
+              <SelectTrigger className="w-full sm:w-[130px]" aria-label="Month">
                 <SelectValue placeholder="Month" />
               </SelectTrigger>
               <SelectContent>
@@ -180,7 +181,7 @@ export function AttendanceReport() {
               </SelectContent>
             </Select>
             <Select value={selectedYear} onValueChange={setSelectedYear}>
-              <SelectTrigger className="w-[100px]">
+              <SelectTrigger className="w-full sm:w-[100px]" aria-label="Year">
                 <SelectValue placeholder="Year" />
               </SelectTrigger>
               <SelectContent>
@@ -191,7 +192,7 @@ export function AttendanceReport() {
                 ))}
               </SelectContent>
             </Select>
-            <Button onClick={exportToPDF} disabled={isExporting || !summary?.records.length}>
+            <Button onClick={exportToPDF} disabled={isExporting || !summary?.records.length} className="col-span-2 sm:col-span-1">
               {isExporting ? (
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
               ) : (
@@ -205,7 +206,7 @@ export function AttendanceReport() {
       <CardContent>
         {isLoading ? (
           <div className="space-y-4">
-            <div className="grid gap-4 sm:grid-cols-4">
+            <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
               {[1, 2, 3, 4].map((i) => (
                 <Skeleton key={i} className="h-20" />
               ))}
@@ -215,44 +216,45 @@ export function AttendanceReport() {
         ) : summary ? (
           <div className="space-y-6">
             {/* Summary Stats */}
-            <div className="grid gap-4 sm:grid-cols-4">
-              <div className="rounded-lg border bg-muted/50 p-4">
-                <p className="text-sm text-muted-foreground">Total Employees</p>
+            <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+              <div className="min-w-0 rounded-lg border bg-muted/50 p-3 sm:p-4">
+                <p className="text-sm text-muted-foreground">Total employees</p>
                 <p className="text-2xl font-bold">{summary.totalEmployees}</p>
               </div>
-              <div className="rounded-lg border bg-red-500/10 p-4">
+              <div className="min-w-0 rounded-lg border border-red-200 bg-red-50 dark:border-red-900 dark:bg-red-950 p-3 sm:p-4">
                 <div className="flex items-center gap-2">
-                  <AlertTriangle className="h-4 w-4 text-red-600" />
-                  <p className="text-sm text-red-600">Late Arrivals</p>
+                  <AlertTriangle className="h-4 w-4 text-red-700 dark:text-red-400" />
+                  <p className="text-sm text-red-700 dark:text-red-400">Late arrivals</p>
                 </div>
-                <p className="mt-1 text-2xl font-bold text-red-600">{summary.totalLateArrivals}</p>
+                <p className="mt-1 text-2xl font-bold text-red-700 dark:text-red-400">{summary.totalLateArrivals}</p>
                 <p className="text-xs text-muted-foreground">Avg: {formatDuration(summary.avgLateMinutes)}</p>
               </div>
-              <div className="rounded-lg border bg-orange-500/10 p-4">
+              <div className="min-w-0 rounded-lg border border-orange-200 bg-orange-50 dark:border-orange-900 dark:bg-orange-950 p-3 sm:p-4">
                 <div className="flex items-center gap-2">
-                  <Timer className="h-4 w-4 text-orange-600" />
-                  <p className="text-sm text-orange-600">Total Overtime</p>
+                  <Timer className="h-4 w-4 text-orange-800 dark:text-orange-300" />
+                  <p className="text-sm text-orange-800 dark:text-orange-300">Total overtime</p>
                 </div>
-                <p className="mt-1 text-2xl font-bold text-orange-600">{formatHours(summary.totalOvertimeHours)}</p>
+                <p className="mt-1 text-2xl font-bold text-orange-800 dark:text-orange-300">{formatHours(summary.totalOvertimeHours)}</p>
               </div>
-              <div className="rounded-lg border bg-primary/10 p-4">
-                <p className="text-sm text-muted-foreground">Report Period</p>
-                <p className="text-2xl font-bold text-primary">{summary.monthName}</p>
+              <div className="min-w-0 rounded-lg border bg-primary/10 p-3 sm:p-4">
+                <p className="text-sm text-muted-foreground">Report period</p>
+                <p className="break-words text-lg font-bold text-primary sm:text-2xl">{summary.monthName}</p>
               </div>
             </div>
 
             {/* Employee Table */}
             {summary.records.length > 0 ? (
-              <div className="rounded-md border">
+              <>
+              <div className="hidden rounded-md border sm:block">
                 <Table>
                   <TableHeader>
                     <TableRow>
                       <TableHead>Employee</TableHead>
                       <TableHead>Department</TableHead>
-                      <TableHead className="text-center">Days Worked</TableHead>
-                      <TableHead className="text-right">Total Hours</TableHead>
-                      <TableHead className="text-center">Late Arrivals</TableHead>
-                      <TableHead className="text-right">Late Time</TableHead>
+                      <TableHead className="text-center">Days worked</TableHead>
+                      <TableHead className="text-right">Total hours</TableHead>
+                      <TableHead className="text-center">Late arrivals</TableHead>
+                      <TableHead className="text-right">Late time</TableHead>
                       <TableHead className="text-right">Overtime</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -270,23 +272,23 @@ export function AttendanceReport() {
                         <TableCell className="text-right">{formatHours(record.totalHours)}</TableCell>
                         <TableCell className="text-center">
                           {record.lateArrivals > 0 ? (
-                            <Badge variant="destructive" className="bg-red-500/10 text-red-600 hover:bg-red-500/20">
+                            <Badge variant="outline" className={toneClass("danger")}>
                               {record.lateArrivals}
                             </Badge>
                           ) : (
-                            <Badge variant="secondary" className="bg-green-500/10 text-green-600">0</Badge>
+                            <Badge variant="outline" className={toneClass("success")}>0</Badge>
                           )}
                         </TableCell>
                         <TableCell className="text-right">
                           {record.totalLateMinutes > 0 ? (
-                            <span className="text-red-600">{formatDuration(record.totalLateMinutes)}</span>
+                            <span className="text-red-700 dark:text-red-400">{formatDuration(record.totalLateMinutes)}</span>
                           ) : (
                             <span className="text-muted-foreground">-</span>
                           )}
                         </TableCell>
                         <TableCell className="text-right">
                           {record.totalOvertimeHours > 0 ? (
-                            <Badge className="bg-orange-500/10 text-orange-600 hover:bg-orange-500/20">
+                            <Badge variant="outline" className={toneClass("warning")}>
                               {formatHours(record.totalOvertimeHours)}
                             </Badge>
                           ) : (
@@ -299,7 +301,7 @@ export function AttendanceReport() {
                   <TableFooter>
                     <TableRow>
                       <TableCell colSpan={2} className="font-bold">
-                        Total ({summary.totalEmployees} employees)
+                        Total ({summary.totalEmployees} {summary.totalEmployees === 1 ? "employee" : "employees"})
                       </TableCell>
                       <TableCell className="text-center font-bold">
                         {summary.records.reduce((sum, r) => sum + r.totalDays, 0)}
@@ -307,19 +309,54 @@ export function AttendanceReport() {
                       <TableCell className="text-right font-bold">
                         {formatHours(summary.records.reduce((sum, r) => sum + r.totalHours, 0))}
                       </TableCell>
-                      <TableCell className="text-center font-bold text-red-600">
+                      <TableCell className="text-center font-bold text-red-700 dark:text-red-400">
                         {summary.totalLateArrivals}
                       </TableCell>
-                      <TableCell className="text-right font-bold text-red-600">
+                      <TableCell className="text-right font-bold text-red-700 dark:text-red-400">
                         {formatDuration(summary.records.reduce((sum, r) => sum + r.totalLateMinutes, 0))}
                       </TableCell>
-                      <TableCell className="text-right font-bold text-orange-600">
+                      <TableCell className="text-right font-bold text-orange-800 dark:text-orange-300">
                         {formatHours(summary.totalOvertimeHours)}
                       </TableCell>
                     </TableRow>
                   </TableFooter>
                 </Table>
               </div>
+              <ul className="space-y-3 sm:hidden" aria-label="Employee attendance">
+                {summary.records.map((record) => (
+                  <li key={record.employeeId} className="rounded-lg border p-3">
+                    <div className="min-w-0">
+                      <p className="truncate font-medium">{record.employeeName}</p>
+                      <p className="truncate text-xs text-muted-foreground">
+                        {[record.employeeCode, record.department].filter(Boolean).join(" • ")}
+                      </p>
+                    </div>
+                    <dl className="mt-3 grid grid-cols-3 gap-x-3 gap-y-2 text-sm">
+                      <div>
+                        <dt className="text-xs text-muted-foreground">Days</dt>
+                        <dd className="tabular-nums">{record.totalDays}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-xs text-muted-foreground">Hours</dt>
+                        <dd className="tabular-nums">{formatHours(record.totalHours)}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-xs text-muted-foreground">Overtime</dt>
+                        <dd className="tabular-nums">{record.totalOvertimeHours > 0 ? formatHours(record.totalOvertimeHours) : "—"}</dd>
+                      </div>
+                      <div className="col-span-3">
+                        <dt className="sr-only">Late arrivals</dt>
+                        <dd className={record.lateArrivals > 0 ? "text-red-700 dark:text-red-400" : "text-muted-foreground"}>
+                          {record.lateArrivals > 0
+                            ? `${record.lateArrivals} late ${record.lateArrivals === 1 ? "arrival" : "arrivals"} (${formatDuration(record.totalLateMinutes)})`
+                            : "No late arrivals"}
+                        </dd>
+                      </div>
+                    </dl>
+                  </li>
+                ))}
+              </ul>
+              </>
             ) : (
               <div className="flex flex-col items-center justify-center py-12 text-center">
                 <Clock className="h-12 w-12 text-muted-foreground mb-4" />

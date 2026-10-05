@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, type ReactNode } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -23,6 +23,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { statusBadgeClass, formatStatus } from "@/lib/statusStyles";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -334,8 +335,8 @@ export function EmployeeReport() {
           a.asset?.name ?? "-",
           a.asset?.asset_code ?? "-",
           a.asset?.category ?? "-",
-          a.assigned_date ? format(new Date(a.assigned_date), "dd MMM yyyy") : "-",
-          a.returned_date ? format(new Date(a.returned_date), "dd MMM yyyy") : "Active",
+          a.assigned_date ? format(new Date(a.assigned_date), "MMM d, yyyy") : "-",
+          a.returned_date ? format(new Date(a.returned_date), "MMM d, yyyy") : "Active",
         ]),
         theme: "striped",
         headStyles: PDF_TABLE_HEAD_STYLE,
@@ -359,7 +360,7 @@ export function EmployeeReport() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <User className="h-5 w-5" />
-            Employee Report
+            Employee report
           </CardTitle>
           <CardDescription>
             Select an employee to view their consolidated leave, attendance, payroll, and asset history.
@@ -368,21 +369,24 @@ export function EmployeeReport() {
         <CardContent>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
             <div className="flex-1 space-y-1.5">
-              <label className="text-sm font-medium text-foreground">Employee</label>
+              <label id="employee-report-employee-label" className="text-sm font-medium text-foreground">Employee</label>
               <Popover open={comboOpen} onOpenChange={setComboOpen}>
                 <PopoverTrigger asChild>
                   <Button
                     variant="outline"
                     role="combobox"
                     aria-expanded={comboOpen}
+                    aria-labelledby="employee-report-employee-label"
                     className="w-full justify-between"
                     disabled={loadingEmployees}
                   >
+                    <span className="truncate">
                     {selectedEmployee
                       ? `${selectedEmployee.name} (${selectedEmployee.employee_code})`
                       : loadingEmployees
                       ? "Loading employees..."
                       : "Select an employee..."}
+                    </span>
                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                   </Button>
                 </PopoverTrigger>
@@ -423,9 +427,9 @@ export function EmployeeReport() {
               </Popover>
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-foreground">Year</label>
+              <label htmlFor="employee-report-year" className="text-sm font-medium text-foreground">Year</label>
               <Select value={selectedYear} onValueChange={setSelectedYear}>
-                <SelectTrigger className="w-full sm:w-[140px]">
+                <SelectTrigger id="employee-report-year" className="w-full sm:w-[140px]">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -481,7 +485,7 @@ export function EmployeeReport() {
                     <Badge variant="outline" className="font-mono text-xs">
                       {selectedEmployee.employee_code}
                     </Badge>
-                    <Badge variant="secondary">{selectedEmployee.status}</Badge>
+                    <Badge variant="outline" className={statusBadgeClass(selectedEmployee.status)}>{formatStatus(selectedEmployee.status)}</Badge>
                   </div>
                   <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
                     <span className="flex items-center gap-1.5">
@@ -494,8 +498,8 @@ export function EmployeeReport() {
                         {selectedEmployee.department_name}
                       </span>
                     )}
-                    <span className="flex items-center gap-1.5">
-                      <Mail className="h-3.5 w-3.5" />
+                    <span className="flex min-w-0 items-center gap-1.5 break-all">
+                      <Mail className="h-3.5 w-3.5 shrink-0" />
                       {selectedEmployee.email}
                     </span>
                     <span className="flex items-center gap-1.5">
@@ -523,7 +527,7 @@ export function EmployeeReport() {
               ) : (
                 <>
                   {leaveData?.balances && leaveData.balances.length > 0 && (
-                    <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-4">
+                    <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
                       {leaveData.balances.map((b) => (
                         <div key={b.type_id} className="rounded-lg border bg-muted/40 p-3">
                           <p className="text-xs text-muted-foreground">{b.type_name}</p>
@@ -540,7 +544,7 @@ export function EmployeeReport() {
                     </div>
                   )}
 
-                  <div>
+                  <ScrollRegion label="Leave requests">
                     <Table>
                       <TableHeader>
                         <TableRow>
@@ -558,23 +562,15 @@ export function EmployeeReport() {
                             <TableRow key={r.id}>
                               <TableCell>{r.type_name}</TableCell>
                               <TableCell>
-                                {format(new Date(r.start_date), "dd MMM yyyy")}
+                                {format(new Date(r.start_date), "MMM d, yyyy")}
                               </TableCell>
                               <TableCell>
-                                {format(new Date(r.end_date), "dd MMM yyyy")}
+                                {format(new Date(r.end_date), "MMM d, yyyy")}
                               </TableCell>
                               <TableCell>{r.days_count}</TableCell>
                               <TableCell>
-                                <Badge
-                                  variant={
-                                    r.status === "approved"
-                                      ? "default"
-                                      : r.status === "rejected"
-                                      ? "destructive"
-                                      : "secondary"
-                                  }
-                                >
-                                  {r.status}
+                                <Badge variant="outline" className={statusBadgeClass(r.status)}>
+                                  {formatStatus(r.status)}
                                 </Badge>
                               </TableCell>
                               <TableCell className="max-w-[260px] truncate text-muted-foreground">
@@ -591,7 +587,7 @@ export function EmployeeReport() {
                         )}
                       </TableBody>
                     </Table>
-                  </div>
+                  </ScrollRegion>
                 </>
               )}
             </CardContent>
@@ -611,10 +607,10 @@ export function EmployeeReport() {
                 <Skeleton className="h-32 w-full" />
               ) : attendanceData ? (
                 <>
-                  <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
-                    <SummaryStat label="Days Logged" value={attendanceData.totalDays} />
+                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+                    <SummaryStat label="Days logged" value={attendanceData.totalDays} />
                     <SummaryStat
-                      label="Total Hours"
+                      label="Total hours"
                       value={attendanceData.totalHours.toFixed(1)}
                     />
                     <SummaryStat label="Present" value={attendanceData.presentDays} />
@@ -623,12 +619,13 @@ export function EmployeeReport() {
                     <SummaryStat label="WFH" value={attendanceData.wfhDays} />
                   </div>
 
+                  <ScrollRegion label="Attendance records">
                   <Table>
                     <TableHeader>
                       <TableRow>
                         <TableHead>Date</TableHead>
-                        <TableHead>Clock In</TableHead>
-                        <TableHead>Clock Out</TableHead>
+                        <TableHead>Clock in</TableHead>
+                        <TableHead>Clock out</TableHead>
                         <TableHead>Hours</TableHead>
                         <TableHead>Mode</TableHead>
                         <TableHead>Status</TableHead>
@@ -639,7 +636,7 @@ export function EmployeeReport() {
                         attendanceData.records.slice(0, 15).map((r) => (
                           <TableRow key={r.date}>
                             <TableCell>
-                              {format(new Date(r.date), "dd MMM yyyy")}
+                              {format(new Date(r.date), "MMM d, yyyy")}
                             </TableCell>
                             <TableCell>
                               {r.clock_in ? format(new Date(r.clock_in), "HH:mm") : "-"}
@@ -654,7 +651,7 @@ export function EmployeeReport() {
                               {r.work_mode || "-"}
                             </TableCell>
                             <TableCell>
-                              <Badge variant="outline">{r.status}</Badge>
+                              <Badge variant="outline" className={statusBadgeClass(r.status)}>{formatStatus(r.status)}</Badge>
                             </TableCell>
                           </TableRow>
                         ))
@@ -667,6 +664,7 @@ export function EmployeeReport() {
                       )}
                     </TableBody>
                   </Table>
+                  </ScrollRegion>
                   {attendanceData.records.length > 15 && (
                     <p className="text-xs text-muted-foreground">
                       Showing latest 15 of {attendanceData.records.length} records. Export PDF for full details.
@@ -693,16 +691,17 @@ export function EmployeeReport() {
                 <>
                   <div className="grid gap-3 sm:grid-cols-3">
                     <SummaryStat
-                      label="Total Net Salary"
+                      label="Total net salary"
                       value={formatCurrency(payrollData.totalNet)}
                     />
                     <SummaryStat
-                      label="Total Paid"
+                      label="Total paid"
                       value={formatCurrency(payrollData.totalPaid)}
                     />
                     <SummaryStat label="Months" value={payrollData.records.length} />
                   </div>
 
+                  <ScrollRegion label="Payroll records">
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -732,10 +731,8 @@ export function EmployeeReport() {
                               {formatCurrency(Number(r.net_salary))}
                             </TableCell>
                             <TableCell>
-                              <Badge
-                                variant={r.status === "paid" ? "default" : "secondary"}
-                              >
-                                {r.status}
+                              <Badge variant="outline" className={statusBadgeClass(r.status)}>
+                                {formatStatus(r.status)}
                               </Badge>
                             </TableCell>
                           </TableRow>
@@ -749,6 +746,7 @@ export function EmployeeReport() {
                       )}
                     </TableBody>
                   </Table>
+                  </ScrollRegion>
                 </>
               ) : null}
             </CardContent>
@@ -767,6 +765,7 @@ export function EmployeeReport() {
               {loadingAssets ? (
                 <Skeleton className="h-32 w-full" />
               ) : (
+                <ScrollRegion label="Asset assignments">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -792,14 +791,14 @@ export function EmployeeReport() {
                           </TableCell>
                           <TableCell>
                             {a.assigned_date
-                              ? format(new Date(a.assigned_date), "dd MMM yyyy")
+                              ? format(new Date(a.assigned_date), "MMM d, yyyy")
                               : "-"}
                           </TableCell>
                           <TableCell>
                             {a.returned_date ? (
-                              format(new Date(a.returned_date), "dd MMM yyyy")
+                              format(new Date(a.returned_date), "MMM d, yyyy")
                             ) : (
-                              <Badge variant="default">Active</Badge>
+                              <Badge variant="outline" className={statusBadgeClass("active")}>Active</Badge>
                             )}
                           </TableCell>
                         </TableRow>
@@ -813,6 +812,7 @@ export function EmployeeReport() {
                     )}
                   </TableBody>
                 </Table>
+                </ScrollRegion>
               )}
             </CardContent>
           </Card>
@@ -827,6 +827,20 @@ function SummaryStat({ label, value }: { label: string; value: string | number }
     <div className="rounded-lg border bg-muted/40 p-3">
       <p className="text-xs text-muted-foreground">{label}</p>
       <p className="mt-1 text-xl font-bold text-foreground">{value}</p>
+    </div>
+  );
+}
+
+/** Horizontally scrollable, keyboard-focusable container so wide tables never widen the page. */
+function ScrollRegion({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div
+      role="region"
+      aria-label={label}
+      tabIndex={0}
+      className="-mx-2 overflow-x-auto px-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:mx-0 sm:px-0"
+    >
+      <div className="min-w-[600px]">{children}</div>
     </div>
   );
 }

@@ -23,6 +23,7 @@ import { Download, FileText, Loader2 } from "lucide-react";
 import { usePayrollSummary } from "@/hooks/usePayrollSummary";
 import { useCompanyBranding } from "@/hooks/useCompanyBranding";
 import { drawPdfHeader, drawPdfFooter, fetchImageAsDataUrl, formatCurrencyForPdf, PDF_TABLE_HEAD_STYLE, PDF_COLORS } from "@/lib/pdfTheme";
+import { statusBadgeClass, formatStatus } from "@/lib/statusStyles";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
@@ -55,16 +56,11 @@ const formatCurrency = (amount: number) => {
   }).format(amount);
 };
 
-const getStatusBadge = (status: string) => {
-  switch (status) {
-    case "paid":
-      return <Badge className="bg-green-500/10 text-green-600">Paid</Badge>;
-    case "processed":
-      return <Badge className="bg-blue-500/10 text-blue-600">Processed</Badge>;
-    default:
-      return <Badge variant="secondary">Draft</Badge>;
-  }
-};
+const getStatusBadge = (status: string) => (
+  <Badge variant="outline" className={statusBadgeClass(status || "draft")}>
+    {formatStatus(status || "draft")}
+  </Badge>
+);
 
 export function PayrollSummaryReport() {
   const currentDate = new Date();
@@ -189,13 +185,13 @@ export function PayrollSummaryReport() {
           <div>
             <CardTitle className="flex items-center gap-2">
               <FileText className="h-5 w-5" />
-              Monthly Payroll Summary
+              Monthly payroll summary
             </CardTitle>
             <CardDescription>View and export payroll data</CardDescription>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center">
             <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-              <SelectTrigger className="w-[130px]">
+              <SelectTrigger className="w-full sm:w-[130px]" aria-label="Month">
                 <SelectValue placeholder="Month" />
               </SelectTrigger>
               <SelectContent>
@@ -207,7 +203,7 @@ export function PayrollSummaryReport() {
               </SelectContent>
             </Select>
             <Select value={selectedYear} onValueChange={setSelectedYear}>
-              <SelectTrigger className="w-[100px]">
+              <SelectTrigger className="w-full sm:w-[100px]" aria-label="Year">
                 <SelectValue placeholder="Year" />
               </SelectTrigger>
               <SelectContent>
@@ -218,7 +214,7 @@ export function PayrollSummaryReport() {
                 ))}
               </SelectContent>
             </Select>
-            <Button onClick={exportToPDF} disabled={isExporting || !summary?.records.length}>
+            <Button onClick={exportToPDF} disabled={isExporting || !summary?.records.length} className="col-span-2 sm:col-span-1">
               {isExporting ? (
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
               ) : (
@@ -232,7 +228,7 @@ export function PayrollSummaryReport() {
       <CardContent>
         {isLoading ? (
           <div className="space-y-4">
-            <div className="grid gap-4 sm:grid-cols-4">
+            <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
               {[1, 2, 3, 4].map((i) => (
                 <Skeleton key={i} className="h-20" />
               ))}
@@ -242,28 +238,29 @@ export function PayrollSummaryReport() {
         ) : summary ? (
           <div className="space-y-6">
             {/* Summary Stats */}
-            <div className="grid gap-4 sm:grid-cols-4">
-              <div className="rounded-lg border bg-muted/50 p-4">
-                <p className="text-sm text-muted-foreground">Total Basic</p>
-                <p className="text-2xl font-bold">{formatCurrency(summary.totalBasic)}</p>
+            <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+              <div className="min-w-0 rounded-lg border bg-muted/50 p-3 sm:p-4">
+                <p className="text-sm text-muted-foreground">Total basic</p>
+                <p className="break-words text-lg font-bold sm:text-2xl">{formatCurrency(summary.totalBasic)}</p>
               </div>
-              <div className="rounded-lg border bg-muted/50 p-4">
-                <p className="text-sm text-muted-foreground">Total Allowances</p>
-                <p className="text-2xl font-bold text-green-600">{formatCurrency(summary.totalAllowances)}</p>
+              <div className="min-w-0 rounded-lg border bg-muted/50 p-3 sm:p-4">
+                <p className="text-sm text-muted-foreground">Total allowances</p>
+                <p className="break-words text-lg font-bold text-emerald-700 dark:text-emerald-400 sm:text-2xl">{formatCurrency(summary.totalAllowances)}</p>
               </div>
-              <div className="rounded-lg border bg-muted/50 p-4">
-                <p className="text-sm text-muted-foreground">Total Deductions</p>
-                <p className="text-2xl font-bold text-red-600">{formatCurrency(summary.totalDeductions)}</p>
+              <div className="min-w-0 rounded-lg border bg-muted/50 p-3 sm:p-4">
+                <p className="text-sm text-muted-foreground">Total deductions</p>
+                <p className="break-words text-lg font-bold text-red-700 dark:text-red-400 sm:text-2xl">{formatCurrency(summary.totalDeductions)}</p>
               </div>
-              <div className="rounded-lg border bg-primary/10 p-4">
-                <p className="text-sm text-muted-foreground">Net Payroll</p>
-                <p className="text-2xl font-bold text-primary">{formatCurrency(summary.totalNetSalary)}</p>
+              <div className="min-w-0 rounded-lg border bg-primary/10 p-3 sm:p-4">
+                <p className="text-sm text-muted-foreground">Net payroll</p>
+                <p className="break-words text-lg font-bold text-primary sm:text-2xl">{formatCurrency(summary.totalNetSalary)}</p>
               </div>
             </div>
 
             {/* Employee Table */}
             {summary.records.length > 0 ? (
-              <div className="rounded-md border">
+              <>
+              <div className="hidden rounded-md border sm:block">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -287,8 +284,8 @@ export function PayrollSummaryReport() {
                         </TableCell>
                         <TableCell>{record.department}</TableCell>
                         <TableCell className="text-right">{formatCurrency(record.basicSalary)}</TableCell>
-                        <TableCell className="text-right text-green-600">{formatCurrency(record.allowances)}</TableCell>
-                        <TableCell className="text-right text-red-600">{formatCurrency(record.deductions)}</TableCell>
+                        <TableCell className="text-right text-emerald-700 dark:text-emerald-400">{formatCurrency(record.allowances)}</TableCell>
+                        <TableCell className="text-right text-red-700 dark:text-red-400">{formatCurrency(record.deductions)}</TableCell>
                         <TableCell className="text-right font-medium">{formatCurrency(record.netSalary)}</TableCell>
                         <TableCell>{getStatusBadge(record.status)}</TableCell>
                       </TableRow>
@@ -296,16 +293,54 @@ export function PayrollSummaryReport() {
                   </TableBody>
                   <TableFooter>
                     <TableRow>
-                      <TableCell colSpan={2} className="font-bold">Total ({summary.employeeCount} employees)</TableCell>
+                      <TableCell colSpan={2} className="font-bold">Total ({summary.employeeCount} {summary.employeeCount === 1 ? "employee" : "employees"})</TableCell>
                       <TableCell className="text-right font-bold">{formatCurrency(summary.totalBasic)}</TableCell>
-                      <TableCell className="text-right font-bold text-green-600">{formatCurrency(summary.totalAllowances)}</TableCell>
-                      <TableCell className="text-right font-bold text-red-600">{formatCurrency(summary.totalDeductions)}</TableCell>
+                      <TableCell className="text-right font-bold text-emerald-700 dark:text-emerald-400">{formatCurrency(summary.totalAllowances)}</TableCell>
+                      <TableCell className="text-right font-bold text-red-700 dark:text-red-400">{formatCurrency(summary.totalDeductions)}</TableCell>
                       <TableCell className="text-right font-bold">{formatCurrency(summary.totalNetSalary)}</TableCell>
                       <TableCell></TableCell>
                     </TableRow>
                   </TableFooter>
                 </Table>
               </div>
+              <ul className="space-y-3 sm:hidden" aria-label="Employee payroll">
+                {summary.records.map((record) => (
+                  <li key={record.id} className="rounded-lg border p-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="truncate font-medium">{record.employeeName}</p>
+                        <p className="truncate text-xs text-muted-foreground">
+                          {[record.employeeCode, record.department].filter(Boolean).join(" • ")}
+                        </p>
+                      </div>
+                      {getStatusBadge(record.status)}
+                    </div>
+                    <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                      <div>
+                        <dt className="text-xs text-muted-foreground">Basic</dt>
+                        <dd className="tabular-nums">{formatCurrency(record.basicSalary)}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-xs text-muted-foreground">Allowances</dt>
+                        <dd className="tabular-nums text-emerald-700 dark:text-emerald-400">{formatCurrency(record.allowances)}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-xs text-muted-foreground">Deductions</dt>
+                        <dd className="tabular-nums text-red-700 dark:text-red-400">{formatCurrency(record.deductions)}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-xs text-muted-foreground">Net salary</dt>
+                        <dd className="font-medium tabular-nums">{formatCurrency(record.netSalary)}</dd>
+                      </div>
+                    </dl>
+                  </li>
+                ))}
+                <li className="flex items-center justify-between rounded-lg border bg-muted/50 p-3 text-sm font-semibold">
+                  <span>Total ({summary.employeeCount} {summary.employeeCount === 1 ? "employee" : "employees"})</span>
+                  <span className="tabular-nums">{formatCurrency(summary.totalNetSalary)}</span>
+                </li>
+              </ul>
+              </>
             ) : (
               <div className="flex flex-col items-center justify-center py-12 text-center">
                 <FileText className="h-12 w-12 text-muted-foreground mb-4" />

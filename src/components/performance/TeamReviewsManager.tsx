@@ -17,6 +17,8 @@ import { useCreateReview, useUpdateReview, useDeleteReview } from "@/hooks/usePe
 import { RatingStars } from "./RatingStars";
 import { format } from "date-fns";
 import { toast } from "sonner";
+import { statusBadgeClass, formatStatus } from "@/lib/statusStyles";
+import { formatPriority } from "./kpiStyles";
 
 interface TeamReviewsManagerProps {
   managerId: string;
@@ -59,12 +61,6 @@ interface GoalInfo {
   priority: string;
   employee_id: string;
 }
-
-const statusColors: Record<string, string> = {
-  draft: "bg-muted text-muted-foreground",
-  submitted: "bg-primary/10 text-primary border-primary/20",
-  acknowledged: "bg-emerald-500/10 text-emerald-600 border-emerald-500/20",
-};
 
 export function TeamReviewsManager({ managerId, managerName }: TeamReviewsManagerProps) {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -317,7 +313,7 @@ export function TeamReviewsManager({ managerId, managerName }: TeamReviewsManage
     }
 
     if (created > 0) {
-      toast.success(`Created ${created} draft review(s)`);
+      toast.success(`Created ${created} draft ${created === 1 ? "review" : "reviews"}`);
       queryClient.invalidateQueries({ queryKey: ["team-reviews-by-manager", managerId] });
     }
     setIsBulkDialogOpen(false);
@@ -348,16 +344,18 @@ export function TeamReviewsManager({ managerId, managerName }: TeamReviewsManage
     }
   };
 
-  const renderStars = (rating: number, interactive = false, onChange?: (r: number) => void) => (
+  const renderStars = (rating: number) => (
     <div className="flex items-center gap-1">
-      {[1, 2, 3, 4, 5].map((star) => (
-        <Star
-          key={star}
-          className={`h-5 w-5 ${star <= rating ? "fill-amber-400 text-amber-400" : "text-muted-foreground/30"} ${interactive ? "cursor-pointer hover:scale-110 transition-transform" : ""}`}
-          onClick={() => interactive && onChange?.(star)}
-        />
-      ))}
-      {rating > 0 && <span className="ml-2 text-sm font-medium">{rating}/5</span>}
+      <span className="flex items-center gap-0.5" role="img" aria-label={`${rating} of 5 stars`}>
+        {[1, 2, 3, 4, 5].map((star) => (
+          <Star
+            key={star}
+            aria-hidden="true"
+            className={`h-4 w-4 sm:h-5 sm:w-5 ${star <= rating ? "fill-amber-400 text-amber-400" : "text-muted-foreground/30"}`}
+          />
+        ))}
+      </span>
+      <span className="ml-1 text-sm font-medium" aria-hidden="true">{rating}/5</span>
     </div>
   );
 
@@ -369,7 +367,7 @@ export function TeamReviewsManager({ managerId, managerName }: TeamReviewsManage
     return (
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2"><FileText className="h-5 w-5" />Team Reviews</CardTitle>
+          <CardTitle className="flex items-center gap-2"><FileText className="h-5 w-5" />Team reviews</CardTitle>
           <CardDescription>Create performance reviews for your team</CardDescription>
         </CardHeader>
         <CardContent className="text-center py-8 text-muted-foreground">
@@ -391,21 +389,21 @@ export function TeamReviewsManager({ managerId, managerName }: TeamReviewsManage
     <>
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2"><FileText className="h-5 w-5" />Team Reviews</CardTitle>
+          <CardTitle className="flex items-center gap-2"><FileText className="h-5 w-5" />Team reviews</CardTitle>
           <CardDescription>Create and manage performance reviews with KPI ratings</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h4 className="font-medium text-sm text-muted-foreground">Your Team</h4>
+            <div className="flex items-center justify-between gap-2">
+              <h4 className="font-medium text-sm text-muted-foreground">Your team</h4>
               <Button size="sm" variant="outline" onClick={() => { setBulkSelectedIds(new Set()); setIsBulkDialogOpen(true); }}>
-                <ListChecks className="h-4 w-4 mr-1" />Bulk Review
+                <ListChecks className="h-4 w-4 mr-1" />Bulk review
               </Button>
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
               {teamMembers.map(employee => (
-                <div key={employee.id} className="flex items-center gap-3 p-3 rounded-lg border hover:bg-muted/50 transition-colors">
-                  <Avatar className="h-10 w-10">
+                <div key={employee.id} className="flex min-w-0 items-center gap-3 p-3 rounded-lg border hover:bg-muted/50 transition-colors">
+                  <Avatar className="h-10 w-10 shrink-0">
                     <AvatarImage src={employee.avatar_url || undefined} />
                     <AvatarFallback>{employee.first_name[0]}{employee.last_name[0]}</AvatarFallback>
                   </Avatar>
@@ -413,7 +411,7 @@ export function TeamReviewsManager({ managerId, managerName }: TeamReviewsManage
                     <p className="font-medium truncate">{employee.first_name} {employee.last_name}</p>
                     <p className="text-xs text-muted-foreground truncate">{employee.designation}</p>
                   </div>
-                  <Button size="sm" onClick={() => openCreateDialog(employee)}><Plus className="h-4 w-4 mr-1" />Review</Button>
+                  <Button size="sm" className="shrink-0" onClick={() => openCreateDialog(employee)} aria-label={`Create review for ${employee.first_name} ${employee.last_name}`}><Plus className="h-4 w-4 mr-1" />Review</Button>
                 </div>
               ))}
             </div>
@@ -421,19 +419,19 @@ export function TeamReviewsManager({ managerId, managerName }: TeamReviewsManage
 
           {draftReviews.length > 0 && (
             <div className="space-y-3">
-              <h4 className="font-medium text-sm text-muted-foreground">Draft Reviews</h4>
+              <h4 className="font-medium text-sm text-muted-foreground">Draft reviews</h4>
               <div className="space-y-2">
                {draftReviews.map(review => (
-                   <div key={review.id} className="flex items-center justify-between p-3 rounded-lg border border-dashed">
-                     <div>
+                   <div key={review.id} className="flex flex-col gap-3 p-3 rounded-lg border border-dashed sm:flex-row sm:items-center sm:justify-between">
+                     <div className="min-w-0">
                        <p className="font-medium text-sm">{review.employee.first_name} {review.employee.last_name}</p>
                        <p className="text-xs text-muted-foreground">{review.review_period} • {format(new Date(review.review_date), "MMM d, yyyy")}</p>
                      </div>
-                     <div className="flex items-center gap-2">
-                       {review.overall_rating && renderStars(review.overall_rating)}
-                       <Badge variant="outline" className={statusColors[review.status]}>{review.status}</Badge>
-                       <Button size="sm" variant="outline" onClick={() => loadRatingsForEdit(review)}><Edit2 className="h-4 w-4 mr-1" />Edit</Button>
-                       <Button size="sm" variant="outline" onClick={() => handleDeleteDraft(review.id)} disabled={isPending}><Trash2 className="h-4 w-4 mr-1" />Delete</Button>
+                     <div className="flex flex-wrap items-center gap-2">
+                       {review.overall_rating ? renderStars(review.overall_rating) : null}
+                       <Badge variant="outline" className={statusBadgeClass(review.status)}>{formatStatus(review.status)}</Badge>
+                       <Button size="sm" variant="outline" onClick={() => loadRatingsForEdit(review)} aria-label={`Edit draft review for ${review.employee.first_name} ${review.employee.last_name}`}><Edit2 className="h-4 w-4 mr-1" />Edit</Button>
+                       <Button size="sm" variant="outline" onClick={() => handleDeleteDraft(review.id)} disabled={isPending} aria-label={`Delete draft review for ${review.employee.first_name} ${review.employee.last_name}`}><Trash2 className="h-4 w-4 mr-1" />Delete</Button>
                      </div>
                    </div>
                  ))}
@@ -443,18 +441,18 @@ export function TeamReviewsManager({ managerId, managerName }: TeamReviewsManage
 
           {otherReviews.length > 0 && (
             <div className="space-y-3">
-              <h4 className="font-medium text-sm text-muted-foreground">Submitted Reviews</h4>
+              <h4 className="font-medium text-sm text-muted-foreground">Submitted reviews</h4>
               <div className="space-y-2">
                 {otherReviews.slice(0, 5).map(review => (
-                  <div key={review.id} className="flex items-center justify-between p-3 rounded-lg border">
-                    <div>
+                  <div key={review.id} className="flex flex-col gap-2 p-3 rounded-lg border sm:flex-row sm:items-center sm:justify-between">
+                    <div className="min-w-0">
                       <p className="font-medium text-sm">{review.employee.first_name} {review.employee.last_name}</p>
                       <p className="text-xs text-muted-foreground">{review.review_period} • {format(new Date(review.review_date), "MMM d, yyyy")}</p>
                     </div>
-                    <div className="flex items-center gap-2">
-                      {review.overall_rating && renderStars(review.overall_rating)}
-                      <Badge variant="outline" className={statusColors[review.status]}>
-                        {review.status === "acknowledged" && <CheckCircle className="h-3 w-3 mr-1" />}{review.status}
+                    <div className="flex flex-wrap items-center gap-2">
+                      {review.overall_rating ? renderStars(review.overall_rating) : null}
+                      <Badge variant="outline" className={`whitespace-nowrap ${statusBadgeClass(review.status)}`}>
+                        {review.status === "acknowledged" && <CheckCircle className="h-3 w-3 mr-1" aria-hidden="true" />}{formatStatus(review.status)}
                       </Badge>
                     </div>
                   </div>
@@ -466,22 +464,22 @@ export function TeamReviewsManager({ managerId, managerName }: TeamReviewsManage
       </Card>
 
       <Dialog open={isDialogOpen} onOpenChange={(open) => { setIsDialogOpen(open); if (!open) resetForm(); }}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>
-              {editingReview ? "Edit" : "Create"} Review for {selectedEmployee?.first_name} {selectedEmployee?.last_name}
+              {editingReview ? "Edit" : "Create"} review for {selectedEmployee?.first_name} {selectedEmployee?.last_name}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label>Review Period</Label>
-              <Input value={formData.review_period} onChange={(e) => setFormData({ ...formData, review_period: e.target.value })} placeholder="e.g., Q1 2025, Annual 2024" />
+              <Label htmlFor="team-review-period">Review period</Label>
+              <Input id="team-review-period" value={formData.review_period} onChange={(e) => setFormData({ ...formData, review_period: e.target.value })} placeholder="e.g., Q1 2025, Annual 2024" />
             </div>
 
             {/* KPI Ratings Section */}
             {employeeGoals.length > 0 && (
               <div className="space-y-2">
-                <Label className="flex items-center gap-2"><Target className="h-4 w-4" />KPI Ratings</Label>
+                <p className="flex items-center gap-2 text-sm font-medium"><Target className="h-4 w-4" aria-hidden="true" />KPI ratings</p>
                 <div className="rounded-md border p-3 space-y-2 bg-muted/30">
                   <p className="text-xs text-muted-foreground">Rate each KPI for this employee. Employee must submit their self-rating first.</p>
                   {employeeGoals.map((goal) => {
@@ -492,9 +490,9 @@ export function TeamReviewsManager({ managerId, managerName }: TeamReviewsManage
                     return (
                       <div key={goal.id} className="p-2 rounded border bg-background space-y-1">
                         <div className="flex items-center justify-between">
-                          <div>
-                            <p className="text-sm font-medium">{goal.title}</p>
-                            <p className="text-xs text-muted-foreground">{goal.category} • {goal.priority}</p>
+                          <div className="min-w-0">
+                            <p className="break-words text-sm font-medium">{goal.title}</p>
+                            <p className="text-xs text-muted-foreground">{goal.category} • {formatPriority(goal.priority)}</p>
                           </div>
                         </div>
                         <div className="flex flex-col sm:flex-row sm:items-center gap-2">
@@ -528,7 +526,7 @@ export function TeamReviewsManager({ managerId, managerName }: TeamReviewsManage
 
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <Label>Overall Rating</Label>
+                <p className="text-sm font-medium" id="team-review-overall">Overall rating</p>
                 {formData.overall_rating > 0 && (
                   <Button 
                     size="sm" 
@@ -539,32 +537,36 @@ export function TeamReviewsManager({ managerId, managerName }: TeamReviewsManage
                   </Button>
                 )}
               </div>
-              {renderStars(formData.overall_rating, true, (r) => setFormData({ ...formData, overall_rating: r }))}
+              <RatingStars
+                label="Overall"
+                value={formData.overall_rating || null}
+                onChange={(r) => setFormData({ ...formData, overall_rating: r })}
+              />
             </div>
 
             <div className="space-y-2">
-              <Label>Strengths</Label>
-              <Textarea value={formData.strengths} onChange={(e) => setFormData({ ...formData, strengths: e.target.value })} placeholder="What does this employee do well?" rows={2} />
+              <Label htmlFor="team-review-strengths">Strengths</Label>
+              <Textarea id="team-review-strengths" value={formData.strengths} onChange={(e) => setFormData({ ...formData, strengths: e.target.value })} placeholder="What does this employee do well?" rows={2} />
             </div>
 
             <div className="space-y-2">
-              <Label>Areas for Improvement</Label>
-              <Textarea value={formData.areas_for_improvement} onChange={(e) => setFormData({ ...formData, areas_for_improvement: e.target.value })} placeholder="Where can they improve?" rows={2} />
+              <Label htmlFor="team-review-improvement">Areas for improvement</Label>
+              <Textarea id="team-review-improvement" value={formData.areas_for_improvement} onChange={(e) => setFormData({ ...formData, areas_for_improvement: e.target.value })} placeholder="Where can they improve?" rows={2} />
             </div>
 
             <div className="space-y-2">
-              <Label>Additional Comments</Label>
-              <Textarea value={formData.comments} onChange={(e) => setFormData({ ...formData, comments: e.target.value })} placeholder="Any other feedback..." rows={2} />
+              <Label htmlFor="team-review-comments">Additional comments</Label>
+              <Textarea id="team-review-comments" value={formData.comments} onChange={(e) => setFormData({ ...formData, comments: e.target.value })} placeholder="Any other feedback..." rows={2} />
             </div>
           </div>
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
             <Button variant="secondary" onClick={() => handleSubmit("draft")} disabled={isPending}>
-              {editingReview ? "Save Draft" : "Save as Draft"}
+              {editingReview ? "Save draft" : "Save as draft"}
             </Button>
             <Button onClick={() => handleSubmit("submitted")} disabled={isPending || formData.overall_rating === 0}>
               {isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              Submit Review
+              Submit review
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -574,21 +576,21 @@ export function TeamReviewsManager({ managerId, managerName }: TeamReviewsManage
       <Dialog open={isBulkDialogOpen} onOpenChange={setIsBulkDialogOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Bulk Create Draft Reviews</DialogTitle>
+            <DialogTitle>Bulk create draft reviews</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label>Review Period</Label>
-              <Input value={bulkReviewPeriod} onChange={(e) => setBulkReviewPeriod(e.target.value)} placeholder="e.g., Q1 2026, Annual 2025" />
+              <Label htmlFor="bulk-review-period">Review period</Label>
+              <Input id="bulk-review-period" value={bulkReviewPeriod} onChange={(e) => setBulkReviewPeriod(e.target.value)} placeholder="e.g., Q1 2026, Annual 2025" />
             </div>
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <Label>Select Team Members</Label>
+                <p className="text-sm font-medium">Select team members</p>
                 <Button size="sm" variant="ghost" onClick={toggleSelectAll}>
-                  {bulkSelectedIds.size === (teamMembers?.length || 0) ? "Deselect All" : "Select All"}
+                  {bulkSelectedIds.size === (teamMembers?.length || 0) ? "Deselect all" : "Select all"}
                 </Button>
               </div>
-              <div className="rounded-md border divide-y max-h-60 overflow-y-auto">
+              <div className="rounded-md border divide-y max-h-60 overflow-y-auto" tabIndex={0} role="group" aria-label="Team members">
                 {teamMembers?.map(member => (
                   <label key={member.id} className="flex items-center gap-3 p-3 hover:bg-muted/50 cursor-pointer transition-colors">
                     <Checkbox checked={bulkSelectedIds.has(member.id)} onCheckedChange={() => toggleBulkSelect(member.id)} />
@@ -604,7 +606,7 @@ export function TeamReviewsManager({ managerId, managerName }: TeamReviewsManage
                 ))}
               </div>
               {bulkSelectedIds.size > 0 && (
-                <p className="text-xs text-muted-foreground">{bulkSelectedIds.size} member(s) selected</p>
+                <p className="text-xs text-muted-foreground">{bulkSelectedIds.size} {bulkSelectedIds.size === 1 ? "member" : "members"} selected</p>
               )}
             </div>
           </div>
@@ -612,7 +614,7 @@ export function TeamReviewsManager({ managerId, managerName }: TeamReviewsManage
             <Button variant="outline" onClick={() => setIsBulkDialogOpen(false)}>Cancel</Button>
             <Button onClick={handleBulkSubmit} disabled={isPending || bulkSelectedIds.size === 0 || !bulkReviewPeriod.trim()}>
               {isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              Create {bulkSelectedIds.size} Draft{bulkSelectedIds.size !== 1 ? "s" : ""}
+              Create {bulkSelectedIds.size} draft{bulkSelectedIds.size !== 1 ? "s" : ""}
             </Button>
           </DialogFooter>
         </DialogContent>

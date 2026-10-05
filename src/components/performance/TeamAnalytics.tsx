@@ -47,6 +47,7 @@ import {
   PieChart,
   Pie,
   Cell,
+  Legend,
 } from "recharts";
 
 interface TeamAnalyticsProps {
@@ -173,7 +174,7 @@ export function TeamAnalytics({ isManager, managerId }: TeamAnalyticsProps) {
     const reviewsWithRating = filteredReviews.filter((r) => r.overall_rating);
     const avgRating = reviewsWithRating.length
       ? (reviewsWithRating.reduce((sum, r) => sum + (r.overall_rating || 0), 0) / reviewsWithRating.length).toFixed(1)
-      : "N/A";
+      : null;
 
     return {
       totalEmployees: filteredEmployees.length,
@@ -207,9 +208,9 @@ export function TeamAnalytics({ isManager, managerId }: TeamAnalyticsProps) {
         ? Math.round(empGoals.reduce((sum, g) => sum + (g.progress || 0), 0) / empGoals.length)
         : 0;
       const ratingsWithValue = empReviews.filter((r) => r.overall_rating);
-      const avgRating = ratingsWithValue.length
+      const avgRating: number | null = ratingsWithValue.length
         ? ratingsWithValue.reduce((sum, r) => sum + (r.overall_rating || 0), 0) / ratingsWithValue.length
-        : 0;
+        : null;
 
       return {
         ...emp,
@@ -234,10 +235,10 @@ export function TeamAnalytics({ isManager, managerId }: TeamAnalyticsProps) {
   }, [filteredReviews]);
 
   const statusLabels: Record<string, string> = {
-    not_started: "Not Started",
-    in_progress: "In Progress",
+    not_started: "Not started",
+    in_progress: "In progress",
     completed: "Completed",
-    on_hold: "On Hold",
+    on_hold: "On hold",
   };
 
   const statusColors: Record<string, string> = {
@@ -261,12 +262,12 @@ export function TeamAnalytics({ isManager, managerId }: TeamAnalyticsProps) {
     csvContent += `Completion Rate,${teamStats.completionRate}%\n`;
     csvContent += `Average Progress,${teamStats.avgProgress}%\n`;
     csvContent += `Total Reviews,${teamStats.totalReviews}\n`;
-    csvContent += `Average Rating,${teamStats.avgRating}\n\n`;
+    csvContent += `Average Rating,${teamStats.avgRating ?? "No ratings"}\n\n`;
     
     csvContent += "EMPLOYEE PERFORMANCE\n";
     csvContent += "Employee,Designation,Goals,Completed,Progress,Avg Rating,Reviews\n";
     employeePerformance.forEach((emp) => {
-      csvContent += `"${emp.first_name} ${emp.last_name}",${emp.designation},${emp.totalGoals},${emp.completedGoals},${emp.avgProgress}%,${emp.avgRating.toFixed(1)},${emp.reviewCount}\n`;
+      csvContent += `"${emp.first_name} ${emp.last_name}",${emp.designation},${emp.totalGoals},${emp.completedGoals},${emp.avgProgress}%,${emp.avgRating !== null ? emp.avgRating.toFixed(1) : "No ratings"},${emp.reviewCount}\n`;
     });
 
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
@@ -310,7 +311,7 @@ export function TeamAnalytics({ isManager, managerId }: TeamAnalyticsProps) {
         ["Completion Rate", `${teamStats.completionRate}%`],
         ["Average Progress", `${teamStats.avgProgress}%`],
         ["Total Reviews", teamStats.totalReviews.toString()],
-        ["Average Rating", teamStats.avgRating.toString()],
+        ["Average Rating", teamStats.avgRating ?? "No ratings"],
       ],
       theme: "striped",
       headStyles: PDF_TABLE_HEAD_STYLE,
@@ -331,7 +332,7 @@ export function TeamAnalytics({ isManager, managerId }: TeamAnalyticsProps) {
         emp.totalGoals.toString(),
         emp.completedGoals.toString(),
         `${emp.avgProgress}%`,
-        emp.avgRating.toFixed(1),
+        emp.avgRating !== null ? emp.avgRating.toFixed(1) : "No ratings",
       ]),
       theme: "striped",
       headStyles: PDF_TABLE_HEAD_STYLE,
@@ -360,63 +361,67 @@ export function TeamAnalytics({ isManager, managerId }: TeamAnalyticsProps) {
       {/* Filters */}
       <Card>
         <CardContent className="space-y-4 pt-6">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div className="flex flex-wrap items-center gap-4">
-              <span className="text-sm font-medium">Date Range:</span>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className={cn(
-                      "w-[160px] justify-start text-left font-normal",
-                      !startDate && "text-muted-foreground"
-                    )}
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {startDate ? format(startDate, "PP") : "Start"}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={startDate}
-                    onSelect={setStartDate}
-                    initialFocus
-                    className="pointer-events-auto"
-                  />
-                </PopoverContent>
-              </Popover>
-              <span className="text-muted-foreground">to</span>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className={cn(
-                      "w-[160px] justify-start text-left font-normal",
-                      !endDate && "text-muted-foreground"
-                    )}
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {endDate ? format(endDate, "PP") : "End"}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={endDate}
-                    onSelect={setEndDate}
-                    initialFocus
-                    className="pointer-events-auto"
-                  />
-                </PopoverContent>
-              </Popover>
+          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-4">
+              <span className="text-sm font-medium">Date range</span>
+              <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 sm:flex">
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      aria-label={startDate ? `Start date, ${format(startDate, "MMM d, yyyy")}` : "Start date"}
+                      className={cn(
+                        "w-full justify-start px-3 text-left font-normal sm:w-[160px]",
+                        !startDate && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 hidden h-4 w-4 shrink-0 sm:block" aria-hidden="true" />
+                      <span className="truncate">{startDate ? format(startDate, "MMM d, yyyy") : "Start"}</span>
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={startDate}
+                      onSelect={setStartDate}
+                      initialFocus
+                      className="pointer-events-auto"
+                    />
+                  </PopoverContent>
+                </Popover>
+                <span className="text-sm text-muted-foreground">to</span>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      aria-label={endDate ? `End date, ${format(endDate, "MMM d, yyyy")}` : "End date"}
+                      className={cn(
+                        "w-full justify-start px-3 text-left font-normal sm:w-[160px]",
+                        !endDate && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 hidden h-4 w-4 shrink-0 sm:block" aria-hidden="true" />
+                      <span className="truncate">{endDate ? format(endDate, "MMM d, yyyy") : "End"}</span>
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="end">
+                    <Calendar
+                      mode="single"
+                      selected={endDate}
+                      onSelect={setEndDate}
+                      initialFocus
+                      className="pointer-events-auto"
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
               {!isManager && departments && departments.length > 0 && (
                 <Select value={selectedDepartment} onValueChange={setSelectedDepartment}>
-                  <SelectTrigger className="w-[180px]">
-                    <SelectValue placeholder="All Departments" />
+                  <SelectTrigger className="w-full sm:w-[180px]" aria-label="Department">
+                    <SelectValue placeholder="All departments" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">All Departments</SelectItem>
+                    <SelectItem value="all">All departments</SelectItem>
                     {departments.map((dept) => (
                       <SelectItem key={dept.id} value={dept.id}>
                         {dept.name}
@@ -428,7 +433,7 @@ export function TeamAnalytics({ isManager, managerId }: TeamAnalyticsProps) {
             </div>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm">
+                <Button variant="outline" size="sm" className="self-start sm:self-auto">
                   <Download className="mr-2 h-4 w-4" />
                   Export
                 </Button>
@@ -446,6 +451,8 @@ export function TeamAnalytics({ isManager, managerId }: TeamAnalyticsProps) {
             </DropdownMenu>
           </div>
           <DatePresets
+            startDate={startDate}
+            endDate={endDate}
             onSelect={(start, end) => {
               setStartDate(start);
               setEndDate(end);
@@ -455,9 +462,9 @@ export function TeamAnalytics({ isManager, managerId }: TeamAnalyticsProps) {
       </Card>
 
       {/* Summary Stats */}
-      <div className="grid gap-4 md:grid-cols-4 lg:grid-cols-7">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-4 lg:grid-cols-7">
         <Card>
-          <CardContent className="pt-6">
+          <CardContent className="p-4 sm:p-6">
             <div className="flex items-center gap-2">
               <Users className="h-4 w-4 text-muted-foreground" />
               <span className="text-2xl font-bold">{teamStats.totalEmployees}</span>
@@ -466,45 +473,47 @@ export function TeamAnalytics({ isManager, managerId }: TeamAnalyticsProps) {
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="pt-6">
+          <CardContent className="p-4 sm:p-6">
             <div className="flex items-center gap-2">
               <Target className="h-4 w-4 text-muted-foreground" />
               <span className="text-2xl font-bold">{teamStats.totalGoals}</span>
             </div>
-            <p className="text-sm text-muted-foreground">Total Goals</p>
+            <p className="text-sm text-muted-foreground">Total goals</p>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="pt-6">
+          <CardContent className="p-4 sm:p-6">
             <div className="text-2xl font-bold text-emerald-600">{teamStats.completedGoals}</div>
             <p className="text-sm text-muted-foreground">Completed</p>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="pt-6">
+          <CardContent className="p-4 sm:p-6">
             <div className="text-2xl font-bold">{teamStats.completionRate}%</div>
-            <p className="text-sm text-muted-foreground">Completion Rate</p>
+            <p className="text-sm text-muted-foreground">Completion rate</p>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="pt-6">
+          <CardContent className="p-4 sm:p-6">
             <div className="text-2xl font-bold">{teamStats.avgProgress}%</div>
-            <p className="text-sm text-muted-foreground">Avg. Progress</p>
+            <p className="text-sm text-muted-foreground">Avg. progress</p>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="pt-6">
+          <CardContent className="p-4 sm:p-6">
             <div className="text-2xl font-bold">{teamStats.totalReviews}</div>
             <p className="text-sm text-muted-foreground">Reviews</p>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="pt-6">
+          <CardContent className="p-4 sm:p-6">
             <div className="flex items-center gap-2">
               <Star className="h-4 w-4 text-amber-500" />
-              <span className="text-2xl font-bold">{teamStats.avgRating}</span>
+              <span className="text-2xl font-bold">{teamStats.avgRating ?? "—"}</span>
             </div>
-            <p className="text-sm text-muted-foreground">Avg. Rating</p>
+            <p className="text-sm text-muted-foreground">
+              {teamStats.avgRating ? "Avg. rating" : "No ratings yet"}
+            </p>
           </CardContent>
         </Card>
       </div>
@@ -517,25 +526,31 @@ export function TeamAnalytics({ isManager, managerId }: TeamAnalyticsProps) {
           </CardHeader>
           <CardContent>
             {goalStatusData.length > 0 ? (
+              <div
+                role="img"
+                aria-label={`Goal status: ${goalStatusData
+                  .map((d) => `${statusLabels[d.status] || d.status} ${d.count}`)
+                  .join(", ")}`}
+              >
               <ResponsiveContainer width="100%" height={250}>
                 <PieChart>
                   <Pie
                     data={goalStatusData}
                     cx="50%"
-                    cy="50%"
+                    cy="45%"
                     innerRadius={60}
                     outerRadius={80}
-                    paddingAngle={5}
+                    paddingAngle={goalStatusData.length > 1 ? 3 : 0}
+                    stroke={goalStatusData.length > 1 ? undefined : "none"}
                     dataKey="count"
                     nameKey="status"
-                    label={({ status, count }) =>
-                      `${statusLabels[status] || status}: ${count}`
-                    }
+                    isAnimationActive={false}
                   >
                     {goalStatusData.map((entry, index) => (
                       <Cell
                         key={`cell-${index}`}
                         fill={statusColors[entry.status] || "hsl(var(--muted))"}
+                        aria-label={`${statusLabels[entry.status] || entry.status}: ${entry.count}`}
                       />
                     ))}
                   </Pie>
@@ -545,8 +560,22 @@ export function TeamAnalytics({ isManager, managerId }: TeamAnalyticsProps) {
                       statusLabels[name as string] || name,
                     ]}
                   />
+                  <Legend
+                    verticalAlign="bottom"
+                    iconType="circle"
+                    formatter={(value: string, entry) => {
+                      const count = (entry?.payload as { count?: number } | undefined)?.count;
+                      return (
+                        <span className="text-sm text-foreground">
+                          {statusLabels[value] || value}
+                          {count !== undefined ? ` (${count})` : ""}
+                        </span>
+                      );
+                    }}
+                  />
                 </PieChart>
               </ResponsiveContainer>
+              </div>
             ) : (
               <div className="flex h-[250px] items-center justify-center text-muted-foreground">
                 No goals data
@@ -562,6 +591,12 @@ export function TeamAnalytics({ isManager, managerId }: TeamAnalyticsProps) {
           </CardHeader>
           <CardContent>
             {filteredReviews.length > 0 ? (
+              <div
+                role="img"
+                aria-label={`Rating distribution: ${ratingDistribution
+                  .map((d) => `${d.rating} star ${d.count}`)
+                  .join(", ")}`}
+              >
               <ResponsiveContainer width="100%" height={250}>
                 <BarChart data={ratingDistribution}>
                   <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
@@ -575,6 +610,7 @@ export function TeamAnalytics({ isManager, managerId }: TeamAnalyticsProps) {
                   <Bar dataKey="count" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
+              </div>
             ) : (
               <div className="flex h-[250px] items-center justify-center text-muted-foreground">
                 No review data
@@ -598,38 +634,56 @@ export function TeamAnalytics({ isManager, managerId }: TeamAnalyticsProps) {
               {employeePerformance.slice(0, 10).map((emp, idx) => (
                 <div
                   key={emp.id}
-                  className="flex items-center gap-4 rounded-lg border p-4"
+                  className="flex flex-col gap-3 rounded-lg border p-3 sm:flex-row sm:items-center sm:gap-4 sm:p-4"
                 >
-                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-sm font-medium">
-                    {idx + 1}
+                  <div className="flex min-w-0 flex-1 items-center gap-3 sm:gap-4">
+                    <div
+                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-medium"
+                    >
+                      <span className="sr-only">Rank </span>
+                      {idx + 1}
+                    </div>
+                    <Avatar className="h-10 w-10 shrink-0">
+                      <AvatarFallback>
+                        {emp.first_name?.[0]}{emp.last_name?.[0]}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate font-medium">
+                        {emp.first_name} {emp.last_name}
+                      </p>
+                      <p className="truncate text-sm text-muted-foreground">{emp.designation}</p>
+                    </div>
                   </div>
-                  <Avatar className="h-10 w-10">
-                    <AvatarFallback>
-                      {emp.first_name?.[0]}{emp.last_name?.[0]}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium truncate">
-                      {emp.first_name} {emp.last_name}
-                    </p>
-                    <p className="text-sm text-muted-foreground truncate">{emp.designation}</p>
-                  </div>
-                  <div className="flex items-center gap-6 text-sm">
+                  <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm sm:shrink-0">
                     <div className="text-center">
                       <p className="font-medium">{emp.completedGoals}/{emp.totalGoals}</p>
                       <p className="text-xs text-muted-foreground">Goals</p>
                     </div>
-                    <div className="w-24">
-                      <div className="flex items-center justify-between mb-1">
+                    <div className="min-w-[96px] flex-1 sm:w-24 sm:flex-none">
+                      <div className="mb-1 flex items-center justify-between">
                         <span className="text-xs text-muted-foreground">Progress</span>
                         <span className="text-xs font-medium">{emp.avgProgress}%</span>
                       </div>
-                      <Progress value={emp.avgProgress} className="h-2" />
+                      <Progress
+                        value={emp.avgProgress}
+                        className="h-2"
+                        aria-label={`${emp.first_name} ${emp.last_name} goal progress`}
+                      />
                     </div>
-                    <div className="flex items-center gap-1">
-                      <Star className="h-4 w-4 text-amber-500" />
-                      <span className="font-medium">{emp.avgRating.toFixed(1)}</span>
-                    </div>
+                    {emp.avgRating !== null ? (
+                      <div className="flex items-center gap-1">
+                        <Star className="h-4 w-4 text-amber-500" aria-hidden="true" />
+                        <span className="sr-only">Average rating </span>
+                        <span className="font-medium">{emp.avgRating.toFixed(1)}</span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-1 text-muted-foreground" title="No ratings yet">
+                        <Star className="h-4 w-4" aria-hidden="true" />
+                        <span className="font-medium" aria-hidden="true">—</span>
+                        <span className="sr-only">No ratings yet</span>
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}

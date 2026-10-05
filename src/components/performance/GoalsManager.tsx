@@ -15,24 +15,12 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Target, Plus, Loader2, Trash2, Edit2, Calendar } from "lucide-react";
 import { useGoals, useCreateGoal, useUpdateGoal, useDeleteGoal, Goal } from "@/hooks/usePerformance";
-import { format } from "date-fns";
+import { statusBadgeClass, formatStatus } from "@/lib/statusStyles";
+import { priorityBadgeClass, formatPriority, formatDueDate } from "./kpiStyles";
 
 interface GoalsManagerProps {
   employeeId: string;
 }
-
-const statusColors: Record<string, string> = {
-  not_started: "bg-muted text-muted-foreground",
-  in_progress: "bg-primary/10 text-primary border-primary/20",
-  completed: "bg-emerald-500/10 text-emerald-600 border-emerald-500/20",
-  cancelled: "bg-destructive/10 text-destructive border-destructive/20",
-};
-
-const priorityColors: Record<string, string> = {
-  low: "bg-muted text-muted-foreground",
-  medium: "bg-amber-500/10 text-amber-600 border-amber-500/20",
-  high: "bg-destructive/10 text-destructive border-destructive/20",
-};
 
 export function GoalsManager({ employeeId }: GoalsManagerProps) {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -93,27 +81,27 @@ export function GoalsManager({ employeeId }: GoalsManagerProps) {
   return (
     <>
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <div>
+        <CardHeader className="flex flex-col gap-3 space-y-0 sm:flex-row sm:items-center sm:justify-between">
+          <div className="space-y-1.5">
             <CardTitle className="flex items-center gap-2"><Target className="h-5 w-5" />KPIs</CardTitle>
             <CardDescription>Your key performance indicators. Ratings are added during review cycles.</CardDescription>
           </div>
-          <Button onClick={openCreateDialog}><Plus className="h-4 w-4 mr-2" />Add KPI</Button>
+          <Button onClick={openCreateDialog} className="w-full shrink-0 sm:w-auto"><Plus className="h-4 w-4 mr-2" />Add KPI</Button>
         </CardHeader>
         <CardContent>
           {goals && goals.length > 0 ? (
             <div className="space-y-4">
               {goals.map((goal) => (
                 <div key={goal.id} className="rounded-lg border p-4 space-y-3">
-                  <div className="flex items-start justify-between">
-                    <div className="space-y-1">
-                      <h4 className="font-medium">{goal.title}</h4>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 space-y-1">
+                      <h3 className="break-words font-medium">{goal.title}</h3>
                       {goal.description && <p className="text-sm text-muted-foreground">{goal.description}</p>}
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Button variant="ghost" size="icon" onClick={() => openEditDialog(goal)}><Edit2 className="h-4 w-4" /></Button>
+                    <div className="flex shrink-0 items-center gap-1">
+                      <Button variant="ghost" size="icon" className="h-10 w-10 sm:h-8 sm:w-8" aria-label={`Edit KPI ${goal.title}`} title="Edit KPI" onClick={() => openEditDialog(goal)}><Edit2 className="h-4 w-4" /></Button>
                       <AlertDialog>
-                        <AlertDialogTrigger asChild><Button variant="ghost" size="icon"><Trash2 className="h-4 w-4 text-destructive" /></Button></AlertDialogTrigger>
+                        <AlertDialogTrigger asChild><Button variant="ghost" size="icon" className="h-10 w-10 sm:h-8 sm:w-8" aria-label={`Delete KPI ${goal.title}`} title="Delete KPI"><Trash2 className="h-4 w-4 text-destructive" /></Button></AlertDialogTrigger>
                         <AlertDialogContent>
                           <AlertDialogHeader><AlertDialogTitle>Delete KPI</AlertDialogTitle><AlertDialogDescription>Are you sure? This cannot be undone.</AlertDialogDescription></AlertDialogHeader>
                           <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={() => deleteMutation.mutate({ id: goal.id, employeeId })}>Delete</AlertDialogAction></AlertDialogFooter>
@@ -122,9 +110,9 @@ export function GoalsManager({ employeeId }: GoalsManagerProps) {
                     </div>
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    <Badge variant="outline" className={statusColors[goal.status]}>{goal.status.replace("_", " ")}</Badge>
-                    <Badge variant="outline" className={priorityColors[goal.priority]}>{goal.priority} priority</Badge>
-                    {goal.due_date && <Badge variant="outline" className="gap-1"><Calendar className="h-3 w-3" />{format(new Date(goal.due_date), "MMM d, yyyy")}</Badge>}
+                    <Badge variant="outline" className={statusBadgeClass(goal.status)}>{formatStatus(goal.status)}</Badge>
+                    <Badge variant="outline" className={priorityBadgeClass(goal.priority)}>{formatPriority(goal.priority)}</Badge>
+                    {goal.due_date && <Badge variant="outline" className="gap-1 font-normal"><Calendar className="h-3 w-3" aria-hidden="true" />{formatDueDate(goal.due_date)}</Badge>}
                   </div>
                 </div>
               ))}
@@ -141,38 +129,38 @@ export function GoalsManager({ employeeId }: GoalsManagerProps) {
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent>
-          <DialogHeader><DialogTitle>{editingGoal ? "Edit KPI" : "Create New KPI"}</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{editingGoal ? "Edit KPI" : "Create new KPI"}</DialogTitle></DialogHeader>
           <div className="space-y-4">
-            <div className="space-y-2"><Label>Title</Label><Input value={formData.title} onChange={(e) => setFormData({ ...formData, title: e.target.value })} placeholder="Enter KPI title" /></div>
-            <div className="space-y-2"><Label>Description</Label><Textarea value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} placeholder="Describe your KPI..." rows={3} /></div>
+            <div className="space-y-2"><Label htmlFor="kpi-title">Title</Label><Input id="kpi-title" value={formData.title} onChange={(e) => setFormData({ ...formData, title: e.target.value })} placeholder="Enter KPI title" /></div>
+            <div className="space-y-2"><Label htmlFor="kpi-description">Description</Label><Textarea id="kpi-description" value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} placeholder="Describe your KPI..." rows={3} /></div>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label>Category</Label>
+                <Label htmlFor="kpi-category">Category</Label>
                 <Select value={formData.category} onValueChange={(v) => setFormData({ ...formData, category: v, customCategory: v === "other" ? formData.customCategory : "" })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectTrigger id="kpi-category"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="performance">Performance</SelectItem><SelectItem value="productivity">Productivity</SelectItem>
                     <SelectItem value="quality">Quality</SelectItem><SelectItem value="leadership">Leadership</SelectItem>
                     <SelectItem value="development">Development</SelectItem><SelectItem value="other">Other</SelectItem>
                   </SelectContent>
                 </Select>
-                {formData.category === "other" && <Input value={formData.customCategory} onChange={(e) => setFormData({ ...formData, customCategory: e.target.value })} placeholder="Enter custom category" className="mt-2" />}
+                {formData.category === "other" && <Input value={formData.customCategory} onChange={(e) => setFormData({ ...formData, customCategory: e.target.value })} placeholder="Enter custom category" aria-label="Custom category" className="mt-2" />}
               </div>
               <div className="space-y-2">
-                <Label>Priority</Label>
+                <Label htmlFor="kpi-priority">Priority</Label>
                 <Select value={formData.priority} onValueChange={(v) => setFormData({ ...formData, priority: v })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectTrigger id="kpi-priority"><SelectValue /></SelectTrigger>
                   <SelectContent><SelectItem value="low">Low</SelectItem><SelectItem value="medium">Medium</SelectItem><SelectItem value="high">High</SelectItem></SelectContent>
                 </Select>
               </div>
             </div>
-            <div className="space-y-2"><Label>Due Date (Optional)</Label><Input type="date" value={formData.due_date} onChange={(e) => setFormData({ ...formData, due_date: e.target.value })} /></div>
+            <div className="space-y-2"><Label htmlFor="kpi-due-date">Due date (optional)</Label><Input id="kpi-due-date" type="date" value={formData.due_date} onChange={(e) => setFormData({ ...formData, due_date: e.target.value })} /></div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
             <Button onClick={handleSubmit} disabled={!formData.title.trim() || createMutation.isPending || updateMutation.isPending}>
               {(createMutation.isPending || updateMutation.isPending) && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              {editingGoal ? "Save Changes" : "Create KPI"}
+              {editingGoal ? "Save changes" : "Create KPI"}
             </Button>
           </DialogFooter>
         </DialogContent>
