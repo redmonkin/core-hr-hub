@@ -36,6 +36,9 @@ interface PayslipData {
   bankName?: string;
   bankAccountNumber?: string;
   ifscCode?: string;
+  /** Salary revision arrears (+) or proration (-), already part of the net pay. */
+  adjustmentAmount?: number;
+  adjustmentNote?: string;
   daysInMonth?: number;
   lossOfPayDays?: number;
 }
@@ -103,6 +106,38 @@ export function payslipDate(monthName: string, year: number): Date | null {
 
 const BOLD_LABELS = new Set(["Total Gross Salary", "Total CTC", "Total Deductions", "Net Take Home"]);
 
+/**
+ * The allowance / deduction components for a payslip: the ones stored on the
+ * payroll record when it was generated, or (for records from before they were
+ * stored) the employee's salary structure.
+ */
+export function payslipComponents(
+  record: {
+    hra?: number | null;
+    transport_allowance?: number | null;
+    medical_allowance?: number | null;
+    other_allowances?: number | null;
+    pf_deduction?: number | null;
+  },
+  structure?: {
+    hra?: number | null;
+    transport_allowance?: number | null;
+    medical_allowance?: number | null;
+    other_allowances?: number | null;
+    pf_deduction?: number | null;
+  } | null,
+) {
+  const stored = record.hra !== null && record.hra !== undefined;
+  const source = stored ? record : structure ?? {};
+  return {
+    hra: Number(source.hra ?? 0),
+    transport_allowance: Number(source.transport_allowance ?? 0),
+    medical_allowance: Number(source.medical_allowance ?? 0),
+    other_allowances: Number(source.other_allowances ?? 0),
+    pf_deduction: Number(source.pf_deduction ?? 0),
+  };
+}
+
 export function generatePayslipPDF(data: PayslipData): jsPDF {
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
@@ -158,9 +193,13 @@ export function generatePayslipPDF(data: PayslipData): jsPDF {
   const tds = Number(sb.tds || 0);
   const advanceAmountAdjusted = Number(sb.advance_amount_adjusted || 0);
 
-  const totalGrossSalary = data.basicSalary + hra + ltaAllowance + otherAllowance + variablePay;
+  const adjustment = Number(data.adjustmentAmount || 0);
+  const arrears = adjustment > 0 ? adjustment : 0;
+  const proration = adjustment < 0 ? -adjustment : 0;
+
+  const totalGrossSalary = data.basicSalary + hra + ltaAllowance + otherAllowance + variablePay + arrears;
   const totalCTC = totalGrossSalary + pfEmployerContribution + healthInsurance;
-  const totalDeductions = pfEmployeeContribution + professionalTax + tds + advanceAmountAdjusted;
+  const totalDeductions = pfEmployeeContribution + professionalTax + tds + advanceAmountAdjusted + proration;
   const netTakeHome = totalGrossSalary - totalDeductions;
 
   const daysPayable =
@@ -212,6 +251,7 @@ export function generatePayslipPDF(data: PayslipData): jsPDF {
   if (ltaAllowance) earningsRows.push(["LTA Allowance", formatCurrency(ltaAllowance)]);
   if (otherAllowance) earningsRows.push(["Other Allowance", formatCurrency(otherAllowance)]);
   if (variablePay) earningsRows.push(["Variable Pay", formatCurrency(variablePay)]);
+  if (arrears) earningsRows.push(["Salary Revision Arrears", formatCurrency(arrears)]);
   earningsRows.push(["Total Gross Salary", formatCurrency(totalGrossSalary)]);
   if (pfEmployerContribution) earningsRows.push(["PF Employer Contribution", formatCurrency(pfEmployerContribution)]);
   if (healthInsurance) earningsRows.push(["Health Insurance", formatCurrency(healthInsurance)]);
@@ -222,6 +262,7 @@ export function generatePayslipPDF(data: PayslipData): jsPDF {
   if (professionalTax) deductionRows.push(["Professional Tax", formatCurrency(professionalTax)]);
   if (tds) deductionRows.push(["TDS", formatCurrency(tds)]);
   if (advanceAmountAdjusted) deductionRows.push(["Advance Amount Adjusted", formatCurrency(advanceAmountAdjusted)]);
+  if (proration) deductionRows.push(["Salary Revision Proration", formatCurrency(proration)]);
   deductionRows.push(["Total Deductions", formatCurrency(totalDeductions)]);
   deductionRows.push(["Net Take Home", formatCurrency(netTakeHome)]);
 

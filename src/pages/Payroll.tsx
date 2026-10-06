@@ -4,6 +4,7 @@ import { PayrollTable } from "@/components/payroll/PayrollTable";
 import { PayslipViewDialog } from "@/components/payroll/PayslipViewDialog";
 import { PayrollDetailsEditDialog } from "@/components/payroll/PayrollDetailsEditDialog";
 import { SalaryStructureManager } from "@/components/payroll/SalaryStructureManager";
+import { PendingSalaryRevisions } from "@/components/payroll/SalaryRevisionsPanel";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -642,6 +643,8 @@ const Payroll = () => {
             ))}
           </div>
         </section>
+
+        <PendingSalaryRevisions />
 
         {/* Payroll Table */}
         <Tabs value={activeTab} onValueChange={setActiveTab}>

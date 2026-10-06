@@ -207,6 +207,17 @@ serve(async (req) => {
         ratio = totalWorkingDaysInMonth > 0 ? workedDays / totalWorkingDaysInMonth : 1;
       }
 
+      // Components as generated, so a later salary revision never changes this payslip
+      const part = (v: number | null) => Math.round(Number(v || 0) * ratio * 100) / 100;
+      const components = {
+        hra: part(salary.hra),
+        transport_allowance: part(salary.transport_allowance),
+        medical_allowance: part(salary.medical_allowance),
+        other_allowances: part(salary.other_allowances),
+        tax_deduction: part(salary.tax_deduction),
+        pf_deduction: part(salary.pf_deduction),
+      };
+
       const basicSalary = Number(salary.basic_salary) * ratio;
       const proratedAllowances = totalAllowances * ratio;
       const proratedDeductions = totalDeductions * ratio;
@@ -220,6 +231,7 @@ serve(async (req) => {
         total_allowances: proratedAllowances,
         total_deductions: proratedDeductions,
         net_salary: netSalary,
+        ...components,
         status: "draft" as const,
       };
     });

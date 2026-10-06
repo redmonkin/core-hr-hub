@@ -1,14 +1,16 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { differenceInCalendarDays, format, parseISO } from "date-fns";
+import { differenceInCalendarDays, format, formatDistanceToNow, parseISO } from "date-fns";
 import {
   CalendarClock,
   CalendarDays,
   Check,
   ChevronDown,
   DoorOpen,
+  ListChecks,
   Loader2,
-  Plus,
+  Mail,
+  Send,
   UserMinus,
   X,
 } from "lucide-react";
@@ -16,7 +18,6 @@ import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
   AlertDialog,
@@ -38,24 +39,31 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Progress } from "@/components/ui/progress";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { toneClass } from "@/lib/statusStyles";
 import {
+  type ChecklistSection,
+  defaultRecipientIds,
   type EmployeeExit,
+  type ExitRecipients,
   exitReasonLabel,
-  useAddExitTask,
+  sendChecklistEmail,
+  sendDecisionEmail,
   useCompleteExit,
   useEmployeeExits,
-  useToggleExitTask,
+  useOffboardingChecklist,
   useUpdateExit,
 } from "@/hooks/useOffboarding";
+import { ChecklistTemplateDialog } from "./ChecklistTemplateDialog";
+import { OffboardingEmailFields } from "./OffboardingEmailFields";
 
 const fmt = (date: string) => format(parseISO(date), "MMM d, yyyy");
 const nameOf = (x: EmployeeExit) => (x.employee ? `${x.employee.first_name} ${x.employee.last_name}` : "Employee");
 const initialsOf = (x: EmployeeExit) =>
   x.employee ? `${x.employee.first_name[0] ?? ""}${x.employee.last_name[0] ?? ""}`.toUpperCase() : "?";
+const recipientCount = (x: EmployeeExit) => x.notify_employee_ids.length + x.notify_emails.length;
+const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
 function lastDayText(lastWorkingDay: string) {
   const days = differenceInCalendarDays(parseISO(lastWorkingDay), new Date());
@@ -81,17 +89,37 @@ function PersonHeader({ exit }: { exit: EmployeeExit }) {
   );
 }
 
+function ChecklistView({ sections }: { sections: ChecklistSection[] }) {
+  if (sections.length === 0) {
+    return <p className="text-sm text-muted-foreground">The checklist template is empty.</p>;
+  }
+  return (
+    <div className="grid gap-4 rounded-lg border p-4 sm:grid-cols-2">
+      {sections.map((s) => (
+        <div key={s.name}>
+          <p className="mb-1.5 text-sm font-semibold text-primary">{s.name}</p>
+          <ul className="list-disc space-y-1 pl-5 text-sm text-foreground">
+            {s.items.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 interface LeavingListProps {
   canManage: boolean;
 }
 
 export function LeavingList({ canManage }: LeavingListProps) {
   const { data: exits = [], isLoading } = useEmployeeExits();
+  const { data: template = [] } = useOffboardingChecklist();
   const updateExit = useUpdateExit();
   const completeExit = useCompleteExit();
-  const toggleTask = useToggleExitTask();
-  const addTask = useAddExitTask();
 
+  const [templateOpen, setTemplateOpen] = useState(false);
   const [approving, setApproving] = useState<EmployeeExit | null>(null);
   const [approveDate, setApproveDate] = useState("");
   const [declining, setDeclining] = useState<EmployeeExit | null>(null);
@@ -100,7 +128,10 @@ export function LeavingList({ canManage }: LeavingListProps) {
   const [newDate, setNewDate] = useState("");
   const [cancelling, setCancelling] = useState<EmployeeExit | null>(null);
   const [completing, setCompleting] = useState<EmployeeExit | null>(null);
-  const [newTask, setNewTask] = useState<Record<string, string>>({});
+  const [emailing, setEmailing] = useState<EmployeeExit | null>(null);
+  const [recipients, setRecipients] = useState<ExitRecipients>({ employeeIds: [], emails: [] });
+  const [emailNote, setEmailNote] = useState("");
+  const [busy, setBusy] = useState(false);
   const [open, setOpen] = useState<Record<string, boolean>>({});
 
   const requested = exits.filter((x) => x.status === "requested");
@@ -110,6 +141,97 @@ export function LeavingList({ canManage }: LeavingListProps) {
     .sort((a, b) => b.last_working_day.localeCompare(a.last_working_day));
 
   const fail = (title: string) => (error: Error) => toast.error(title, { description: error.message });
+
+  const openApprove = (exit: EmployeeExit) => {
+    setApproving(exit);
+    setApproveDate(exit.last_working_day);
+    setEmailNote("");
+    setRecipients({ employeeIds: [], emails: [] });
+    defaultRecipientIds(exit.employee_id)
+      .then((ids) => setRecipients({ employeeIds: ids, emails: [] }))
+      .catch(() => undefined);
+  };
+
+  const openEmail = (exit: EmployeeExit) => {
+    setEmailing(exit);
+    setEmailNote(exit.email_note ?? "");
+    if (recipientCount(exit) > 0) {
+      setRecipients({ employeeIds: exit.notify_employee_ids, emails: exit.notify_emails });
+    } else {
+      setRecipients({ employeeIds: [], emails: [] });
+      defaultRecipientIds(exit.employee_id)
+        .then((ids) => setRecipients({ employeeIds: ids, emails: [] }))
+        .catch(() => undefined);
+    }
+  };
+
+  const emailCount = recipients.employeeIds.length + recipients.emails.length;
+
+  const approve = async () => {
+    if (!approving || !approveDate) return;
+    setBusy(true);
+    try {
+      await updateExit.mutateAsync({
+        id: approving.id,
+        status: "in_progress",
+        lastWorkingDay: approveDate,
+        recipients,
+        emailNote,
+      });
+      const problems: string[] = [];
+      await sendDecisionEmail(approving.id).catch((e: Error) => problems.push(`to ${nameOf(approving)}: ${e.message}`));
+      let sent = 0;
+      if (emailCount > 0) {
+        await sendChecklistEmail(approving.id)
+          .then((r) => (sent = r.sent))
+          .catch((e: Error) => problems.push(`checklist: ${e.message}`));
+      }
+      if (problems.length) {
+        toast.warning("Resignation approved, but some emails weren't sent", { description: problems.join(" · ") });
+      } else {
+        toast.success("Resignation approved", {
+          description: `Last working day ${fmt(approveDate)}. ${nameOf(approving)} was emailed${sent ? `, and the checklist went to ${plural(sent, "person", "people")}` : ""}.`,
+        });
+      }
+      setApproving(null);
+    } catch (e) {
+      fail("Couldn't approve the resignation")(e as Error);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const decline = async () => {
+    if (!declining) return;
+    setBusy(true);
+    try {
+      await updateExit.mutateAsync({ id: declining.id, status: "declined", decisionNotes: declineNote });
+      await sendDecisionEmail(declining.id).catch((e: Error) =>
+        toast.warning("Declined, but the email wasn't sent", { description: e.message }),
+      );
+      toast.success("Resignation declined");
+      setDeclining(null);
+    } catch (e) {
+      fail("Couldn't decline the resignation")(e as Error);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const sendEmail = async () => {
+    if (!emailing) return;
+    setBusy(true);
+    try {
+      await updateExit.mutateAsync({ id: emailing.id, recipients, emailNote });
+      const { sent } = await sendChecklistEmail(emailing.id);
+      toast.success(sent ? `Checklist emailed to ${plural(sent, "person", "people")}` : "Recipients saved; nobody to email");
+      setEmailing(null);
+    } catch (e) {
+      fail("Couldn't send the email")(e as Error);
+    } finally {
+      setBusy(false);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -121,6 +243,23 @@ export function LeavingList({ canManage }: LeavingListProps) {
 
   return (
     <div className="space-y-8">
+      {canManage && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-card p-4">
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-foreground">Offboarding checklist</p>
+            <p className="text-sm text-muted-foreground">
+              {template.length
+                ? `${plural(template.length, "department", "departments")} · ${plural(template.reduce((n, s) => n + s.items.length, 0), "item", "items")}, emailed with every offboarding`
+                : "Not set up yet"}
+            </p>
+          </div>
+          <Button variant="outline" className="h-10 sm:h-9" onClick={() => setTemplateOpen(true)}>
+            <ListChecks className="mr-2 h-4 w-4" aria-hidden="true" />
+            Edit checklist
+          </Button>
+        </div>
+      )}
+
       {requested.length > 0 && (
         <section aria-labelledby="resignations-heading" className="space-y-3">
           <h2 id="resignations-heading" className="text-sm font-semibold text-muted-foreground">
@@ -139,14 +278,7 @@ export function LeavingList({ canManage }: LeavingListProps) {
                     </div>
                     {canManage && (
                       <div className="flex flex-wrap gap-2 md:justify-end">
-                        <Button
-                          size="sm"
-                          className="h-10 sm:h-9"
-                          onClick={() => {
-                            setApproving(exit);
-                            setApproveDate(exit.last_working_day);
-                          }}
-                        >
+                        <Button size="sm" className="h-10 sm:h-9" onClick={() => openApprove(exit)}>
                           <Check className="mr-2 h-4 w-4" aria-hidden="true" />
                           Approve
                         </Button>
@@ -203,11 +335,10 @@ export function LeavingList({ canManage }: LeavingListProps) {
         ) : (
           <ul className="space-y-3">
             {leaving.map((exit) => {
-              const done = exit.tasks.filter((t) => t.done_at).length;
-              const total = exit.tasks.length;
               const due = lastDayText(exit.last_working_day);
               const canComplete = differenceInCalendarDays(parseISO(exit.last_working_day), new Date()) <= 0;
               const isOpen = open[exit.id] ?? false;
+              const count = recipientCount(exit);
               return (
                 <li key={exit.id} data-leaving>
                   <Card>
@@ -228,23 +359,34 @@ export function LeavingList({ canManage }: LeavingListProps) {
                             </Badge>
                           </div>
                         </div>
-                        <div className="space-y-1.5 md:w-44">
-                          <p className="text-sm text-muted-foreground">
-                            Checklist{" "}
-                            <span className="font-medium tabular-nums text-foreground">
-                              {done} of {total}
-                            </span>
+                        <div className="space-y-0.5 text-sm md:w-56">
+                          <p className="flex items-center gap-1.5 font-medium text-foreground">
+                            <Mail className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+                            {exit.notified_at ? `Emailed to ${plural(count, "person", "people")}` : "Checklist not emailed"}
                           </p>
-                          <Progress
-                            value={total ? (done / total) * 100 : 0}
-                            className="h-2"
-                            aria-label={`${done} of ${total} checklist items done`}
-                          />
+                          <p className="text-muted-foreground">
+                            {exit.notified_at
+                              ? `${formatDistanceToNow(new Date(exit.notified_at), { addSuffix: true })}${exit.reminder_sent_at ? " · reminder sent" : " · reminder on the last day"}`
+                              : canManage
+                                ? "Pick who gets it and send"
+                                : "Not sent yet"}
+                          </p>
                         </div>
                       </div>
 
                       <Collapsible open={isOpen} onOpenChange={(o) => setOpen((s) => ({ ...s, [exit.id]: o }))}>
                         <div className="flex flex-wrap items-center gap-2">
+                          {canManage && (
+                            <Button
+                              size="sm"
+                              variant={exit.notified_at ? "outline" : "default"}
+                              className="h-10 sm:h-9"
+                              onClick={() => openEmail(exit)}
+                            >
+                              <Send className="mr-2 h-4 w-4" aria-hidden="true" />
+                              {exit.notified_at ? "Resend email" : "Email checklist"}
+                            </Button>
+                          )}
                           <CollapsibleTrigger asChild>
                             <Button size="sm" variant="outline" className="h-10 sm:h-9" aria-expanded={isOpen}>
                               <ChevronDown
@@ -286,70 +428,11 @@ export function LeavingList({ canManage }: LeavingListProps) {
                             </>
                           )}
                         </div>
-                        <CollapsibleContent className="pt-4">
-                          <ul className="divide-y rounded-lg border" aria-label={`Checklist for ${nameOf(exit)}`}>
-                            {exit.tasks.map((task) => (
-                              <li key={task.id} className="flex items-start gap-3 p-3">
-                                <Checkbox
-                                  id={`task-${task.id}`}
-                                  checked={!!task.done_at}
-                                  disabled={!canManage || (toggleTask.isPending && toggleTask.variables?.id === task.id)}
-                                  onCheckedChange={(checked) =>
-                                    toggleTask.mutate(
-                                      { id: task.id, done: checked === true },
-                                      { onError: fail("Couldn't update the checklist") },
-                                    )
-                                  }
-                                  className="mt-0.5"
-                                />
-                                <label htmlFor={`task-${task.id}`} className="min-w-0 flex-1 text-sm">
-                                  <span className={cn("text-foreground", task.done_at && "text-muted-foreground line-through")}>
-                                    {task.title}
-                                  </span>
-                                  {task.category === "asset" && !task.done_at && (
-                                    <span className="block text-xs text-muted-foreground">
-                                      Ticks itself when the asset is marked returned in Assets
-                                    </span>
-                                  )}
-                                </label>
-                              </li>
-                            ))}
-                            {exit.tasks.length === 0 && (
-                              <li className="p-3 text-sm text-muted-foreground">No checklist items.</li>
-                            )}
-                          </ul>
-                          {canManage && (
-                            <form
-                              className="mt-3 flex gap-2"
-                              onSubmit={(e) => {
-                                e.preventDefault();
-                                const title = (newTask[exit.id] ?? "").trim();
-                                if (!title) return;
-                                addTask.mutate(
-                                  { exitId: exit.id, title },
-                                  {
-                                    onSuccess: () => setNewTask((s) => ({ ...s, [exit.id]: "" })),
-                                    onError: fail("Couldn't add the item"),
-                                  },
-                                );
-                              }}
-                            >
-                              <Label htmlFor={`new-task-${exit.id}`} className="sr-only">
-                                New checklist item
-                              </Label>
-                              <Input
-                                id={`new-task-${exit.id}`}
-                                value={newTask[exit.id] ?? ""}
-                                onChange={(e) => setNewTask((s) => ({ ...s, [exit.id]: e.target.value }))}
-                                placeholder="Add an item, e.g. Revoke Slack access"
-                                maxLength={200}
-                              />
-                              <Button type="submit" variant="outline" disabled={addTask.isPending} aria-label="Add item">
-                                <Plus className="h-4 w-4" aria-hidden="true" />
-                                <span className="ml-2 hidden sm:inline">Add</span>
-                              </Button>
-                            </form>
-                          )}
+                        <CollapsibleContent className="space-y-2 pt-4">
+                          <p className="text-xs text-muted-foreground">
+                            {exit.checklist ? "As emailed. Teams confirm by replying to the email." : "The current template; it's included when you email the checklist."}
+                          </p>
+                          <ChecklistView sections={exit.checklist?.sections ?? template} />
                         </CollapsibleContent>
                       </Collapsible>
                     </CardContent>
@@ -382,13 +465,15 @@ export function LeavingList({ canManage }: LeavingListProps) {
         </section>
       )}
 
+      <ChecklistTemplateDialog open={templateOpen} onOpenChange={setTemplateOpen} />
+
       {/* Approve resignation */}
-      <Dialog open={!!approving} onOpenChange={(o) => !o && setApproving(null)}>
-        <DialogContent className="sm:max-w-md">
+      <Dialog open={!!approving} onOpenChange={(o) => !o && !busy && setApproving(null)}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-xl">
           <DialogHeader>
             <DialogTitle>Approve {approving ? nameOf(approving) : ""}'s resignation</DialogTitle>
             <DialogDescription>
-              Confirm the last working day. The offboarding checklist is created and they're told the date.
+              Confirm the last working day. {approving?.employee?.first_name ?? "They"} gets an email with the date.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-2">
@@ -401,39 +486,36 @@ export function LeavingList({ canManage }: LeavingListProps) {
               onChange={(e) => setApproveDate(e.target.value)}
             />
           </div>
+          {approving && (
+            <OffboardingEmailFields
+              idPrefix="approve"
+              employeeId={approving.employee_id}
+              reason="resignation"
+              lastWorkingDay={approveDate}
+              recipients={recipients}
+              onRecipientsChange={setRecipients}
+              note={emailNote}
+              onNoteChange={setEmailNote}
+            />
+          )}
           <DialogFooter>
-            <Button variant="outline" onClick={() => setApproving(null)}>
+            <Button variant="outline" onClick={() => setApproving(null)} disabled={busy}>
               Cancel
             </Button>
-            <Button
-              disabled={!approveDate || updateExit.isPending}
-              onClick={() =>
-                approving &&
-                updateExit.mutate(
-                  { id: approving.id, status: "in_progress", lastWorkingDay: approveDate },
-                  {
-                    onSuccess: () => {
-                      toast.success(`Resignation approved`, { description: `Last working day: ${fmt(approveDate)}.` });
-                      setApproving(null);
-                    },
-                    onError: fail("Couldn't approve the resignation"),
-                  },
-                )
-              }
-            >
-              {updateExit.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Approve
+            <Button disabled={!approveDate || busy} onClick={approve}>
+              {busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {emailCount > 0 ? "Approve and email checklist" : "Approve"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       {/* Decline resignation */}
-      <Dialog open={!!declining} onOpenChange={(o) => !o && setDeclining(null)}>
+      <Dialog open={!!declining} onOpenChange={(o) => !o && !busy && setDeclining(null)}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Decline {declining ? nameOf(declining) : ""}'s resignation?</DialogTitle>
-            <DialogDescription>They stay on as they are. Your note is shown to them.</DialogDescription>
+            <DialogDescription>They stay on as they are. Your note is emailed to them.</DialogDescription>
           </DialogHeader>
           <div className="space-y-2">
             <Label htmlFor="decline-note">Note to {declining?.employee?.first_name ?? "them"}</Label>
@@ -447,27 +529,47 @@ export function LeavingList({ canManage }: LeavingListProps) {
             />
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDeclining(null)}>
+            <Button variant="outline" onClick={() => setDeclining(null)} disabled={busy}>
               Cancel
             </Button>
-            <Button
-              variant="destructive"
-              disabled={updateExit.isPending}
-              onClick={() =>
-                declining &&
-                updateExit.mutate(
-                  { id: declining.id, status: "declined", decisionNotes: declineNote },
-                  {
-                    onSuccess: () => {
-                      toast.success("Resignation declined");
-                      setDeclining(null);
-                    },
-                    onError: fail("Couldn't decline the resignation"),
-                  },
-                )
-              }
-            >
+            <Button variant="destructive" disabled={busy} onClick={decline}>
               Decline
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Email / resend checklist */}
+      <Dialog open={!!emailing} onOpenChange={(o) => !o && !busy && setEmailing(null)}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-xl">
+          <DialogHeader>
+            <DialogTitle>
+              {emailing?.notified_at ? "Resend" : "Email"} {emailing ? nameOf(emailing) : ""}'s offboarding checklist
+            </DialogTitle>
+            <DialogDescription>
+              Last working day {emailing ? fmt(emailing.last_working_day) : ""}. A reminder goes to the same people on
+              that day.
+            </DialogDescription>
+          </DialogHeader>
+          {emailing && (
+            <OffboardingEmailFields
+              idPrefix="resend"
+              employeeId={emailing.employee_id}
+              reason={emailing.reason}
+              lastWorkingDay={emailing.last_working_day}
+              recipients={recipients}
+              onRecipientsChange={setRecipients}
+              note={emailNote}
+              onNoteChange={setEmailNote}
+            />
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEmailing(null)} disabled={busy}>
+              Cancel
+            </Button>
+            <Button onClick={sendEmail} disabled={busy || emailCount === 0}>
+              {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" aria-hidden="true" />}
+              Send email
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -478,7 +580,9 @@ export function LeavingList({ canManage }: LeavingListProps) {
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Change {changingDate ? nameOf(changingDate) : ""}'s last day</DialogTitle>
-            <DialogDescription>Payroll for their final month is prorated to this date.</DialogDescription>
+            <DialogDescription>
+              Payroll for their final month is prorated to this date. Resend the email if the teams should know.
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-2">
             <Label htmlFor="change-last-day">Last working day</Label>
@@ -522,7 +626,8 @@ export function LeavingList({ canManage }: LeavingListProps) {
           <AlertDialogHeader>
             <AlertDialogTitle>Cancel {cancelling ? nameOf(cancelling) : ""}'s offboarding?</AlertDialogTitle>
             <AlertDialogDescription>
-              They stay on as an active employee and their checklist is closed. They're notified.
+              They stay on as an active employee and no reminder is sent. They're notified in the app. If the checklist
+              was emailed, let those teams know.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -554,11 +659,6 @@ export function LeavingList({ canManage }: LeavingListProps) {
             <AlertDialogDescription>
               They're marked as offboarded, their sign-in is blocked and pending leave is cancelled. This otherwise
               happens automatically the morning after their last working day.
-              {completing && completing.tasks.some((t) => !t.done_at) && (
-                <span className="mt-2 block font-medium text-foreground">
-                  {completing.tasks.filter((t) => !t.done_at).length} checklist item(s) are still open.
-                </span>
-              )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

@@ -15,7 +15,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { EXIT_REASONS, type ExitReason, useStartOffboarding } from "@/hooks/useOffboarding";
+import {
+  defaultRecipientIds,
+  EXIT_REASONS,
+  type ExitReason,
+  type ExitRecipients,
+  useStartOffboarding,
+} from "@/hooks/useOffboarding";
+import { OffboardingEmailFields } from "./OffboardingEmailFields";
 
 interface StartOffboardingDialogProps {
   employee: { id: string; name: string } | null;
@@ -30,14 +37,25 @@ export function StartOffboardingDialog({ employee, onOpenChange }: StartOffboard
   const [noticeDate, setNoticeDate] = useState(today());
   const [lastWorkingDay, setLastWorkingDay] = useState("");
   const [notes, setNotes] = useState("");
+  const [recipients, setRecipients] = useState<ExitRecipients>({ employeeIds: [], emails: [] });
+  const [emailNote, setEmailNote] = useState("");
 
   useEffect(() => {
-    if (employee) {
-      setReason("resignation");
-      setNoticeDate(today());
-      setLastWorkingDay("");
-      setNotes("");
-    }
+    if (!employee) return;
+    setReason("resignation");
+    setNoticeDate(today());
+    setLastWorkingDay("");
+    setNotes("");
+    setEmailNote("");
+    setRecipients({ employeeIds: [], emails: [] });
+    let cancelled = false;
+    // Start with the reporting manager and the department managers
+    defaultRecipientIds(employee.id)
+      .then((ids) => !cancelled && setRecipients({ employeeIds: ids, emails: [] }))
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
   }, [employee]);
 
   const firstName = employee?.name.split(" ")[0] ?? "";
@@ -47,12 +65,21 @@ export function StartOffboardingDialog({ employee, onOpenChange }: StartOffboard
     e.preventDefault();
     if (!employee || !lastWorkingDay || datesInvalid) return;
     start.mutate(
-      { employeeId: employee.id, reason, noticeDate, lastWorkingDay, notes },
+      { employeeId: employee.id, reason, noticeDate, lastWorkingDay, notes, emailNote, recipients },
       {
-        onSuccess: () => {
-          toast.success(`Offboarding started for ${employee.name}`, {
-            description: `Their last working day is ${format(new Date(`${lastWorkingDay}T00:00:00`), "MMM d, yyyy")}. Track the checklist in Onboarding → Leaving.`,
-          });
+        onSuccess: (result) => {
+          const lwd = format(new Date(`${lastWorkingDay}T00:00:00`), "MMM d, yyyy");
+          if (result.emailError) {
+            toast.warning(`Offboarding started for ${employee.name}, but the email wasn't sent`, {
+              description: `${result.emailError} You can resend it from Onboarding → Leaving.`,
+            });
+          } else {
+            toast.success(`Offboarding started for ${employee.name}`, {
+              description: result.emailed
+                ? `Last working day ${lwd}. The checklist was emailed to ${result.emailed} ${result.emailed === 1 ? "person" : "people"}.`
+                : `Last working day ${lwd}. No email was sent.`,
+            });
+          }
           onOpenChange(false);
         },
         onError: (error: Error) => toast.error("Couldn't start offboarding", { description: error.message }),
@@ -62,13 +89,13 @@ export function StartOffboardingDialog({ employee, onOpenChange }: StartOffboard
 
   return (
     <Dialog open={!!employee} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-xl">
         <form onSubmit={submit} className="space-y-4">
           <DialogHeader>
             <DialogTitle>Start offboarding {employee?.name}</DialogTitle>
             <DialogDescription>
               {firstName} stays active until their last working day. The day after, they're marked as offboarded and
-              their sign-in is blocked. A checklist (assets to return, final payroll and more) is created now.
+              their sign-in is blocked.
             </DialogDescription>
           </DialogHeader>
 
@@ -120,16 +147,29 @@ export function StartOffboardingDialog({ employee, onOpenChange }: StartOffboard
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="exit-notes">Notes</Label>
+            <Label htmlFor="exit-notes">Internal notes</Label>
             <Textarea
               id="exit-notes"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              placeholder="Anything HR should know (optional)"
+              placeholder="For HR only, not included in the email (optional)"
               maxLength={2000}
               rows={3}
             />
           </div>
+
+          {employee && (
+            <OffboardingEmailFields
+              idPrefix="start"
+              employeeId={employee.id}
+              reason={reason}
+              lastWorkingDay={lastWorkingDay}
+              recipients={recipients}
+              onRecipientsChange={setRecipients}
+              note={emailNote}
+              onNoteChange={setEmailNote}
+            />
+          )}
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
@@ -137,7 +177,7 @@ export function StartOffboardingDialog({ employee, onOpenChange }: StartOffboard
             </Button>
             <Button type="submit" disabled={!lastWorkingDay || datesInvalid || start.isPending}>
               {start.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Start offboarding
+              {recipients.employeeIds.length + recipients.emails.length > 0 ? "Start and email checklist" : "Start offboarding"}
             </Button>
           </DialogFooter>
         </form>

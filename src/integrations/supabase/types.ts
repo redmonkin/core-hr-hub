@@ -402,12 +402,18 @@ export type Database = {
           decided_at: string | null
           decided_by: string | null
           decision_notes: string | null
+          checklist: Json | null
+          email_note: string | null
           employee_id: string
           id: string
           last_working_day: string
           notes: string | null
+          notified_at: string | null
+          notify_emails: string[]
+          notify_employee_ids: string[]
           notice_date: string
           reason: Database["public"]["Enums"]["exit_reason"]
+          reminder_sent_at: string | null
           requested_by: string | null
           status: Database["public"]["Enums"]["exit_status"]
           updated_at: string
@@ -418,12 +424,18 @@ export type Database = {
           decided_at?: string | null
           decided_by?: string | null
           decision_notes?: string | null
+          checklist?: Json | null
+          email_note?: string | null
           employee_id: string
           id?: string
           last_working_day: string
           notes?: string | null
+          notified_at?: string | null
+          notify_emails?: string[]
+          notify_employee_ids?: string[]
           notice_date?: string
           reason: Database["public"]["Enums"]["exit_reason"]
+          reminder_sent_at?: string | null
           requested_by?: string | null
           status?: Database["public"]["Enums"]["exit_status"]
           updated_at?: string
@@ -434,12 +446,18 @@ export type Database = {
           decided_at?: string | null
           decided_by?: string | null
           decision_notes?: string | null
+          checklist?: Json | null
+          email_note?: string | null
           employee_id?: string
           id?: string
           last_working_day?: string
           notes?: string | null
+          notified_at?: string | null
+          notify_emails?: string[]
+          notify_employee_ids?: string[]
           notice_date?: string
           reason?: Database["public"]["Enums"]["exit_reason"]
+          reminder_sent_at?: string | null
           requested_by?: string | null
           status?: Database["public"]["Enums"]["exit_status"]
           updated_at?: string
@@ -1072,6 +1090,14 @@ export type Database = {
       }
       payroll_records: {
         Row: {
+          adjustment_amount: number
+          adjustment_note: string | null
+          hra: number | null
+          medical_allowance: number | null
+          other_allowances: number | null
+          pf_deduction: number | null
+          tax_deduction: number | null
+          transport_allowance: number | null
           advance_amount_adjusted: number
           basic_salary: number
           created_at: string
@@ -1093,6 +1119,14 @@ export type Database = {
           year: number
         }
         Insert: {
+          adjustment_amount?: number
+          adjustment_note?: string | null
+          hra?: number | null
+          medical_allowance?: number | null
+          other_allowances?: number | null
+          pf_deduction?: number | null
+          tax_deduction?: number | null
+          transport_allowance?: number | null
           advance_amount_adjusted?: number
           basic_salary: number
           created_at?: string
@@ -1114,6 +1148,14 @@ export type Database = {
           year: number
         }
         Update: {
+          adjustment_amount?: number
+          adjustment_note?: string | null
+          hra?: number | null
+          medical_allowance?: number | null
+          other_allowances?: number | null
+          pf_deduction?: number | null
+          tax_deduction?: number | null
+          transport_allowance?: number | null
           advance_amount_adjusted?: number
           basic_salary?: number
           created_at?: string
@@ -1529,6 +1571,111 @@ export type Database = {
           },
         ]
       }
+      salary_revisions: {
+        Row: {
+          adjustment_amount: number
+          adjustment_note: string | null
+          adjustment_payroll_id: string | null
+          applied_at: string | null
+          basic_salary: number
+          created_at: string
+          created_by: string | null
+          decided_at: string | null
+          decided_by: string | null
+          decision_notes: string | null
+          effective_from: string
+          emailed_at: string | null
+          employee_id: string
+          hra: number
+          id: string
+          medical_allowance: number
+          notify_employee: boolean
+          other_allowances: number
+          performance_review_id: string | null
+          pf_deduction: number
+          previous: Json | null
+          reason: string | null
+          revision_type: Database["public"]["Enums"]["salary_revision_type"]
+          status: Database["public"]["Enums"]["salary_revision_status"]
+          tax_deduction: number
+          transport_allowance: number
+          updated_at: string
+        }
+        Insert: {
+          adjustment_amount?: number
+          adjustment_note?: string | null
+          adjustment_payroll_id?: string | null
+          applied_at?: string | null
+          basic_salary: number
+          created_at?: string
+          created_by?: string | null
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_notes?: string | null
+          effective_from: string
+          emailed_at?: string | null
+          employee_id: string
+          hra?: number
+          id?: string
+          medical_allowance?: number
+          notify_employee?: boolean
+          other_allowances?: number
+          performance_review_id?: string | null
+          pf_deduction?: number
+          previous?: Json | null
+          reason?: string | null
+          revision_type: Database["public"]["Enums"]["salary_revision_type"]
+          status?: Database["public"]["Enums"]["salary_revision_status"]
+          tax_deduction?: number
+          transport_allowance?: number
+          updated_at?: string
+        }
+        Update: {
+          adjustment_amount?: number
+          adjustment_note?: string | null
+          adjustment_payroll_id?: string | null
+          applied_at?: string | null
+          basic_salary?: number
+          created_at?: string
+          created_by?: string | null
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_notes?: string | null
+          effective_from?: string
+          emailed_at?: string | null
+          employee_id?: string
+          hra?: number
+          id?: string
+          medical_allowance?: number
+          notify_employee?: boolean
+          other_allowances?: number
+          performance_review_id?: string | null
+          pf_deduction?: number
+          previous?: Json | null
+          reason?: string | null
+          revision_type?: Database["public"]["Enums"]["salary_revision_type"]
+          status?: Database["public"]["Enums"]["salary_revision_status"]
+          tax_deduction?: number
+          transport_allowance?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "salary_revisions_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "salary_revisions_performance_review_id_fkey"
+            columns: ["performance_review_id"]
+            isOneToOne: false
+            referencedRelation: "performance_reviews"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       salary_structures: {
         Row: {
           basic_salary: number
@@ -1803,6 +1950,18 @@ export type Database = {
       payroll_status: "draft" | "processed" | "paid"
       permission_level: "view" | "manage"
       reimbursement_status: "pending" | "approved" | "rejected" | "paid"
+      salary_revision_status:
+        | "pending_approval"
+        | "scheduled"
+        | "applied"
+        | "rejected"
+        | "cancelled"
+      salary_revision_type:
+        | "annual_appraisal"
+        | "promotion"
+        | "market_correction"
+        | "adjustment"
+        | "other"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1970,6 +2129,8 @@ export const Constants = {
       payroll_status: ["draft", "processed", "paid"],
       permission_level: ["view", "manage"],
       reimbursement_status: ["pending", "approved", "rejected", "paid"],
+      salary_revision_status: ["pending_approval", "scheduled", "applied", "rejected", "cancelled"],
+      salary_revision_type: ["annual_appraisal", "promotion", "market_correction", "adjustment", "other"],
     },
   },
 } as const

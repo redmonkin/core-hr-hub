@@ -25,7 +25,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Building2, CalendarDays, Plus, Pencil, Trash2, Loader2, ShieldAlert, Users, Hash, Globe, MapPin, Palette } from "lucide-react";
+import { Building2, CalendarDays, Plus, Pencil, Trash2, Loader2, ShieldAlert, Users, Hash, Globe, MapPin, Palette, IndianRupee } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useDepartments } from "@/hooks/useEmployees";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -38,6 +38,7 @@ import { EmployeeCodeSettings } from "@/components/settings/EmployeeCodeSettings
 import DomainWhitelistSettings from "@/components/settings/DomainWhitelistSettings";
 import OfficeLocationSettings from "@/components/settings/OfficeLocationSettings";
 import { BrandingSettings } from "@/components/settings/BrandingSettings";
+import { PayrollSettings } from "@/components/settings/PayrollSettings";
 import { toneClass } from "@/lib/statusStyles";
 
 // Fetch leave types
@@ -75,7 +76,8 @@ type SettingsTab =
   | "employee-id"
   | "domain-whitelist"
   | "office-location"
-  | "branding";
+  | "branding"
+  | "payroll";
 
 const Settings = () => {
   const [requestedTab, setRequestedTab] = useState<SettingsTab | null>(null);
@@ -92,10 +94,12 @@ const Settings = () => {
     "domain-whitelist": can('settings', 'manage'),
     "office-location": can('settings', 'manage'),
     branding: can('settings', 'manage'),
+    // Approval rules for pay changes: admins only (enforced in the database too)
+    payroll: isAdmin,
   };
   // Display order; the first tab the user can use is the default
   const TAB_ORDER: SettingsTab[] = [
-    "user-roles", "departments", "leave-types", "employee-id", "domain-whitelist", "office-location", "branding",
+    "user-roles", "departments", "leave-types", "employee-id", "domain-whitelist", "office-location", "branding", "payroll",
   ];
   const allowedTabs = TAB_ORDER.filter((t) => tabAllowed[t]);
   const activeTab: SettingsTab | undefined =
@@ -310,7 +314,7 @@ const Settings = () => {
         </div>
 
         <Tabs value={activeTab} onValueChange={(v) => setRequestedTab(v as SettingsTab)}>
-          <TabsList className="grid h-auto w-full grid-cols-2 gap-1 sm:inline-flex sm:h-10 sm:w-auto" aria-label="Settings sections">
+          <TabsList className="grid h-auto w-full grid-cols-2 gap-1 sm:flex sm:w-auto sm:flex-wrap sm:justify-start" aria-label="Settings sections">
             {tabAllowed["user-roles"] && (
               <TabsTrigger
                 value="user-roles"
@@ -354,6 +358,12 @@ const Settings = () => {
               <TabsTrigger value="branding" className="min-h-10 w-full justify-start gap-2 sm:min-h-0 sm:w-auto sm:justify-center">
                 <Palette className="h-4 w-4" aria-hidden="true" />
                 <span>Branding</span>
+              </TabsTrigger>
+            )}
+            {tabAllowed.payroll && (
+              <TabsTrigger value="payroll" className="min-h-10 w-full justify-start gap-2 sm:min-h-0 sm:w-auto sm:justify-center">
+                <IndianRupee className="h-4 w-4" aria-hidden="true" />
+                <span>Payroll</span>
               </TabsTrigger>
             )}
           </TabsList>
@@ -642,6 +652,12 @@ const Settings = () => {
           {tabAllowed["branding"] && (
             <TabsContent value="branding" className="mt-6">
               <BrandingSettings />
+            </TabsContent>
+          )}
+
+          {tabAllowed.payroll && (
+            <TabsContent value="payroll" className="mt-6">
+              <PayrollSettings />
             </TabsContent>
           )}
         </Tabs>

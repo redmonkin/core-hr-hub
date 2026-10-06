@@ -121,3 +121,28 @@ export function calculatePayrollAmounts(salary: SalaryComponents, ratio: number)
     net_salary: basicSalary + proratedAllowances - proratedDeductions,
   };
 }
+
+export interface PayrollComponents {
+  hra: number;
+  transport_allowance: number;
+  medical_allowance: number;
+  other_allowances: number;
+  tax_deduction: number;
+  pf_deduction: number;
+}
+
+/**
+ * The salary components for one payroll record, prorated like the totals.
+ * Stored on the record so a later salary revision never changes an old payslip.
+ */
+export function prorateComponents(salary: SalaryComponents, ratio: number): PayrollComponents {
+  const part = (value: number | string | null | undefined) => Math.round(Number(value || 0) * ratio * 100) / 100;
+  return {
+    hra: part(salary.hra),
+    transport_allowance: part(salary.transport_allowance),
+    medical_allowance: part(salary.medical_allowance),
+    other_allowances: part(salary.other_allowances),
+    tax_deduction: part(salary.tax_deduction),
+    pf_deduction: part(salary.pf_deduction),
+  };
+}
