@@ -20,7 +20,17 @@ When you update a self-hosted copy, read the **Upgrade notes** of every version 
 
 - Apply `20261006100000_onboarding_invites.sql` and redeploy `invite-employee` and `onboarding-reminders`. The `onboarding-request-notification` function is no longer used and can be deleted from your project.
 
-### Offboarding
+### Offboarding emails
+
+- **Department-wise offboarding checklist** (IT, HR, Finance, Facilities/Admin), edited from Onboarding → Leaving → **Edit checklist**.
+- When HR starts an offboarding or approves a resignation, they **pick who gets the checklist email**: anyone in the team (the reporting manager and department managers are suggested) and outside addresses such as it@company.com, with an optional note and a **preview**. Replies go to the HR person who sent it. A **reminder** goes to the same people on the last working day, and the email can be resent from the Leaving tab.
+- **Resignations are emailed** to HR and the reporting manager, with a confirmation to the employee; approvals (with the confirmed last day) and declines are emailed to the employee.
+- The in-app tick-box checklist is replaced by the emailed checklist; teams confirm by replying to the email.
+
+### Upgrade notes (offboarding emails)
+
+- Apply `20261009100000_offboarding_emails.sql`, deploy `offboarding-email` and `offboarding-reminders`, and schedule the reminder (see the self-hosting guide).
+
 
 - **Start offboarding** from an employee's row in Employees: reason, notice date and last working day. They stay active through their notice period and show as "Leaving <date>".
 - **Resignations**: employees can resign from their profile with a proposed last day; HR approves (confirming the date) or declines with a note. Employees can withdraw until it's approved.

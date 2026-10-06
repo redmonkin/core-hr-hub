@@ -402,12 +402,18 @@ export type Database = {
           decided_at: string | null
           decided_by: string | null
           decision_notes: string | null
+          checklist: Json | null
+          email_note: string | null
           employee_id: string
           id: string
           last_working_day: string
           notes: string | null
+          notified_at: string | null
+          notify_emails: string[]
+          notify_employee_ids: string[]
           notice_date: string
           reason: Database["public"]["Enums"]["exit_reason"]
+          reminder_sent_at: string | null
           requested_by: string | null
           status: Database["public"]["Enums"]["exit_status"]
           updated_at: string
@@ -418,12 +424,18 @@ export type Database = {
           decided_at?: string | null
           decided_by?: string | null
           decision_notes?: string | null
+          checklist?: Json | null
+          email_note?: string | null
           employee_id: string
           id?: string
           last_working_day: string
           notes?: string | null
+          notified_at?: string | null
+          notify_emails?: string[]
+          notify_employee_ids?: string[]
           notice_date?: string
           reason: Database["public"]["Enums"]["exit_reason"]
+          reminder_sent_at?: string | null
           requested_by?: string | null
           status?: Database["public"]["Enums"]["exit_status"]
           updated_at?: string
@@ -434,12 +446,18 @@ export type Database = {
           decided_at?: string | null
           decided_by?: string | null
           decision_notes?: string | null
+          checklist?: Json | null
+          email_note?: string | null
           employee_id?: string
           id?: string
           last_working_day?: string
           notes?: string | null
+          notified_at?: string | null
+          notify_emails?: string[]
+          notify_employee_ids?: string[]
           notice_date?: string
           reason?: Database["public"]["Enums"]["exit_reason"]
+          reminder_sent_at?: string | null
           requested_by?: string | null
           status?: Database["public"]["Enums"]["exit_status"]
           updated_at?: string

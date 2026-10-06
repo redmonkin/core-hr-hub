@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { FunctionsHttpError } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
-import type { Database } from "@/integrations/supabase/types";
+import type { Database, Json } from "@/integrations/supabase/types";
 
 export type ExitReason = Database["public"]["Enums"]["exit_reason"];
 export type ExitStatus = Database["public"]["Enums"]["exit_status"];
@@ -16,14 +17,15 @@ export const EXIT_REASONS: { value: ExitReason; label: string }[] = [
 export const exitReasonLabel = (reason: ExitReason) =>
   EXIT_REASONS.find((r) => r.value === reason)?.label ?? reason;
 
-export interface ExitTask {
-  id: string;
-  title: string;
-  category: string;
-  asset_assignment_id: string | null;
-  position: number;
-  done_at: string | null;
-  created_at: string;
+export interface ChecklistSection {
+  name: string;
+  items: string[];
+}
+
+/** Who an offboarding's checklist is emailed to: employees and/or outside addresses. */
+export interface ExitRecipients {
+  employeeIds: string[];
+  emails: string[];
 }
 
 export interface EmployeeExit {
@@ -35,6 +37,12 @@ export interface EmployeeExit {
   last_working_day: string;
   notes: string | null;
   decision_notes: string | null;
+  email_note: string | null;
+  notify_employee_ids: string[];
+  notify_emails: string[];
+  notified_at: string | null;
+  reminder_sent_at: string | null;
+  checklist: { sections: ChecklistSection[] } | null;
   created_at: string;
   completed_at: string | null;
   employee: {
@@ -42,22 +50,21 @@ export interface EmployeeExit {
     last_name: string;
     email: string;
     designation: string | null;
+    manager_id: string | null;
+    department_id: string | null;
     department: { name: string } | null;
   } | null;
-  tasks: ExitTask[];
 }
 
 const EXIT_SELECT = `
-  id, employee_id, reason, status, notice_date, last_working_day, notes, decision_notes, created_at, completed_at,
+  id, employee_id, reason, status, notice_date, last_working_day, notes, decision_notes,
+  email_note, notify_employee_ids, notify_emails, notified_at, reminder_sent_at, checklist,
+  created_at, completed_at,
   employee:employees!employee_exits_employee_id_fkey(
-    first_name, last_name, email, designation,
+    first_name, last_name, email, designation, manager_id, department_id,
     department:departments!employees_department_id_fkey(name)
-  ),
-  tasks:exit_tasks(id, title, category, asset_assignment_id, position, done_at, created_at)
+  )
 `;
-
-const sortTasks = (tasks: ExitTask[]) =>
-  [...tasks].sort((a, b) => a.position - b.position || a.created_at.localeCompare(b.created_at));
 
 /** Open exits (requested / in progress) and those completed in the last 90 days. */
 export function useEmployeeExits(enabled = true) {
@@ -72,7 +79,7 @@ export function useEmployeeExits(enabled = true) {
         .or(`status.in.(requested,in_progress),and(status.eq.completed,completed_at.gte."${since}")`)
         .order("last_working_day", { ascending: true });
       if (error) throw error;
-      return ((data ?? []) as unknown as EmployeeExit[]).map((x) => ({ ...x, tasks: sortTasks(x.tasks ?? []) }));
+      return (data ?? []) as unknown as EmployeeExit[];
     },
   });
 }
@@ -96,6 +103,121 @@ export function useMyExit(employeeId: string | null | undefined) {
   });
 }
 
+// ---------------------------------------------------------------------------
+// Checklist template (organization_settings 'offboarding_checklist')
+// ---------------------------------------------------------------------------
+
+export function useOffboardingChecklist() {
+  return useQuery({
+    queryKey: ["offboarding-checklist"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("organization_settings")
+        .select("setting_value")
+        .eq("setting_key", "offboarding_checklist")
+        .maybeSingle();
+      if (error) throw error;
+      const sections = (data?.setting_value as { sections?: ChecklistSection[] } | null)?.sections;
+      return Array.isArray(sections) ? sections : [];
+    },
+  });
+}
+
+export function useSaveOffboardingChecklist() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (sections: ChecklistSection[]) => {
+      const cleaned = sections
+        .map((s) => ({ name: s.name.trim(), items: s.items.map((i) => i.trim()).filter(Boolean) }))
+        .filter((s) => s.name && s.items.length > 0);
+      const { error } = await supabase
+        .from("organization_settings")
+        .upsert(
+          { setting_key: "offboarding_checklist", setting_value: { sections: cleaned } as unknown as Json },
+          { onConflict: "setting_key" },
+        );
+      if (error) throw error;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["offboarding-checklist"] }),
+  });
+}
+
+/**
+ * Default recipients for an offboarding email: the person's reporting manager
+ * and every department manager (never the person leaving).
+ */
+export async function defaultRecipientIds(employeeId: string): Promise<string[]> {
+  const [{ data: employee }, { data: departments }] = await Promise.all([
+    supabase.from("employees").select("manager_id").eq("id", employeeId).maybeSingle(),
+    supabase.from("departments").select("manager_id").not("manager_id", "is", null),
+  ]);
+  const ids = new Set<string>();
+  if (employee?.manager_id) ids.add(employee.manager_id);
+  for (const d of departments ?? []) if (d.manager_id) ids.add(d.manager_id);
+  ids.delete(employeeId);
+  return [...ids];
+}
+
+// ---------------------------------------------------------------------------
+// Emails (offboarding-email function)
+// ---------------------------------------------------------------------------
+
+export interface EmailPreview {
+  subject: string;
+  html: string;
+  to: string[];
+  reply_to: string | null;
+}
+
+async function callOffboardingEmail<T>(body: Record<string, unknown>): Promise<T> {
+  const { data, error } = await supabase.functions.invoke("offboarding-email", { body });
+  if (error) {
+    let message = error.message || "The email couldn't be sent";
+    if (error instanceof FunctionsHttpError) {
+      try {
+        const payload = (await (error.context as Response).json()) as { error?: string };
+        if (payload?.error) message = payload.error;
+      } catch {
+        // body wasn't JSON; keep the generic message
+      }
+    }
+    throw new Error(message);
+  }
+  return data as T;
+}
+
+export const sendChecklistEmail = (exitId: string) =>
+  callOffboardingEmail<{ sent: number }>({ action: "checklist", exit_id: exitId });
+
+export const sendResignationEmail = (exitId: string) =>
+  callOffboardingEmail<{ sent: number }>({ action: "resignation", exit_id: exitId });
+
+export const sendDecisionEmail = (exitId: string) =>
+  callOffboardingEmail<{ sent: number }>({ action: "decision", exit_id: exitId });
+
+export const previewChecklistEmail = (draft: {
+  employeeId: string;
+  reason: ExitReason;
+  lastWorkingDay: string;
+  emailNote: string;
+  recipients: ExitRecipients;
+}) =>
+  callOffboardingEmail<EmailPreview>({
+    action: "preview",
+    draft: {
+      employee_id: draft.employeeId,
+      reason: draft.reason,
+      last_working_day: draft.lastWorkingDay,
+      email_note: draft.emailNote.trim() || null,
+      notify_employee_ids: draft.recipients.employeeIds,
+      notify_emails: draft.recipients.emails,
+    },
+  });
+
+// ---------------------------------------------------------------------------
+// Mutations
+// ---------------------------------------------------------------------------
+
 function useInvalidateExits() {
   const queryClient = useQueryClient();
   return () => {
@@ -115,38 +237,64 @@ export function useStartOffboarding() {
       noticeDate: string;
       lastWorkingDay: string;
       notes?: string;
+      emailNote?: string;
+      recipients: ExitRecipients;
     }) => {
-      const { error } = await supabase.from("employee_exits").insert({
-        employee_id: input.employeeId,
-        reason: input.reason,
-        notice_date: input.noticeDate,
-        last_working_day: input.lastWorkingDay,
-        notes: input.notes?.trim() || null,
-      });
+      const { data, error } = await supabase
+        .from("employee_exits")
+        .insert({
+          employee_id: input.employeeId,
+          reason: input.reason,
+          notice_date: input.noticeDate,
+          last_working_day: input.lastWorkingDay,
+          notes: input.notes?.trim() || null,
+          email_note: input.emailNote?.trim() || null,
+          notify_employee_ids: input.recipients.employeeIds,
+          notify_emails: input.recipients.emails,
+        })
+        .select("id")
+        .single();
       if (error) {
         if (error.code === "23505") throw new Error("This person already has an offboarding in progress.");
         throw error;
       }
+      // The record is saved either way; report the email separately.
+      let emailed: number | null = null;
+      let emailError: string | null = null;
+      if (input.recipients.employeeIds.length + input.recipients.emails.length > 0) {
+        try {
+          emailed = (await sendChecklistEmail(data.id)).sent;
+        } catch (e) {
+          emailError = e instanceof Error ? e.message : String(e);
+        }
+      }
+      return { id: data.id, emailed, emailError };
     },
     onSuccess: invalidate,
   });
 }
 
-/** Employee's own resignation; HR approves it. */
+/** Employee's own resignation; HR approves it. HR and the reporting manager are emailed. */
 export function useResign() {
   const invalidate = useInvalidateExits();
   return useMutation({
     mutationFn: async (input: { employeeId: string; lastWorkingDay: string; notes?: string }) => {
-      const { error } = await supabase.from("employee_exits").insert({
-        employee_id: input.employeeId,
-        reason: "resignation",
-        last_working_day: input.lastWorkingDay,
-        notes: input.notes?.trim() || null,
-      });
+      const { data, error } = await supabase
+        .from("employee_exits")
+        .insert({
+          employee_id: input.employeeId,
+          reason: "resignation",
+          last_working_day: input.lastWorkingDay,
+          notes: input.notes?.trim() || null,
+        })
+        .select("id")
+        .single();
       if (error) {
         if (error.code === "23505") throw new Error("You already have a resignation in progress.");
         throw error;
       }
+      // Fire and forget: the in-app notice already reached HR
+      sendResignationEmail(data.id).catch((e) => console.error("Resignation email failed:", e));
     },
     onSuccess: invalidate,
   });
@@ -160,11 +308,18 @@ export function useUpdateExit() {
       status?: ExitStatus;
       lastWorkingDay?: string;
       decisionNotes?: string | null;
+      emailNote?: string | null;
+      recipients?: ExitRecipients;
     }) => {
       const update: Database["public"]["Tables"]["employee_exits"]["Update"] = {};
       if (input.status) update.status = input.status;
       if (input.lastWorkingDay) update.last_working_day = input.lastWorkingDay;
       if (input.decisionNotes !== undefined) update.decision_notes = input.decisionNotes?.trim() || null;
+      if (input.emailNote !== undefined) update.email_note = input.emailNote?.trim() || null;
+      if (input.recipients) {
+        update.notify_employee_ids = input.recipients.employeeIds;
+        update.notify_emails = input.recipients.emails;
+      }
       const { error } = await supabase.from("employee_exits").update(update).eq("id", input.id);
       if (error) throw error;
     },
@@ -180,32 +335,5 @@ export function useCompleteExit() {
       if (error) throw error;
     },
     onSuccess: invalidate,
-  });
-}
-
-export function useToggleExitTask() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async ({ id, done }: { id: string; done: boolean }) => {
-      const { error } = await supabase
-        .from("exit_tasks")
-        .update({ done_at: done ? new Date().toISOString() : null })
-        .eq("id", id);
-      if (error) throw error;
-    },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["employee-exits"] }),
-  });
-}
-
-export function useAddExitTask() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async ({ exitId, title }: { exitId: string; title: string }) => {
-      const { error } = await supabase
-        .from("exit_tasks")
-        .insert({ exit_id: exitId, title: title.trim(), category: "custom", position: 1000 });
-      if (error) throw error;
-    },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["employee-exits"] }),
   });
 }

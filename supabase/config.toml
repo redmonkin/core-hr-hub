@@ -44,3 +44,9 @@ verify_jwt = false
 
 [functions.generate-monthly-payroll]
 verify_jwt = false
+
+[functions.offboarding-email]
+verify_jwt = false
+
+[functions.offboarding-reminders]
+verify_jwt = false
