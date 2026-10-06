@@ -50,3 +50,6 @@ verify_jwt = false
 
 [functions.offboarding-reminders]
 verify_jwt = false
+
+[functions.salary-revisions]
+verify_jwt = false

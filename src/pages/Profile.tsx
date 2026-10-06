@@ -27,6 +27,7 @@ import { EmployeeDocuments } from "@/components/documents/EmployeeDocuments";
 import { LeaveBalanceCard } from "@/components/profile/LeaveBalanceCard";
 import { LeaveRequestForm } from "@/components/profile/LeaveRequestForm";
 import { LeaveRequestHistory } from "@/components/profile/LeaveRequestHistory";
+import { MyCompensation } from "@/components/payroll/SalaryRevisionsPanel";
 import { PayslipViewer } from "@/components/profile/PayslipViewer";
 import { ResignationCard } from "@/components/profile/ResignationCard";
 import { TaxDocumentsViewer } from "@/components/profile/TaxDocumentsViewer";
@@ -587,6 +588,7 @@ const Profile = () => {
 
             {/* Payslips Tab */}
             <TabsContent value="payslips" className="space-y-6">
+              <MyCompensation employeeId={employee.id} />
               <PayslipViewer 
                 employeeId={employee.id} 
                 employeeName={`${employee.first_name} ${employee.last_name}`}

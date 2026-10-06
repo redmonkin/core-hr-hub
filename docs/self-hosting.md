@@ -214,6 +214,15 @@ select cron.schedule('process-employee-exits', '30 0 * * *', $$
   select public.process_employee_exits();
 $$);
 
+-- Apply salary revisions whose effective date has come and email those
+-- employees: daily at 00:45 UTC (06:15 IST)
+select cron.schedule('salary-revisions-daily', '45 0 * * *', $$
+  select net.http_post(
+    url := 'https://<project-ref>.supabase.co/functions/v1/salary-revisions',
+    headers := jsonb_build_object('Content-Type', 'application/json', 'x-cron-secret', '<CRON_SECRET>'),
+    body := '{}'::jsonb);
+$$);
+
 -- Remind the teams on someone's last working day (the offboarding checklist
 -- email): daily at 03:30 UTC (09:00 IST)
 select cron.schedule('offboarding-reminders-daily', '30 3 * * *', $$

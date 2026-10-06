@@ -5,6 +5,7 @@ import {
   countWorkingDays,
   getProrationRatio,
   isEmployedDuringMonth,
+  prorateComponents,
   resolveWorkingDays,
 } from "./payrollProration";
 
@@ -195,5 +196,16 @@ describe("leavers", () => {
     expect(isEmployedDuringMonth("2025-01-10", "2026-09-01", "2026-09-01", "2026-09-30")).toBe(true);
     expect(isEmployedDuringMonth("2025-01-10", "2026-08-31", "2026-09-01", "2026-09-30")).toBe(false);
     expect(isEmployedDuringMonth("2026-10-01", null, "2026-09-01", "2026-09-30")).toBe(false);
+  });
+});
+
+describe("prorateComponents", () => {
+  it("keeps each component, prorated and rounded to paise", () => {
+    expect(
+      prorateComponents(
+        { basic_salary: 30000, hra: 10000, transport_allowance: 1000, medical_allowance: 0, other_allowances: 333, tax_deduction: 200, pf_deduction: 1800 },
+        0.5,
+      ),
+    ).toEqual({ hra: 5000, transport_allowance: 500, medical_allowance: 0, other_allowances: 166.5, tax_deduction: 100, pf_deduction: 900 });
   });
 });

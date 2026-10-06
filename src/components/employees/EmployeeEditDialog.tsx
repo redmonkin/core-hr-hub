@@ -22,16 +22,11 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Employee } from "./EmployeeTable";
-import { Loader2, Hash, IndianRupee, History, ChevronDown, ChevronUp } from "lucide-react";
+import { Loader2, Hash, IndianRupee } from "lucide-react";
 import { format, parseISO } from "date-fns";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Switch } from "@/components/ui/switch";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
 import { WorkingDaysPicker } from "./WorkingDaysPicker";
+import { SalaryRevisionsPanel } from "@/components/payroll/SalaryRevisionsPanel";
 import { EmployeeLeaveEligibility, type EmployeeLeaveEligibilityHandle } from "./EmployeeLeaveEligibility";
 import { normalizeIfsc, isValidIfsc } from "@/lib/ifsc";
 import { Badge } from "@/components/ui/badge";
@@ -142,24 +137,6 @@ export function EmployeeEditDialog({ employee, open, onOpenChange }: EmployeeEdi
     enabled: open && !!employee?.id,
   });
 
-  // Fetch salary history for this employee
-  const { data: salaryHistory = [], isLoading: isLoadingHistory } = useQuery({
-    queryKey: ["employee-salary-history", employee?.id],
-    queryFn: async () => {
-      if (!employee?.id) return [];
-      const { data, error } = await supabase
-        .from("salary_history")
-        .select("*")
-        .eq("employee_id", employee.id)
-        .order("effective_from", { ascending: false });
-
-      if (error) throw error;
-      return data || [];
-    },
-    enabled: open && !!employee?.id,
-  });
-
-  const [showHistory, setShowHistory] = useState(false);
   const [isDepartmentManager, setIsDepartmentManager] = useState(false);
   const eligibilityRef = useRef<EmployeeLeaveEligibilityHandle>(null);
 
@@ -397,7 +374,7 @@ export function EmployeeEditDialog({ employee, open, onOpenChange }: EmployeeEdi
 
       const { error } = await supabase
         .from("salary_structures")
-        .upsert(salaryPayload, { onConflict: "employee_id" });
+        .insert(salaryPayload);
 
       if (error) throw error;
     },
@@ -433,8 +410,8 @@ export function EmployeeEditDialog({ employee, open, onOpenChange }: EmployeeEdi
       // Update employee details and department manager status
       await updateMutation.mutateAsync({ data: formData, isDeptManager: isDepartmentManager });
       
-      // Update salary structure if basic salary is provided
-      if (salaryData.basic_salary) {
+      // Set up the initial salary; later changes go through Revise salary
+      if (!salaryStructure && salaryData.basic_salary) {
         await salaryMutation.mutateAsync(salaryData);
       }
 
@@ -813,10 +790,16 @@ export function EmployeeEditDialog({ employee, open, onOpenChange }: EmployeeEdi
                   <div className="flex items-center justify-center py-8">
                     <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                   </div>
+                ) : salaryStructure && employee ? (
+                  <SalaryRevisionsPanel
+                    employeeId={employee.id}
+                    employeeName={`${formData.first_name} ${formData.last_name}`.trim()}
+                    structure={salaryStructure}
+                  />
                 ) : (
                   <>
                     <p className="text-xs text-muted-foreground">
-                      All amounts below are <span className="font-medium text-foreground">monthly</span> figures, not annual (CTC).
+                      No salary set up yet. All amounts below are <span className="font-medium text-foreground">monthly</span> figures, not annual (CTC).
                     </p>
                     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                       <div className="space-y-2">
@@ -955,88 +938,6 @@ export function EmployeeEditDialog({ employee, open, onOpenChange }: EmployeeEdi
                       </div>
                     </div>
 
-                    {/* Salary History Section */}
-                    {salaryHistory.length > 0 && (
-                      <Collapsible open={showHistory} onOpenChange={setShowHistory}>
-                        <CollapsibleTrigger asChild>
-                          <Button variant="ghost" className="w-full justify-between p-3 h-auto">
-                            <div className="flex items-center gap-2">
-                              <History className="h-4 w-4 text-muted-foreground" />
-                              <span className="text-sm font-medium">
-                                Salary History ({salaryHistory.length} revision{salaryHistory.length > 1 ? 's' : ''})
-                              </span>
-                            </div>
-                            {showHistory ? (
-                              <ChevronUp className="h-4 w-4 text-muted-foreground" />
-                            ) : (
-                              <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                            )}
-                          </Button>
-                        </CollapsibleTrigger>
-                        <CollapsibleContent>
-                          <ScrollArea className="h-[200px] mt-2">
-                            <div className="space-y-3 pr-4">
-                              {isLoadingHistory ? (
-                                <div className="flex items-center justify-center py-4">
-                                  <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                                </div>
-                              ) : (
-                                salaryHistory.map((history) => {
-                                  const historyAllowances =
-                                    Number(history.hra || 0) +
-                                    Number(history.transport_allowance || 0) +
-                                    Number(history.medical_allowance || 0) +
-                                    Number(history.other_allowances || 0);
-                                  const historyDeductions =
-                                    Number(history.tax_deduction || 0) +
-                                    Number(history.pf_deduction || 0);
-                                  const historyNet =
-                                    Number(history.basic_salary) + historyAllowances - historyDeductions;
-
-                                  return (
-                                    <div
-                                      key={history.id}
-                                      className="rounded-lg border border-border bg-card p-3 space-y-2"
-                                    >
-                                      <div className="flex items-center justify-between">
-                                        <span className="text-xs font-medium text-muted-foreground">
-                                          {format(new Date(history.effective_from), "MMM d, yyyy")}
-                                          {history.effective_to && (
-                                            <> → {format(new Date(history.effective_to), "MMM d, yyyy")}</>
-                                          )}
-                                        </span>
-                                      </div>
-                                      <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
-                                        <div className="flex justify-between">
-                                          <span className="text-muted-foreground">Basic</span>
-                                          <span>{formatCurrency(Number(history.basic_salary))}</span>
-                                        </div>
-                                        <div className="flex justify-between">
-                                          <span className="text-muted-foreground">Allowances</span>
-                                          <span className="text-green-600 dark:text-green-400">
-                                            +{formatCurrency(historyAllowances)}
-                                          </span>
-                                        </div>
-                                        <div className="flex justify-between">
-                                          <span className="text-muted-foreground">Deductions</span>
-                                          <span className="text-red-600 dark:text-red-400">
-                                            -{formatCurrency(historyDeductions)}
-                                          </span>
-                                        </div>
-                                        <div className="flex justify-between font-medium">
-                                          <span>Net</span>
-                                          <span>{formatCurrency(historyNet)}</span>
-                                        </div>
-                                      </div>
-                                    </div>
-                                  );
-                                })
-                              )}
-                            </div>
-                          </ScrollArea>
-                        </CollapsibleContent>
-                      </Collapsible>
-                    )}
                   </>
                 )}
               </TabsContent>

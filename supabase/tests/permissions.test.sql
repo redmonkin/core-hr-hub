@@ -657,6 +657,116 @@ SELECT tests.after('new hires can still be marked as joined', 'hr',
   $$(SELECT status = 'active' FROM employees WHERE id = '00000000-0000-0000-0000-0000000000aa')$$);
 
 -- ===========================================================================
+-- Salary revisions
+-- ===========================================================================
+-- Fixtures: salaries for Alice, Bob and Mona (who also runs payroll); two
+-- revisions awaiting approval, Bob's proposed by the admin and Mona's by HR.
+INSERT INTO public.salary_structures (employee_id, basic_salary, hra, effective_from) VALUES
+  ('00000000-0000-0000-0000-00000000000a', 30000, 10000, '2025-01-01'),
+  ('00000000-0000-0000-0000-00000000000b', 20000, 0, '2025-01-01'),
+  ('00000000-0000-0000-0000-000000000003', 50000, 0, '2024-01-01');
+INSERT INTO public.user_permissions (user_id, module, level) VALUES (tests.uid('manager'), 'payroll', 'manage');
+INSERT INTO public.salary_revisions (id, employee_id, revision_type, status, effective_from, basic_salary, created_by) VALUES
+  ('a0000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-00000000000b', 'promotion', 'pending_approval', CURRENT_DATE, 25000, tests.uid('admin')),
+  ('a0000000-0000-0000-0000-000000000002', '00000000-0000-0000-0000-000000000003', 'annual_appraisal', 'pending_approval', CURRENT_DATE, 55000, tests.uid('hr'));
+
+SELECT tests.after('payroll admins revise a salary and it applies on its date', 'hr',
+  $$INSERT INTO salary_revisions (employee_id, revision_type, effective_from, basic_salary, hra, reason)
+    VALUES ('00000000-0000-0000-0000-00000000000a', 'annual_appraisal', CURRENT_DATE, 33000, 10000, 'Strong year')$$,
+  $$(SELECT r.status = 'applied' AND (r.previous ->> 'basic_salary')::numeric = 30000 AND r.created_by = tests.uid('hr')
+       AND (SELECT basic_salary FROM salary_structures WHERE employee_id = r.employee_id) = 33000
+       AND (SELECT change_reason FROM salary_history WHERE employee_id = r.employee_id ORDER BY created_at DESC LIMIT 1)
+           = 'Annual appraisal: Strong year'
+     FROM salary_revisions r WHERE r.employee_id = '00000000-0000-0000-0000-00000000000a')$$);
+SELECT tests.fails('pay only changes through a revision', 'hr',
+  $$UPDATE salary_structures SET basic_salary = 1 WHERE employee_id = '00000000-0000-0000-0000-00000000000a'$$, 'Revise salary');
+SELECT tests.fails('employees cannot revise salaries', 'alice',
+  $$INSERT INTO salary_revisions (employee_id, revision_type, effective_from, basic_salary)
+    VALUES ('00000000-0000-0000-0000-00000000000a', 'other', CURRENT_DATE, 99999)$$, 'permission');
+SELECT tests.fails('payroll admins cannot revise their own salary', 'manager',
+  $$INSERT INTO salary_revisions (employee_id, revision_type, effective_from, basic_salary)
+    VALUES ('00000000-0000-0000-0000-000000000003', 'other', CURRENT_DATE + 30, 99999)$$, 'own salary');
+SELECT tests.fails('payroll admins cannot set their own initial salary', 'manager',
+  $$DELETE FROM salary_structures WHERE employee_id = '00000000-0000-0000-0000-000000000003'$$, 'own salary');
+SELECT tests.after('future revisions wait until their date', 'hr',
+  $$INSERT INTO salary_revisions (employee_id, revision_type, effective_from, basic_salary, hra)
+    VALUES ('00000000-0000-0000-0000-00000000000a', 'promotion', CURRENT_DATE + 10, 40000, 10000)$$,
+  $$(SELECT r.status = 'scheduled' AND s.basic_salary = 30000
+     FROM salary_revisions r JOIN salary_structures s USING (employee_id)
+     WHERE r.employee_id = '00000000-0000-0000-0000-00000000000a')$$);
+SELECT tests.after('the daily job applies revisions whose date has come', 'system',
+  $$INSERT INTO salary_revisions (employee_id, revision_type, status, effective_from, basic_salary, hra)
+      VALUES ('00000000-0000-0000-0000-00000000000a', 'promotion', 'scheduled', CURRENT_DATE + 10, 40000, 10000);
+    UPDATE salary_revisions SET effective_from = CURRENT_DATE WHERE employee_id = '00000000-0000-0000-0000-00000000000a';
+    SELECT apply_due_salary_revisions()$$,
+  $$(SELECT status = 'applied' FROM salary_revisions WHERE employee_id = '00000000-0000-0000-0000-00000000000a')
+    AND (SELECT basic_salary FROM salary_structures WHERE employee_id = '00000000-0000-0000-0000-00000000000a') = 40000$$);
+SELECT tests.after('backdated revisions add arrears to the next payroll', 'hr',
+  $$INSERT INTO payroll_records (employee_id, month, year, basic_salary, net_salary)
+      VALUES ('00000000-0000-0000-0000-00000000000a',
+              extract(month FROM CURRENT_DATE - interval '1 month')::int, extract(year FROM CURRENT_DATE - interval '1 month')::int,
+              30000, 40000)
+      ON CONFLICT (employee_id, month, year) DO NOTHING;
+    DELETE FROM payroll_records WHERE employee_id = '00000000-0000-0000-0000-00000000000a'
+      AND month = extract(month FROM CURRENT_DATE)::int AND year = extract(year FROM CURRENT_DATE)::int;
+    INSERT INTO salary_revisions (employee_id, revision_type, effective_from, basic_salary, hra)
+      VALUES ('00000000-0000-0000-0000-00000000000a', 'adjustment',
+              date_trunc('month', CURRENT_DATE - interval '1 month')::date, 33000, 10000);
+    INSERT INTO payroll_records (employee_id, month, year, basic_salary, net_salary)
+      VALUES ('00000000-0000-0000-0000-00000000000a', extract(month FROM CURRENT_DATE)::int,
+              extract(year FROM CURRENT_DATE)::int, 33000, 43000)$$,
+  $$(SELECT p.adjustment_amount = 3000 AND p.net_salary = 46000 AND p.adjustment_note LIKE 'Salary revision: arrears for%'
+     FROM payroll_records p
+     WHERE p.employee_id = '00000000-0000-0000-0000-00000000000a'
+       AND p.month = extract(month FROM CURRENT_DATE)::int AND p.year = extract(year FROM CURRENT_DATE)::int)
+    AND (SELECT adjustment_payroll_id IS NOT NULL FROM salary_revisions WHERE employee_id = '00000000-0000-0000-0000-00000000000a')$$);
+SELECT tests.after('a revision part-way through an unpaid month is prorated', 'hr',
+  $$DELETE FROM payroll_records WHERE employee_id = '00000000-0000-0000-0000-00000000000a'
+      AND month = extract(month FROM CURRENT_DATE)::int AND year = extract(year FROM CURRENT_DATE)::int;
+    INSERT INTO salary_revisions (employee_id, revision_type, effective_from, basic_salary, hra)
+      VALUES ('00000000-0000-0000-0000-00000000000a', 'promotion', CURRENT_DATE, 36000, 10000)$$,
+  $$(SELECT adjustment_amount = -round(6000.0
+        * employee_working_days(employee_id, date_trunc('month', CURRENT_DATE)::date, CURRENT_DATE - 1)
+        / employee_working_days(employee_id, date_trunc('month', CURRENT_DATE)::date,
+                                (date_trunc('month', CURRENT_DATE) + interval '1 month - 1 day')::date), 2)
+     FROM salary_revisions WHERE employee_id = '00000000-0000-0000-0000-00000000000a')$$);
+SELECT tests.fails('only admins switch salary revision approval', 'hr',
+  $$UPDATE organization_settings SET setting_value = '{"enabled": true}' WHERE setting_key = 'salary_revision_approval'$$, 'Only admins');
+SELECT tests.after('with approval on, revisions wait for approval', 'admin',
+  $$UPDATE organization_settings SET setting_value = '{"enabled": true}' WHERE setting_key = 'salary_revision_approval';
+    INSERT INTO salary_revisions (employee_id, revision_type, effective_from, basic_salary, hra)
+      VALUES ('00000000-0000-0000-0000-00000000000a', 'annual_appraisal', CURRENT_DATE, 33000, 10000)$$,
+  $$(SELECT r.status = 'pending_approval' AND s.basic_salary = 30000
+     FROM salary_revisions r JOIN salary_structures s USING (employee_id)
+     WHERE r.employee_id = '00000000-0000-0000-0000-00000000000a')$$);
+SELECT tests.fails('nobody approves a revision they submitted', 'admin',
+  $$UPDATE salary_revisions SET status = 'scheduled' WHERE id = 'a0000000-0000-0000-0000-000000000001'$$, 'Someone else');
+SELECT tests.fails('nobody approves their own salary revision', 'manager',
+  $$UPDATE salary_revisions SET status = 'scheduled' WHERE id = 'a0000000-0000-0000-0000-000000000002'$$, 'own salary');
+SELECT tests.fails('nobody cancels a revision of their own salary', 'manager',
+  $$UPDATE salary_revisions SET status = 'cancelled' WHERE id = 'a0000000-0000-0000-0000-000000000002'$$, 'own salary');
+SELECT tests.after('another payroll admin approves and the revision applies', 'hr',
+  $$UPDATE salary_revisions SET status = 'scheduled' WHERE id = 'a0000000-0000-0000-0000-000000000001'$$,
+  $$(SELECT r.status = 'applied' AND r.decided_by = tests.uid('hr')
+       AND (SELECT basic_salary FROM salary_structures WHERE employee_id = r.employee_id) = 25000
+     FROM salary_revisions r WHERE r.id = 'a0000000-0000-0000-0000-000000000001')$$);
+SELECT tests.after('a rejected revision changes nothing', 'hr',
+  $$UPDATE salary_revisions SET status = 'rejected', decision_notes = 'Next cycle' WHERE id = 'a0000000-0000-0000-0000-000000000001'$$,
+  $$(SELECT status = 'rejected' FROM salary_revisions WHERE id = 'a0000000-0000-0000-0000-000000000001')
+    AND (SELECT basic_salary FROM salary_structures WHERE employee_id = '00000000-0000-0000-0000-00000000000b') = 20000$$);
+SELECT tests.fails('revisions cannot be edited', 'hr',
+  $$UPDATE salary_revisions SET basic_salary = 90000 WHERE id = 'a0000000-0000-0000-0000-000000000001'$$, 'can''t be edited');
+SELECT tests.rows('employees cannot approve revisions', 'bob',
+  $$UPDATE salary_revisions SET status = 'scheduled' WHERE id = 'a0000000-0000-0000-0000-000000000001'$$, 0);
+SELECT tests.rows('employees do not see proposals for their pay', 'bob', $$SELECT * FROM salary_revisions$$, 0);
+SELECT tests.after('employees see their revision once it is agreed', 'hr',
+  $$UPDATE salary_revisions SET status = 'scheduled' WHERE id = 'a0000000-0000-0000-0000-000000000001';
+    SELECT tests.login('bob');
+    CREATE TEMP TABLE seen ON COMMIT DROP AS SELECT count(*) AS n FROM salary_revisions;
+    SELECT tests.logout()$$,
+  $$(SELECT n = 1 FROM seen)$$);
+
+-- ===========================================================================
 -- Blocked users
 -- ===========================================================================
 SELECT tests.rows('blocked users cannot read their own record', 'erin',

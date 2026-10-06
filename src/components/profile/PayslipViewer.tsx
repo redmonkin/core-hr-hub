@@ -28,7 +28,7 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { Download, FileText, Wallet, ChevronDown, ChevronUp, Plus, Minus } from "lucide-react";
-import { downloadPayslip } from "@/lib/payslipPdfGenerator";
+import { downloadPayslip, payslipComponents } from "@/lib/payslipPdfGenerator";
 import { fetchImageAsDataUrl } from "@/lib/pdfTheme";
 import { useCompanyBranding } from "@/hooks/useCompanyBranding";
 import { format, startOfMonth, endOfMonth } from "date-fns";
@@ -195,12 +195,10 @@ export function PayslipViewer({ employeeId, employeeName, employeeCode }: Paysli
       ifscCode: employeeInfo?.bank?.ifsc_code ?? undefined,
       daysInMonth,
       lossOfPayDays: Number(record.loss_of_pay_days || 0),
-      salaryBreakdown: salaryStructure ? {
-        hra: salaryStructure.hra ?? undefined,
-        transport_allowance: salaryStructure.transport_allowance ?? undefined,
-        medical_allowance: salaryStructure.medical_allowance ?? undefined,
-        other_allowances: salaryStructure.other_allowances ?? undefined,
-        pf_deduction: salaryStructure.pf_deduction ?? undefined,
+      adjustmentAmount: Number(record.adjustment_amount || 0),
+      adjustmentNote: record.adjustment_note ?? undefined,
+      salaryBreakdown: salaryStructure || record.hra !== null ? {
+        ...payslipComponents(record, salaryStructure),
         lta_allowance: Number(record.lta_allowance || 0),
         variable_pay: Number(record.variable_pay || 0),
         pf_employer_contribution: Number(record.pf_employer_contribution || 0),

@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import {
   buildHolidaySet,
   calculatePayrollAmounts,
+  prorateComponents,
   getProrationRatio,
   isEmployedDuringMonth,
   resolveWorkingDays,
@@ -36,6 +37,16 @@ export interface PayrollRecord {
   tds: number;
   advanceAmountAdjusted: number;
   lossOfPayDays: number;
+  /** Components as generated; null for records from before they were stored. */
+  components: {
+    hra: number | null;
+    transport_allowance: number | null;
+    medical_allowance: number | null;
+    other_allowances: number | null;
+    pf_deduction: number | null;
+  };
+  adjustmentAmount: number;
+  adjustmentNote?: string;
 }
 
 const MONTH_NAMES = [
@@ -68,6 +79,13 @@ export function usePayrollRecords(month?: number, year?: number) {
           tds,
           advance_amount_adjusted,
           loss_of_pay_days,
+          hra,
+          transport_allowance,
+          medical_allowance,
+          other_allowances,
+          pf_deduction,
+          adjustment_amount,
+          adjustment_note,
           employee:employees(
             first_name,
             last_name,
@@ -115,6 +133,15 @@ export function usePayrollRecords(month?: number, year?: number) {
         tds: Number(record.tds || 0),
         advanceAmountAdjusted: Number(record.advance_amount_adjusted || 0),
         lossOfPayDays: Number(record.loss_of_pay_days || 0),
+        components: {
+          hra: record.hra,
+          transport_allowance: record.transport_allowance,
+          medical_allowance: record.medical_allowance,
+          other_allowances: record.other_allowances,
+          pf_deduction: record.pf_deduction,
+        },
+        adjustmentAmount: Number(record.adjustment_amount || 0),
+        adjustmentNote: record.adjustment_note ?? undefined,
       }));
     },
   });
@@ -231,12 +258,14 @@ export function useGeneratePayroll() {
           salary.employee?.exit_date
         );
         const amounts = calculatePayrollAmounts(salary, ratio);
+        const components = prorateComponents(salary, ratio);
 
         return {
           employee_id: salary.employee_id,
           month,
           year,
           ...amounts,
+          ...components,
           status: "draft" as const,
         };
       });
@@ -309,13 +338,25 @@ export function useUpdatePayrollDetails() {
 
   return useMutation({
     mutationFn: async (data: PayrollDetailsInput) => {
-      const { data: salaryStructure, error: salaryError } = await supabase
-        .from("salary_structures")
-        .select("hra, transport_allowance, medical_allowance, other_allowances, pf_deduction")
-        .eq("employee_id", data.employeeId)
-        .maybeSingle();
+      // Components as generated for this record (older records fall back to the
+      // current salary structure), plus any salary revision adjustment
+      const [{ data: stored, error: recordError }, { data: structure, error: salaryError }] = await Promise.all([
+        supabase
+          .from("payroll_records")
+          .select("hra, transport_allowance, medical_allowance, other_allowances, pf_deduction, adjustment_amount")
+          .eq("id", data.id)
+          .single(),
+        supabase
+          .from("salary_structures")
+          .select("hra, transport_allowance, medical_allowance, other_allowances, pf_deduction")
+          .eq("employee_id", data.employeeId)
+          .maybeSingle(),
+      ]);
 
+      if (recordError) throw recordError;
       if (salaryError) throw salaryError;
+      const salaryStructure = stored && stored.hra !== null ? stored : structure;
+      const adjustment = Number(stored?.adjustment_amount || 0);
 
       const hra = Number(salaryStructure?.hra || 0);
       const otherAllowanceBucket =
@@ -328,7 +369,7 @@ export function useUpdatePayrollDetails() {
         data.basicSalary + hra + otherAllowanceBucket + data.ltaAllowance + data.variablePay;
       const totalDeductions =
         pfEmployeeDeduction + data.professionalTax + data.tds + data.advanceAmountAdjusted;
-      const netSalary = totalGrossSalary - totalDeductions;
+      const netSalary = totalGrossSalary - totalDeductions + adjustment;
 
       const { error } = await supabase
         .from("payroll_records")
@@ -492,9 +533,8 @@ export function useCreateSalaryStructure() {
 
   return useMutation({
     mutationFn: async (data: CreateSalaryStructureData) => {
-      const { error } = await supabase
-        .from("salary_structures")
-        .upsert(data, { onConflict: "employee_id" });
+      // Initial salary only; later changes are salary revisions
+      const { error } = await supabase.from("salary_structures").insert(data);
 
       if (error) throw error;
     },
@@ -503,27 +543,6 @@ export function useCreateSalaryStructure() {
     },
     onError: (error) => {
       toast.error("Failed to save salary structure: " + error.message);
-    },
-  });
-}
-
-export function useUpdateSalaryStructure() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async ({ id, ...data }: { id: string } & Partial<CreateSalaryStructureData>) => {
-      const { error } = await supabase
-        .from("salary_structures")
-        .update(data)
-        .eq("id", id);
-
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["salary-structures"] });
-    },
-    onError: (error) => {
-      toast.error("Failed to update salary structure: " + error.message);
     },
   });
 }

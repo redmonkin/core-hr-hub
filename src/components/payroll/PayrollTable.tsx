@@ -24,7 +24,7 @@ import {
 } from "@/components/ui/tooltip";
 import { Download, Eye, MoreVertical, CheckCircle, Clock, CreditCard, CalendarCheck, Loader2, X, Pencil } from "lucide-react";
 import { useState } from "react";
-import { downloadPayslip } from "@/lib/payslipPdfGenerator";
+import { downloadPayslip, payslipComponents } from "@/lib/payslipPdfGenerator";
 import { fetchImageAsDataUrl } from "@/lib/pdfTheme";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -58,6 +58,15 @@ export interface PayrollRecord {
   tds: number;
   advanceAmountAdjusted: number;
   lossOfPayDays: number;
+  components: {
+    hra: number | null;
+    transport_allowance: number | null;
+    medical_allowance: number | null;
+    other_allowances: number | null;
+    pf_deduction: number | null;
+  };
+  adjustmentAmount: number;
+  adjustmentNote?: string;
 }
 
 interface PayrollTableProps {
@@ -227,12 +236,10 @@ export function PayrollTable({
         ifscCode: bankDetails?.ifsc_code ?? undefined,
         daysInMonth,
         lossOfPayDays: record.lossOfPayDays,
-        salaryBreakdown: salaryStructure ? {
-          hra: salaryStructure.hra ?? undefined,
-          transport_allowance: salaryStructure.transport_allowance ?? undefined,
-          medical_allowance: salaryStructure.medical_allowance ?? undefined,
-          other_allowances: salaryStructure.other_allowances ?? undefined,
-          pf_deduction: salaryStructure.pf_deduction ?? undefined,
+        adjustmentAmount: record.adjustmentAmount,
+        adjustmentNote: record.adjustmentNote,
+        salaryBreakdown: salaryStructure || record.components.hra !== null ? {
+          ...payslipComponents(record.components, salaryStructure),
           lta_allowance: record.ltaAllowance,
           variable_pay: record.variablePay,
           pf_employer_contribution: record.pfEmployerContribution,

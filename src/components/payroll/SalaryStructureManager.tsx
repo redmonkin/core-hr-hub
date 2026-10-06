@@ -38,16 +38,16 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Plus, Edit, Trash2, IndianRupee, Search } from "lucide-react";
+import { Plus, TrendingUp, Trash2, IndianRupee, Search } from "lucide-react";
 import { toast } from "sonner";
 import {
   useSalaryStructures,
   useCreateSalaryStructure,
-  useUpdateSalaryStructure,
   useDeleteSalaryStructure,
   type SalaryStructure,
 } from "@/hooks/usePayroll";
 import { useEmployees } from "@/hooks/useEmployees";
+import { SalaryRevisionsPanel } from "./SalaryRevisionsPanel";
 
 const formatCurrency = (amount: number) => {
   return new Intl.NumberFormat("en-IN", {
@@ -66,7 +66,7 @@ interface SalaryStructureManagerProps {
 export function SalaryStructureManager({ canManage = true }: SalaryStructureManagerProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [revisingId, setRevisingId] = useState<string | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [selectedStructure, setSelectedStructure] = useState<SalaryStructure | null>(null);
   const [formData, setFormData] = useState({
@@ -82,9 +82,10 @@ export function SalaryStructureManager({ canManage = true }: SalaryStructureMana
   });
 
   const { data: structures = [], isLoading } = useSalaryStructures();
+  // Looked up live so the dialog shows the new salary as soon as a revision applies
+  const revising = structures.find((s) => s.id === revisingId) ?? null;
   const { data: employees = [] } = useEmployees();
   const createStructure = useCreateSalaryStructure();
-  const updateStructure = useUpdateSalaryStructure();
   const deleteStructure = useDeleteSalaryStructure();
 
   // Filter employees who don't have a salary structure yet
@@ -138,54 +139,6 @@ export function SalaryStructureManager({ canManage = true }: SalaryStructureMana
         },
         onError: () => {
           toast.error("Failed to create salary structure");
-        },
-      }
-    );
-  };
-
-  const handleEdit = (structure: SalaryStructure) => {
-    setSelectedStructure(structure);
-    setFormData({
-      employee_id: structure.employeeId,
-      basic_salary: structure.basicSalary.toString(),
-      hra: structure.hra.toString(),
-      transport_allowance: structure.transportAllowance.toString(),
-      medical_allowance: structure.medicalAllowance.toString(),
-      other_allowances: structure.otherAllowances.toString(),
-      tax_deduction: structure.taxDeduction.toString(),
-      pf_deduction: structure.pfDeduction.toString(),
-      effective_from: structure.effectiveFrom,
-    });
-    setIsEditDialogOpen(true);
-  };
-
-  const handleUpdate = () => {
-    if (!selectedStructure || !formData.basic_salary) {
-      toast.error("Basic salary is required");
-      return;
-    }
-
-    updateStructure.mutate(
-      {
-        id: selectedStructure.id,
-        basic_salary: parseFloat(formData.basic_salary),
-        hra: formData.hra ? parseFloat(formData.hra) : 0,
-        transport_allowance: formData.transport_allowance ? parseFloat(formData.transport_allowance) : 0,
-        medical_allowance: formData.medical_allowance ? parseFloat(formData.medical_allowance) : 0,
-        other_allowances: formData.other_allowances ? parseFloat(formData.other_allowances) : 0,
-        tax_deduction: formData.tax_deduction ? parseFloat(formData.tax_deduction) : 0,
-        pf_deduction: formData.pf_deduction ? parseFloat(formData.pf_deduction) : 0,
-        effective_from: formData.effective_from,
-      },
-      {
-        onSuccess: () => {
-          toast.success("Salary structure updated successfully");
-          setIsEditDialogOpen(false);
-          setSelectedStructure(null);
-          resetForm();
-        },
-        onError: () => {
-          toast.error("Failed to update salary structure");
         },
       }
     );
@@ -297,11 +250,11 @@ export function SalaryStructureManager({ canManage = true }: SalaryStructureMana
           variant="ghost"
           size="icon"
           className="h-10 w-10 sm:h-9 sm:w-9"
-          onClick={() => handleEdit(structure)}
-          aria-label={`Edit salary structure for ${structure.employeeName}`}
-          title="Edit"
+          onClick={() => setRevisingId(structure.id)}
+          aria-label={`Revise salary for ${structure.employeeName}`}
+          title="Revise salary and history"
         >
-          <Edit className="h-4 w-4" aria-hidden="true" />
+          <TrendingUp className="h-4 w-4" aria-hidden="true" />
         </Button>
         <Button
           variant="ghost"
@@ -492,26 +445,29 @@ export function SalaryStructureManager({ canManage = true }: SalaryStructureMana
         </DialogContent>
       </Dialog>
 
-      {/* Edit Dialog */}
-      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="sm:max-w-md">
+      {/* Revise / history */}
+      <Dialog open={!!revising} onOpenChange={(open) => !open && setRevisingId(null)}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Edit salary structure</DialogTitle>
-            <DialogDescription>
-              Update salary for {selectedStructure?.employeeName}
-            </DialogDescription>
+            <DialogTitle>{revising?.employeeName}'s salary</DialogTitle>
+            <DialogDescription>Revise their pay, approve pending changes and see past revisions.</DialogDescription>
           </DialogHeader>
-          <div className="py-4">
-            {renderSalaryFormFields("edit-salary-")}
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleUpdate} disabled={updateStructure.isPending}>
-              {updateStructure.isPending ? "Updating..." : "Save changes"}
-            </Button>
-          </DialogFooter>
+          {revising && (
+            <SalaryRevisionsPanel
+              employeeId={revising.employeeId}
+              employeeName={revising.employeeName}
+              structure={{
+                basic_salary: revising.basicSalary,
+                hra: revising.hra,
+                transport_allowance: revising.transportAllowance,
+                medical_allowance: revising.medicalAllowance,
+                other_allowances: revising.otherAllowances,
+                tax_deduction: revising.taxDeduction,
+                pf_deduction: revising.pfDeduction,
+                effective_from: revising.effectiveFrom,
+              }}
+            />
+          )}
         </DialogContent>
       </Dialog>
 
