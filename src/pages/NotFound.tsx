@@ -15,7 +15,7 @@ const NotFound = () => {
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
-      <header className="border-b">
+      <header className="border-b pt-[env(safe-area-inset-top)]">
         <div className="container mx-auto flex items-center px-4 py-3 sm:py-4">
           <Link to="/" className="flex items-center gap-2" aria-label="Peoplo home">
             <img src={hrHubLogo} alt="" className="h-8 w-auto" />

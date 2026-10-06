@@ -154,7 +154,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       {/* Sidebar */}
       <aside
         className={cn(
-          "fixed left-0 top-0 z-50 h-full w-72 transform border-r border-border bg-card transition-transform duration-300 ease-in-out lg:translate-x-0",
+          "fixed left-0 top-0 z-50 h-full w-72 transform pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] border-r border-border bg-card transition-transform duration-300 ease-in-out lg:translate-x-0",
           sidebarOpen ? "translate-x-0 shadow-xl" : "-translate-x-full"
         )}
       >
@@ -254,7 +254,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       {/* Main content */}
       <div className="min-w-0 overflow-x-clip lg:pl-72">
         {/* Header */}
-        <header className="sticky top-0 z-30 flex h-20 items-center justify-between border-b border-border bg-card/95 px-4 backdrop-blur-lg lg:px-8">
+        <header className="sticky top-0 z-30 box-content flex h-20 items-center pt-[env(safe-area-inset-top)] justify-between border-b border-border bg-card/95 px-4 backdrop-blur-lg lg:px-8">
           <div className="flex items-center gap-4">
             <Button
               variant="ghost"

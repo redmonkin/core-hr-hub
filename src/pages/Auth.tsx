@@ -107,7 +107,7 @@ const Auth = () => {
   ];
 
   return (
-    <div className="relative flex min-h-screen flex-col overflow-hidden bg-background">
+    <div className="relative flex min-h-screen flex-col overflow-hidden bg-background pt-[env(safe-area-inset-top)]">
       <Backdrop />
 
       <header className="container relative z-10 mx-auto flex items-center justify-between px-4 py-5">
