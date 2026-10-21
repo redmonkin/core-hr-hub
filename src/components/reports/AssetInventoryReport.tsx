@@ -7,7 +7,9 @@ import { Download, Package } from "lucide-react";
 import { useAssetReport } from "@/hooks/useAssetReport";
 import { useCompanyBranding } from "@/hooks/useCompanyBranding";
 import { drawPdfHeader, drawPdfFooter, fetchImageAsDataUrl, formatCurrencyForPdf, PDF_TABLE_HEAD_STYLE, PDF_COLORS } from "@/lib/pdfTheme";
-import { statusBadgeClass, formatStatus } from "@/lib/statusStyles";
+import { statusBadgeClass } from "@/lib/statusStyles";
+import { ASSET_STATUS_LABELS, assetStatusTone, type AssetStatus } from "@/hooks/useAssets";
+import { format, parseISO } from "date-fns";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
@@ -20,8 +22,8 @@ function formatCurrency(amount: number) {
 
 function getStatusBadge(status: string) {
   return (
-    <Badge variant="outline" className={`whitespace-nowrap ${statusBadgeClass(status)}`}>
-      {formatStatus(status)}
+    <Badge variant="outline" className={`whitespace-nowrap ${statusBadgeClass(assetStatusTone(status as AssetStatus))}`}>
+      {ASSET_STATUS_LABELS[status as AssetStatus] ?? status}
     </Badge>
   );
 }
@@ -60,13 +62,19 @@ export function AssetInventoryReport() {
     doc.text(`Total Assets: ${report.totalAssets}`, margin, yPos);
     yPos += 6;
     doc.text(`Total Value: ${formatCurrencyForPdf(report.totalValue)}`, margin, yPos);
+    yPos += 6;
+    doc.text(
+      `Repair spend: ${formatCurrencyForPdf(report.repairSpendThisYear)} this year, ${formatCurrencyForPdf(report.repairSpendTotal)} in total`,
+      margin,
+      yPos,
+    );
     yPos += 10;
 
     // Status breakdown
     doc.text("By Status:", margin, yPos);
     yPos += 6;
     report.byStatus.forEach((item) => {
-      doc.text(`  ${item.status}: ${item.count}`, margin, yPos);
+      doc.text(`  ${ASSET_STATUS_LABELS[item.status as AssetStatus] ?? item.status}: ${item.count}`, margin, yPos);
       yPos += 5;
     });
 
@@ -87,18 +95,42 @@ export function AssetInventoryReport() {
 
     autoTable(doc, {
       startY: yPos + 6,
-      head: [["Code", "Name", "Category", "Status", "Cost", "Assigned To"]],
+      head: [["Code", "Name", "Category", "Status", "Cost", "Repairs", "Assigned To"]],
       body: report.records.map((asset) => [
         asset.assetCode,
         asset.name,
         asset.category,
-        asset.status,
+        ASSET_STATUS_LABELS[asset.status as AssetStatus] ?? asset.status,
         formatCurrencyForPdf(asset.purchaseCost),
+        asset.repairSpend ? formatCurrencyForPdf(asset.repairSpend) : "-",
         asset.assignedTo,
       ]),
       styles: { fontSize: 8 },
       headStyles: PDF_TABLE_HEAD_STYLE,
     });
+
+    if (report.repairs.length > 0) {
+      const afterTable = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 10;
+      doc.setFontSize(12);
+      doc.setFont("helvetica", "bold");
+      doc.text("Repairs", margin, afterTable);
+      autoTable(doc, {
+        startY: afterTable + 4,
+        head: [["Asset", "Problem", "Vendor", "Sent", "Back", "Cost"]],
+        body: report.repairs.map((r) => [
+          `${r.assetName} (${r.assetCode})`,
+          r.problem,
+          r.vendor ?? "-",
+          format(parseISO(r.sentDate), "d MMM yyyy"),
+          r.returnedDate ? format(parseISO(r.returnedDate), "d MMM yyyy") : "In repair",
+          r.cost != null ? formatCurrencyForPdf(r.cost) : r.estimatedCost != null ? `est. ${formatCurrencyForPdf(r.estimatedCost)}` : "-",
+        ]),
+        foot: [["Total spent", "", "", "", "", formatCurrencyForPdf(report.repairSpendTotal)]],
+        styles: { fontSize: 8 },
+        headStyles: PDF_TABLE_HEAD_STYLE,
+        footStyles: { fillColor: PDF_COLORS.ruleLight, textColor: PDF_COLORS.dark, fontStyle: "bold" },
+      });
+    }
 
     const pageCount = doc.getNumberOfPages();
     for (let i = 1; i <= pageCount; i++) {
@@ -147,7 +179,7 @@ export function AssetInventoryReport() {
         ) : report ? (
           <div className="space-y-6">
             {/* Summary cards */}
-            <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-4">
+            <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 xl:grid-cols-6">
               <div className="min-w-0 rounded-lg border bg-card p-3 sm:p-4">
                 <p className="text-sm text-muted-foreground">Total assets</p>
                 <p className="text-2xl font-bold">{report.totalAssets}</p>
@@ -168,6 +200,23 @@ export function AssetInventoryReport() {
                 <p className="text-sm text-muted-foreground">Assigned</p>
                 <p className="text-2xl font-bold">
                   {report.byStatus.find((s) => s.status === "assigned")?.count || 0}
+                </p>
+              </div>
+              <div className="min-w-0 rounded-lg border bg-card p-3 sm:p-4">
+                <p className="text-sm text-muted-foreground">In repair, damaged or lost</p>
+                <p className="text-2xl font-bold">
+                  {report.byStatus
+                    .filter((s) => s.status === "in_repair" || s.status === "damaged" || s.status === "lost")
+                    .reduce((n, s) => n + s.count, 0)}
+                </p>
+              </div>
+              <div className="min-w-0 rounded-lg border bg-card p-3 sm:p-4">
+                <p className="text-sm text-muted-foreground">Repair spend this year</p>
+                <p className="break-words text-lg font-bold sm:text-2xl">
+                  {new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(report.repairSpendThisYear)}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(report.repairSpendTotal)} all time
                 </p>
               </div>
             </div>
@@ -236,6 +285,86 @@ export function AssetInventoryReport() {
                 ))
               )}
             </ul>
+
+            {report.repairs.length > 0 && (
+              <section className="space-y-3">
+                <h3 className="text-base font-semibold text-foreground">Repairs</h3>
+                <ul className="space-y-3 sm:hidden" aria-label="Repairs">
+                  {report.repairs.map((r) => (
+                    <li key={r.id} className="rounded-lg border p-3 text-sm">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="truncate font-medium">{r.assetName}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {r.assetCode}
+                            {r.vendor && ` · ${r.vendor}`}
+                          </p>
+                        </div>
+                        <span className="shrink-0 tabular-nums">
+                          {r.cost != null ? formatCurrency(r.cost) : r.estimatedCost != null ? `est. ${formatCurrency(r.estimatedCost)}` : "—"}
+                        </span>
+                      </div>
+                      <p className="mt-1">{r.problem}</p>
+                      <p className="text-xs text-muted-foreground">
+                        Sent {format(parseISO(r.sentDate), "MMM d, yyyy")} ·{" "}
+                        {r.returnedDate ? `back ${format(parseISO(r.returnedDate), "MMM d, yyyy")}` : "in repair"}
+                        {r.outcome === "beyond_repair" && " · beyond repair"}
+                      </p>
+                    </li>
+                  ))}
+                  <li className="flex justify-between px-1 font-semibold">
+                    <span>Total spent</span>
+                    <span className="tabular-nums">{formatCurrency(report.repairSpendTotal)}</span>
+                  </li>
+                </ul>
+                <div className="hidden overflow-x-auto rounded-md border sm:block">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Asset</TableHead>
+                        <TableHead>Problem</TableHead>
+                        <TableHead>Vendor</TableHead>
+                        <TableHead>Sent</TableHead>
+                        <TableHead>Back</TableHead>
+                        <TableHead className="text-right">Cost</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {report.repairs.map((r) => (
+                        <TableRow key={r.id}>
+                          <TableCell className="min-w-[160px]">
+                            <p className="font-medium">{r.assetName}</p>
+                            <p className="text-xs text-muted-foreground">{r.assetCode}</p>
+                          </TableCell>
+                          <TableCell className="min-w-[180px]">{r.problem}</TableCell>
+                          <TableCell>{r.vendor ?? "—"}</TableCell>
+                          <TableCell className="whitespace-nowrap">{format(parseISO(r.sentDate), "MMM d, yyyy")}</TableCell>
+                          <TableCell className="whitespace-nowrap">
+                            {r.returnedDate ? (
+                              <>
+                                {format(parseISO(r.returnedDate), "MMM d, yyyy")}
+                                {r.outcome === "beyond_repair" && <span className="block text-xs text-destructive">Beyond repair</span>}
+                              </>
+                            ) : (
+                              <span className="text-amber-700 dark:text-amber-400">In repair</span>
+                            )}
+                          </TableCell>
+                          <TableCell className="whitespace-nowrap text-right tabular-nums">
+                            {r.cost != null ? formatCurrency(r.cost) : r.estimatedCost != null ? (
+                              <span className="text-muted-foreground">est. {formatCurrency(r.estimatedCost)}</span>
+                            ) : "—"}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                      <TableRow>
+                        <TableCell colSpan={5} className="font-semibold">Total spent</TableCell>
+                        <TableCell className="text-right font-semibold tabular-nums">{formatCurrency(report.repairSpendTotal)}</TableCell>
+                      </TableRow>
+                    </TableBody>
+                  </Table>
+                </div>
+              </section>
+            )}
           </div>
         ) : null}
       </CardContent>

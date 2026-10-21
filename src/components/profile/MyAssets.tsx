@@ -2,7 +2,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { statusBadgeClass } from "@/lib/statusStyles";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Package, Calendar, Tag, AlertCircle } from "lucide-react";
+import { useState } from "react";
+import { Package, Calendar, Tag, AlertTriangle, Loader2 } from "lucide-react";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { ISSUE_KINDS, issueKindLabel, useMyAssetIssues, useReportAssetIssue } from "@/hooks/useAssets";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
@@ -26,6 +34,28 @@ interface AssetAssignment {
 }
 
 export function MyAssets({ employeeId }: MyAssetsProps) {
+  const { data: myIssues = [] } = useMyAssetIssues(employeeId);
+  const reportIssue = useReportAssetIssue();
+  const [reporting, setReporting] = useState<{ id: string; name: string } | null>(null);
+  const [kind, setKind] = useState<string>("not_working");
+  const [description, setDescription] = useState("");
+  const openIssueFor = (assetId: string) => myIssues.find((i) => i.assetId === assetId && (i.status === "open" || i.status === "in_repair"));
+
+  const submitReport = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!reporting || !description.trim()) return;
+    reportIssue.mutate(
+      { assetId: reporting.id, kind, description: description.trim() },
+      {
+        onSuccess: () => {
+          toast.success("Problem reported", { description: "HR has been notified and will get back to you." });
+          setReporting(null);
+        },
+        onError: (error: Error) => toast.error("Couldn't report the problem", { description: error.message }),
+      },
+    );
+  };
+
   const { data: assignments, isLoading } = useQuery({
     queryKey: ["my-assets", employeeId],
     queryFn: async () => {
@@ -116,6 +146,29 @@ export function MyAssets({ employeeId }: MyAssetsProps) {
                   {assignment.notes && (
                     <p className="text-xs text-muted-foreground italic">{assignment.notes}</p>
                   )}
+                  {assignment.asset && (() => {
+                    const open = openIssueFor(assignment.asset.id);
+                    return open ? (
+                      <p className="flex items-center gap-1.5 text-xs text-amber-700 dark:text-amber-400">
+                        <AlertTriangle className="h-3 w-3" aria-hidden="true" />
+                        Problem reported{open.status === "in_repair" ? " · in repair" : " · HR will be in touch"}
+                      </p>
+                    ) : (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full"
+                        onClick={() => {
+                          setReporting({ id: assignment.asset!.id, name: assignment.asset!.name });
+                          setKind("not_working");
+                          setDescription("");
+                        }}
+                      >
+                        <AlertTriangle className="mr-2 h-4 w-4" aria-hidden="true" />
+                        Report a problem
+                      </Button>
+                    );
+                  })()}
                 </div>
               ))}
             </div>
@@ -127,6 +180,85 @@ export function MyAssets({ employeeId }: MyAssetsProps) {
           )}
         </CardContent>
       </Card>
+
+      {myIssues.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Problems you've reported</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ul className="space-y-2">
+              {myIssues.map((issue) => (
+                <li key={issue.id} className="rounded-lg border p-3 text-sm">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="font-medium">{issue.assetName}</span>
+                    <Badge
+                      variant="outline"
+                      className={statusBadgeClass(
+                        issue.status === "open" ? "pending" : issue.status === "in_repair" ? "in_progress" : issue.status === "resolved" ? "completed" : "cancelled",
+                      )}
+                    >
+                      {issue.status === "open" ? "Open" : issue.status === "in_repair" ? "In repair" : issue.status === "resolved" ? "Resolved" : "Closed"}
+                    </Badge>
+                  </div>
+                  <p className="text-muted-foreground">
+                    {issueKindLabel(issue.kind)} · {format(new Date(issue.createdAt), "MMM d, yyyy")}
+                  </p>
+                  <p className="mt-1 break-words">{issue.description}</p>
+                  {issue.resolutionNotes && <p className="mt-1 text-muted-foreground">HR: {issue.resolutionNotes}</p>}
+                </li>
+              ))}
+            </ul>
+          </CardContent>
+        </Card>
+      )}
+
+      <Dialog open={!!reporting} onOpenChange={(open) => !open && setReporting(null)}>
+        <DialogContent className="sm:max-w-md">
+          <form onSubmit={submitReport} className="space-y-4">
+            <DialogHeader>
+              <DialogTitle>Report a problem: {reporting?.name}</DialogTitle>
+              <DialogDescription>HR is notified and will arrange a repair or replacement.</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-2">
+              <Label htmlFor="issue-kind">What's the problem?</Label>
+              <Select value={kind} onValueChange={setKind}>
+                <SelectTrigger id="issue-kind">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {ISSUE_KINDS.map((k) => (
+                    <SelectItem key={k.value} value={k.value}>
+                      {k.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="issue-description">Tell us what happened *</Label>
+              <Textarea
+                id="issue-description"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="e.g. The screen flickers and goes black after a few minutes"
+                maxLength={2000}
+                rows={4}
+                required
+              />
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setReporting(null)}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={!description.trim() || reportIssue.isPending}>
+                {reportIssue.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Report problem
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       {returnedAssets.length > 0 && (
         <Card>

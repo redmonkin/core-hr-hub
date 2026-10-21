@@ -767,6 +767,83 @@ SELECT tests.after('employees see their revision once it is agreed', 'hr',
   $$(SELECT n = 1 FROM seen)$$);
 
 -- ===========================================================================
+-- Asset lifecycle
+-- ===========================================================================
+-- Fixture: a laptop assigned to Bob
+INSERT INTO public.assets (id, asset_code, name, category, status) VALUES
+  ('50000000-0000-0000-0000-000000000002', 'LAP-9', 'Bob''s laptop', 'laptop', 'assigned');
+INSERT INTO public.asset_assignments (asset_id, employee_id) VALUES ('50000000-0000-0000-0000-000000000002', '00000000-0000-0000-0000-00000000000b');
+
+SELECT tests.after('asset managers send an asset for repair', 'carol',
+  $$SELECT asset_send_for_repair('50000000-0000-0000-0000-000000000002', 'Screen flickers', 'Apple Service', CURRENT_DATE + 7, 4500)$$,
+  $$(SELECT status = 'in_repair' FROM assets WHERE id = '50000000-0000-0000-0000-000000000002')
+    AND (SELECT estimated_cost = 4500 AND returned_date IS NULL FROM asset_repairs WHERE asset_id = '50000000-0000-0000-0000-000000000002')
+    AND EXISTS (SELECT 1 FROM asset_events WHERE asset_id = '50000000-0000-0000-0000-000000000002' AND event = 'sent_for_repair'
+                AND from_status = 'assigned' AND to_status = 'in_repair')$$);
+SELECT tests.fails('employees cannot send assets for repair', 'bob',
+  $$SELECT asset_send_for_repair('50000000-0000-0000-0000-000000000002', 'x')$$, 'permission');
+SELECT tests.after('a repaired asset goes back to the person who had it, with its cost', 'carol',
+  $$SELECT asset_send_for_repair('50000000-0000-0000-0000-000000000002', 'Battery', NULL, NULL, 3000);
+    SELECT asset_complete_repair((SELECT id FROM asset_repairs WHERE asset_id = '50000000-0000-0000-0000-000000000002'), 'repaired', 3200, 'New battery')$$,
+  $$(SELECT status = 'assigned' FROM assets WHERE id = '50000000-0000-0000-0000-000000000002')
+    AND (SELECT actual_cost = 3200 AND outcome = 'repaired' FROM asset_repairs WHERE asset_id = '50000000-0000-0000-0000-000000000002')$$);
+SELECT tests.after('beyond repair marks the asset damaged', 'carol',
+  $$SELECT asset_send_for_repair('50000000-0000-0000-0000-000000000002', 'Water damage');
+    SELECT asset_complete_repair((SELECT id FROM asset_repairs WHERE asset_id = '50000000-0000-0000-0000-000000000002'), 'beyond_repair', 0)$$,
+  $$(SELECT status = 'damaged' FROM assets WHERE id = '50000000-0000-0000-0000-000000000002')$$);
+SELECT tests.fails('status changes need an asset action', 'carol',
+  $$UPDATE assets SET status = 'retired' WHERE id = '50000000-0000-0000-0000-000000000002'$$, 'asset actions');
+SELECT tests.fails('marking an asset damaged needs a reason', 'carol',
+  $$SELECT asset_set_condition('50000000-0000-0000-0000-000000000002', 'damaged', '  ')$$, 'reason');
+SELECT tests.after('losing an asset ends its assignment', 'carol',
+  $$SELECT asset_set_condition('50000000-0000-0000-0000-000000000002', 'lost', 'Left in a cab')$$,
+  $$(SELECT status = 'lost' FROM assets WHERE id = '50000000-0000-0000-0000-000000000002')
+    AND NOT EXISTS (SELECT 1 FROM asset_assignments WHERE asset_id = '50000000-0000-0000-0000-000000000002' AND returned_date IS NULL)$$);
+SELECT tests.after('a found asset is available again', 'carol',
+  $$SELECT asset_set_condition('50000000-0000-0000-0000-000000000002', 'lost', 'Left in a cab');
+    SELECT asset_set_condition('50000000-0000-0000-0000-000000000002', 'available', 'Cab company returned it')$$,
+  $$(SELECT status = 'available' FROM assets WHERE id = '50000000-0000-0000-0000-000000000002')
+    AND EXISTS (SELECT 1 FROM asset_events WHERE asset_id = '50000000-0000-0000-0000-000000000002' AND event = 'found')$$);
+SELECT tests.after('retiring records the reason and value', 'carol',
+  $$SELECT asset_retire('50000000-0000-0000-0000-000000000002', 'sold', 'Sold to staff', CURRENT_DATE, 15000)$$,
+  $$(SELECT status = 'retired' AND retire_reason = 'sold' AND disposal_value = 15000 FROM assets WHERE id = '50000000-0000-0000-0000-000000000002')
+    AND NOT EXISTS (SELECT 1 FROM asset_assignments WHERE asset_id = '50000000-0000-0000-0000-000000000002' AND returned_date IS NULL)$$);
+SELECT tests.fails('retirement details only come from Retire', 'carol',
+  $$UPDATE assets SET retire_reason = 'sold' WHERE id = '50000000-0000-0000-0000-000000000002'$$, 'Retire');
+SELECT tests.after('employees report a problem with their own asset; asset managers are told', 'bob',
+  $$SELECT asset_report_issue('50000000-0000-0000-0000-000000000002', 'not_working', 'Keyboard keys stuck')$$,
+  $$EXISTS (SELECT 1 FROM asset_issues WHERE asset_id = '50000000-0000-0000-0000-000000000002' AND status = 'open'
+            AND employee_id = '00000000-0000-0000-0000-00000000000b')
+    AND EXISTS (SELECT 1 FROM notifications WHERE user_id = tests.uid('carol') AND title = 'Asset problem reported')$$);
+SELECT tests.fails('employees cannot report problems with someone else''s asset', 'alice',
+  $$SELECT asset_report_issue('50000000-0000-0000-0000-000000000002', 'damage', 'Cracked')$$, 'assigned to you');
+SELECT tests.after('a repair linked to a reported problem resolves it', 'carol',
+  $$SELECT asset_report_issue('50000000-0000-0000-0000-000000000002', 'damage', 'Hinge broken');
+    SELECT asset_send_for_repair('50000000-0000-0000-0000-000000000002', 'Hinge', NULL, NULL, NULL, (SELECT id FROM asset_issues WHERE asset_id = '50000000-0000-0000-0000-000000000002'));
+    SELECT asset_complete_repair((SELECT id FROM asset_repairs WHERE asset_id = '50000000-0000-0000-0000-000000000002'), 'repaired', 800)$$,
+  $$(SELECT status = 'resolved' FROM asset_issues WHERE asset_id = '50000000-0000-0000-0000-000000000002')$$);
+SELECT tests.rows('employees see their own reported problems, not repairs', 'bob',
+  $$SELECT id FROM asset_repairs$$, 0);
+
+-- ===========================================================================
+-- Payroll lock
+-- ===========================================================================
+INSERT INTO public.payroll_records (id, employee_id, month, year, basic_salary, net_salary, status) VALUES
+  ('b0000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-00000000000b', 1, 2025, 20000, 20000, 'processed');
+
+SELECT tests.fails('processed payroll can''t be edited', 'hr',
+  $$UPDATE payroll_records SET net_salary = 1 WHERE id = 'b0000000-0000-0000-0000-000000000001'$$, 'locked');
+SELECT tests.fails('processed payroll can''t be deleted', 'hr',
+  $$DELETE FROM payroll_records WHERE id = 'b0000000-0000-0000-0000-000000000001'$$, 'Revert it to pending');
+SELECT tests.after('processed payroll can be marked paid', 'hr',
+  $$UPDATE payroll_records SET status = 'paid', paid_at = now() WHERE id = 'b0000000-0000-0000-0000-000000000001'$$,
+  $$(SELECT status = 'paid' FROM payroll_records WHERE id = 'b0000000-0000-0000-0000-000000000001')$$);
+SELECT tests.after('reverted payroll can be edited again', 'hr',
+  $$UPDATE payroll_records SET status = 'draft', paid_at = NULL WHERE id = 'b0000000-0000-0000-0000-000000000001';
+    UPDATE payroll_records SET net_salary = 19000 WHERE id = 'b0000000-0000-0000-0000-000000000001'$$,
+  $$(SELECT net_salary = 19000 FROM payroll_records WHERE id = 'b0000000-0000-0000-0000-000000000001')$$);
+
+-- ===========================================================================
 -- Blocked users
 -- ===========================================================================
 SELECT tests.rows('blocked users cannot read their own record', 'erin',

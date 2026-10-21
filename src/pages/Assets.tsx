@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { AssetCard } from "@/components/assets/AssetCard";
 import { Button } from "@/components/ui/button";
@@ -10,16 +11,19 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
-import { Plus, Search, Package, Laptop, Monitor, Smartphone, Headphones, ArrowUpDown, ShieldAlert } from "lucide-react";
+import { Plus, Search, Package, ArrowUpDown, ShieldAlert, UserCheck, CheckCircle2, Wrench, AlertTriangle, LayoutGrid, List } from "lucide-react";
 import { usePagination } from "@/hooks/usePagination";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useSorting } from "@/hooks/useSorting";
 import { DropdownMenu as SortDropdownMenu, DropdownMenuContent as SortDropdownMenuContent, DropdownMenuItem as SortDropdownMenuItem, DropdownMenuTrigger as SortDropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
-import { useAssets, useAssetStats, useCreateAsset, useUpdateAsset, useDeleteAsset, useAssignAsset, useReturnAsset, useAssetHistory, ASSET_TYPES, type Asset, type AssetType } from "@/hooks/useAssets";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { useAssets, useCreateAsset, useUpdateAsset, useDeleteAsset, useAssignAsset, useReturnAsset, useAssetIssues, ASSET_TYPES, ASSET_STATUSES, ASSET_STATUS_LABELS, type Asset, type AssetIssue, type AssetType } from "@/hooks/useAssets";
+import { AssetActionDialog, type AssetDialogAction } from "@/components/assets/AssetActionDialog";
+import type { AssetAction } from "@/components/assets/AssetActionsMenu";
+import { AssetHistoryDialog } from "@/components/assets/AssetHistoryDialog";
+import { AssetIssuesPanel } from "@/components/assets/AssetIssuesPanel";
+import { AssetTable } from "@/components/assets/AssetTable";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useEmployees } from "@/hooks/useEmployees";
 import { toast } from "sonner";
 import jsPDF from "jspdf";
@@ -27,7 +31,6 @@ import autoTable from "jspdf-autotable";
 import { DateRangeExportDialog } from "@/components/export/DateRangeExportDialog";
 import { format, parseISO, isWithinInterval, isAfter, isBefore } from "date-fns";
 import { useCompanyBranding } from "@/hooks/useCompanyBranding";
-import { statusBadgeClass, formatStatus } from "@/lib/statusStyles";
 import { drawPdfHeader, drawPdfFooter, fetchImageAsDataUrl, PDF_TABLE_HEAD_STYLE, PDF_COLORS } from "@/lib/pdfTheme";
 const ASSET_TYPE_LABELS: Record<AssetType, { singular: string; plural: string }> = {
   laptop: { singular: "Laptop", plural: "Laptops" },
@@ -38,7 +41,6 @@ const ASSET_TYPE_LABELS: Record<AssetType, { singular: string; plural: string }>
   accessory: { singular: "Accessory", plural: "Accessories" },
   other: { singular: "Other", plural: "Other" },
 };
-const ASSET_STATUSES = ["available", "assigned", "maintenance", "retired"] as const;
 const EMPTY_FORM = {
   name: "",
   category: "laptop",
@@ -46,21 +48,48 @@ const EMPTY_FORM = {
   purchase_date: "",
   purchase_cost: "",
   vendor: "",
+  warranty_end_date: "",
   notes: ""
 };
+
+const VIEW_KEY = "peoplo.assets.view";
 type AssetFormData = typeof EMPTY_FORM;
 
 const Assets = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
-  const [statusFilter, setStatusFilter] = useState("all");
+  // "active" = everything except retired
+  const [statusFilter, setStatusFilter] = useState("active");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const pageTab = searchParams.get("tab") === "issues" ? "issues" : "inventory";
+  const setPageTab = (tab: string) =>
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      if (tab === "issues") next.set("tab", "issues");
+      else next.delete("tab");
+      return next;
+    });
+  const [view, setView] = useState<"cards" | "table">(() => {
+    try {
+      return localStorage.getItem(VIEW_KEY) === "cards" ? "cards" : "table";
+    } catch {
+      return "table";
+    }
+  });
+  useEffect(() => {
+    try {
+      localStorage.setItem(VIEW_KEY, view);
+    } catch {
+      // storage unavailable: the choice just isn't remembered
+    }
+  }, [view]);
+  const [actionDialog, setActionDialog] = useState<{ asset: Asset; action: AssetDialogAction; issue?: AssetIssue } | null>(null);
+  const [historyAsset, setHistoryAsset] = useState<Asset | null>(null);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false);
-  const [isHistoryDialogOpen, setIsHistoryDialogOpen] = useState(false);
   const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null);
-  const [historyAssetId, setHistoryAssetId] = useState<string | null>(null);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState("");
   const [assignmentNotes, setAssignmentNotes] = useState("");
   const [formData, setFormData] = useState<AssetFormData>(EMPTY_FORM);
@@ -68,9 +97,6 @@ const Assets = () => {
     data: assets = [],
     isLoading
   } = useAssets();
-  const {
-    data: stats
-  } = useAssetStats();
   const {
     data: employees = []
   } = useEmployees();
@@ -83,14 +109,22 @@ const Assets = () => {
   const deleteAsset = useDeleteAsset();
   const assignAsset = useAssignAsset();
   const returnAsset = useReturnAsset();
-  const {
-    data: assetHistory = [],
-    isLoading: isHistoryLoading
-  } = useAssetHistory(historyAssetId);
+  const { data: issues = [], isLoading: issuesLoading } = useAssetIssues(canViewAssets);
   const filteredAssets = assets.filter(asset => {
-    const matchesSearch = asset.name.toLowerCase().includes(searchQuery.toLowerCase()) || asset.serialNumber.toLowerCase().includes(searchQuery.toLowerCase());
+    const q = searchQuery.toLowerCase();
+    const matchesSearch =
+      asset.name.toLowerCase().includes(q) ||
+      asset.serialNumber.toLowerCase().includes(q) ||
+      asset.assetCode.toLowerCase().includes(q) ||
+      (asset.assignedTo?.name.toLowerCase().includes(q) ?? false);
     const matchesType = typeFilter === "all" || asset.type === typeFilter;
-    const matchesStatus = statusFilter === "all" || asset.status === statusFilter;
+    const matchesStatus =
+      statusFilter === "all" ||
+      (statusFilter === "active"
+        ? asset.status !== "retired"
+        : statusFilter === "damaged_or_lost"
+          ? asset.status === "damaged" || asset.status === "lost"
+          : asset.status === statusFilter);
     return matchesSearch && matchesType && matchesStatus;
   });
 
@@ -146,8 +180,9 @@ const Assets = () => {
   };
   const exportToCSV = (startDate?: Date, endDate?: Date) => {
     const dataToExport = filterByDateRange(sortedAssets, startDate, endDate);
-    const headers = ["Name", "Category", "Serial Number", "Status", "Cost", "Purchase Date", "Assigned To"];
-    const csvContent = [headers.join(","), ...dataToExport.map(asset => [`"${asset.name}"`, `"${asset.type}"`, `"${asset.serialNumber}"`, `"${asset.status}"`, `"${asset.cost}"`, `"${asset.purchaseDate || ''}"`, `"${asset.assignedTo?.name || 'Unassigned'}"`].join(","))].join("\n");
+    const headers = ["Code", "Name", "Category", "Serial Number", "Status", "Cost", "Repair spend", "Purchase Date", "Warranty ends", "Assigned To"];
+    const cell = (v: string | number) => `"${String(v).replace(/"/g, '""')}"`;
+    const csvContent = [headers.join(","), ...dataToExport.map(asset => [asset.assetCode, asset.name, asset.type, asset.serialNumber, ASSET_STATUS_LABELS[asset.status], asset.cost, asset.repairSpend, asset.purchaseDate || "", asset.warrantyEnd, asset.assignedTo?.name || "Unassigned"].map(cell).join(","))].join("\n");
     const blob = new Blob([csvContent], {
       type: "text/csv;charset=utf-8;"
     });
@@ -188,8 +223,8 @@ const Assets = () => {
 
     autoTable(doc, {
       startY: currentY,
-      head: [["Name", "Category", "Serial Number", "Status", "Cost", "Assigned To"]],
-      body: dataToExport.map(asset => [asset.name, asset.type, asset.serialNumber, asset.status, `Rs. ${asset.cost.toLocaleString()}`, asset.assignedTo?.name || "Unassigned"]),
+      head: [["Code", "Name", "Category", "Serial Number", "Status", "Cost", "Repairs", "Assigned To"]],
+      body: dataToExport.map(asset => [asset.assetCode, asset.name, asset.type, asset.serialNumber, ASSET_STATUS_LABELS[asset.status], `Rs. ${asset.cost.toLocaleString("en-IN")}`, asset.repairSpend ? `Rs. ${asset.repairSpend.toLocaleString("en-IN")}` : "-", asset.assignedTo?.name || "Unassigned"]),
       styles: {
         fontSize: 8
       },
@@ -218,6 +253,7 @@ const Assets = () => {
       purchase_date: formData.purchase_date || undefined,
       purchase_cost: formData.purchase_cost ? parseFloat(formData.purchase_cost) : undefined,
       vendor: formData.vendor || undefined,
+      warranty_end_date: formData.warranty_end_date || undefined,
       notes: formData.notes || undefined
     }, {
       onSuccess: () => {
@@ -240,6 +276,7 @@ const Assets = () => {
       purchase_date: asset.purchaseDateRaw,
       purchase_cost: asset.cost ? asset.cost.toString() : "",
       vendor: asset.vendor,
+      warranty_end_date: asset.warrantyEnd,
       notes: asset.notes || ""
     });
     setIsEditDialogOpen(true);
@@ -258,6 +295,7 @@ const Assets = () => {
       purchase_date: formData.purchase_date || null,
       purchase_cost: formData.purchase_cost ? parseFloat(formData.purchase_cost) : null,
       vendor: formData.vendor.trim() || null,
+      warranty_end_date: formData.warranty_end_date || null,
       notes: formData.notes.trim() || null
     }, {
       onSuccess: () => {
@@ -325,33 +363,39 @@ const Assets = () => {
       }
     });
   };
-  const handleViewHistory = (asset: Asset) => {
-    setSelectedAsset(asset);
-    setHistoryAssetId(asset.id);
-    setIsHistoryDialogOpen(true);
+  const handleAction = (action: AssetAction, asset: Asset) => {
+    switch (action) {
+      case "edit":
+        return handleEditAsset(asset);
+      case "history":
+        return setHistoryAsset(asset);
+      case "assign":
+        return handleAssignAsset(asset);
+      case "return":
+        return handleReturnAsset(asset);
+      case "delete":
+        return handleDeleteAsset(asset);
+      default:
+        return setActionDialog({ asset, action });
+    }
   };
-  // The four type buckets always add up to the total.
-  const assetStats = [{
-    label: "Total assets",
-    value: stats?.total || 0,
-    icon: <Package className="h-5 w-5" aria-hidden="true" />
-  }, {
-    label: "Laptops & desktops",
-    value: stats?.computers || 0,
-    icon: <Laptop className="h-5 w-5" aria-hidden="true" />
-  }, {
-    label: "Monitors",
-    value: stats?.monitors || 0,
-    icon: <Monitor className="h-5 w-5" aria-hidden="true" />
-  }, {
-    label: "Phones & tablets",
-    value: stats?.mobile || 0,
-    icon: <Smartphone className="h-5 w-5" aria-hidden="true" />
-  }, {
-    label: "Accessories & other",
-    value: stats?.other || 0,
-    icon: <Headphones className="h-5 w-5" aria-hidden="true" />
-  }];
+  const counts = useMemo(() => {
+    const by = (st: Asset["status"]) => assets.filter((a) => a.status === st).length;
+    return {
+      active: assets.filter((a) => a.status !== "retired").length,
+      assigned: by("assigned"),
+      available: by("available"),
+      inRepair: by("in_repair"),
+      damagedOrLost: by("damaged") + by("lost"),
+    };
+  }, [assets]);
+  const assetStats = [
+    { label: "Assets in use or stock", value: counts.active, icon: <Package className="h-5 w-5" aria-hidden="true" />, filter: "active" },
+    { label: "Assigned", value: counts.assigned, icon: <UserCheck className="h-5 w-5" aria-hidden="true" />, filter: "assigned" },
+    { label: "Available", value: counts.available, icon: <CheckCircle2 className="h-5 w-5" aria-hidden="true" />, filter: "available" },
+    { label: "In repair", value: counts.inRepair, icon: <Wrench className="h-5 w-5" aria-hidden="true" />, filter: "in_repair" },
+    { label: "Damaged or lost", value: counts.damagedOrLost, icon: <AlertTriangle className="h-5 w-5" aria-hidden="true" />, filter: "damaged_or_lost" },
+  ];
   const categoryOptions: { value: string; label: string }[] = ASSET_TYPES.filter(t => t !== "other").map(t => ({
     value: t,
     label: ASSET_TYPE_LABELS[t].singular
@@ -397,6 +441,10 @@ const Assets = () => {
         <Label htmlFor={`${idPrefix}vendor`}>Vendor</Label>
         <Input id={`${idPrefix}vendor`} value={formData.vendor} onChange={e => updateField("vendor")(e.target.value)} placeholder="e.g., Apple Store" />
       </div>
+      <div className="min-w-0 space-y-2">
+        <Label htmlFor={`${idPrefix}warranty_end_date`}>Warranty ends</Label>
+        <Input id={`${idPrefix}warranty_end_date`} type="date" className="block w-full min-w-0" value={formData.warranty_end_date} onChange={e => updateField("warranty_end_date")(e.target.value)} />
+      </div>
       <div className="space-y-2">
         <Label htmlFor={`${idPrefix}notes`}>Notes</Label>
         <Textarea id={`${idPrefix}notes`} value={formData.notes} onChange={e => updateField("notes")(e.target.value)} placeholder="e.g., 16GB RAM, 512GB SSD, M3 Pro chip" rows={3} />
@@ -432,17 +480,37 @@ const Assets = () => {
           </div>
         </div>
 
-        {/* Stats */}
+        <Tabs value={pageTab} onValueChange={setPageTab} className="space-y-6">
+          <TabsList>
+            <TabsTrigger value="inventory">Inventory</TabsTrigger>
+            <TabsTrigger value="issues">
+              Problems reported
+              {issues.length > 0 && <span className="ml-2 rounded-full bg-amber-100 px-1.5 text-xs text-amber-900 dark:bg-amber-900 dark:text-amber-100">{issues.length}</span>}
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="issues">
+            <AssetIssuesPanel
+              issues={issues}
+              isLoading={issuesLoading}
+              assets={assets}
+              canManage={canManageAssets}
+              onSendForRepair={(asset, issue) => setActionDialog({ asset, action: "repair", issue })}
+            />
+          </TabsContent>
+
+          <TabsContent value="inventory" className="space-y-6">
+        {/* Stats (tap to filter) */}
         <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-5">
-          {assetStats.map((stat, i) => <Card key={stat.label} className={i === 0 ? "col-span-2 lg:col-span-1" : undefined}>
-              <CardContent className="flex items-center gap-3 p-4 sm:gap-4 sm:p-6">
-                <div className="shrink-0 rounded-xl bg-primary/10 p-2.5 text-primary sm:p-3">{stat.icon}</div>
+          {assetStats.map((stat, i) => <button key={stat.label} type="button" onClick={() => setStatusFilter(stat.filter)} aria-pressed={statusFilter === stat.filter} className={`rounded-xl border bg-card text-left transition-colors hover:border-primary/50 ${statusFilter === stat.filter ? "border-primary ring-1 ring-primary" : ""} ${i === 0 ? "col-span-2 lg:col-span-1" : ""}`}>
+              <div className="flex items-center gap-3 p-4 sm:gap-4 sm:p-5">
+                <div className="shrink-0 rounded-xl bg-primary/10 p-2.5 text-primary">{stat.icon}</div>
                 <div className="min-w-0">
                   <p className="text-xl font-bold text-foreground sm:text-2xl">{stat.value}</p>
                   <p className="text-xs text-muted-foreground sm:text-sm">{stat.label}</p>
                 </div>
-              </CardContent>
-            </Card>)}
+              </div>
+            </button>)}
         </div>
 
         {/* Filters */}
@@ -461,12 +529,14 @@ const Assets = () => {
             </SelectContent>
           </Select>
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-full sm:w-[150px]" aria-label="Filter by status">
+            <SelectTrigger className="w-full sm:w-[190px]" aria-label="Filter by status">
               <SelectValue placeholder="Status" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All statuses</SelectItem>
-              {ASSET_STATUSES.map(st => <SelectItem key={st} value={st}>{formatStatus(st)}</SelectItem>)}
+              <SelectItem value="active">All except retired</SelectItem>
+              <SelectItem value="all">All, including retired</SelectItem>
+              <SelectItem value="damaged_or_lost">Damaged or lost</SelectItem>
+              {ASSET_STATUSES.map(st => <SelectItem key={st} value={st}>{ASSET_STATUS_LABELS[st]}</SelectItem>)}
             </SelectContent>
           </Select>
           <SortDropdownMenu>
@@ -484,6 +554,14 @@ const Assets = () => {
                 </SortDropdownMenuItem>)}
             </SortDropdownMenuContent>
           </SortDropdownMenu>
+          <div className="hidden shrink-0 rounded-md border p-0.5 sm:flex" role="group" aria-label="Layout">
+            <Button type="button" variant={view === "table" ? "secondary" : "ghost"} size="icon" className="h-9 w-9" onClick={() => setView("table")} aria-pressed={view === "table"} aria-label="Table view" title="Table view">
+              <List className="h-4 w-4" aria-hidden="true" />
+            </Button>
+            <Button type="button" variant={view === "cards" ? "secondary" : "ghost"} size="icon" className="h-9 w-9" onClick={() => setView("cards")} aria-pressed={view === "cards"} aria-label="Card view" title="Card view">
+              <LayoutGrid className="h-4 w-4" aria-hidden="true" />
+            </Button>
+          </div>
         </div>
 
         {/* Asset Grid */}
@@ -502,8 +580,11 @@ const Assets = () => {
                 </Button>}
             </CardContent>
           </Card> : <>
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {paginatedAssets.map(asset => <AssetCard key={asset.id} asset={asset} onEdit={handleEditAsset} onDelete={handleDeleteAsset} onAssign={handleAssignAsset} onReturn={handleReturnAsset} onViewHistory={handleViewHistory} showAdminActions={canManageAssets} />)}
+            {view === "table" && <div className="hidden sm:block">
+                <AssetTable assets={paginatedAssets} canManage={canManageAssets} onAction={handleAction} />
+              </div>}
+            <div className={`grid gap-4 sm:grid-cols-2 lg:grid-cols-3 ${view === "table" ? "sm:hidden" : ""}`}>
+              {paginatedAssets.map(asset => <AssetCard key={asset.id} asset={asset} onAction={handleAction} canManage={canManageAssets} />)}
             </div>
             
             {/* Pagination Controls */}
@@ -553,6 +634,8 @@ const Assets = () => {
                 </Pagination>
               </div>}
           </>}
+          </TabsContent>
+        </Tabs>
       </div>
 
       {/* Add Asset Dialog */}
@@ -650,58 +733,13 @@ const Assets = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Assignment History Dialog */}
-      <Dialog open={isHistoryDialogOpen} onOpenChange={open => {
-      setIsHistoryDialogOpen(open);
-      if (!open) {
-        setHistoryAssetId(null);
-        setSelectedAsset(null);
-      }
-    }}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Assignment history</DialogTitle>
-            <DialogDescription>
-              History for "{selectedAsset?.name}"
-            </DialogDescription>
-          </DialogHeader>
-          <ScrollArea className="max-h-[400px]">
-            {isHistoryLoading ? <div className="space-y-3 p-4">
-                {[1, 2, 3].map(i => <Skeleton key={i} className="h-20 w-full rounded-lg" />)}
-              </div> : assetHistory.length === 0 ? <div className="flex flex-col items-center justify-center py-8 text-center">
-                <p className="text-muted-foreground">No assignment history found</p>
-              </div> : <div className="space-y-3 p-1">
-                {assetHistory.map((assignment, index) => <div key={assignment.id} className="rounded-lg border border-border p-4">
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-center gap-3">
-                        <Avatar className="h-10 w-10">
-                          <AvatarImage src={assignment.employee.avatar} />
-                          <AvatarFallback>
-                            {assignment.employee.name.split(" ").map(n => n[0]).join("")}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div>
-                          <p className="font-medium text-foreground">{assignment.employee.name}</p>
-                          <p className="text-sm text-muted-foreground">
-                            {assignment.assignedDate} — {assignment.returnedDate || "Present"}
-                          </p>
-                        </div>
-                      </div>
-                      <Badge variant="outline" className={statusBadgeClass(index === 0 && !assignment.returnedDate ? "assigned" : "inactive")}>
-                        {index === 0 && !assignment.returnedDate ? "Current" : "Returned"}
-                      </Badge>
-                    </div>
-                    {assignment.notes && <p className="mt-2 text-sm text-muted-foreground">{assignment.notes}</p>}
-                  </div>)}
-              </div>}
-          </ScrollArea>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsHistoryDialogOpen(false)}>
-              Close
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <AssetHistoryDialog asset={historyAsset} onClose={() => setHistoryAsset(null)} />
+      <AssetActionDialog
+        asset={actionDialog?.asset ?? null}
+        action={actionDialog?.action ?? null}
+        issue={actionDialog?.issue}
+        onClose={() => setActionDialog(null)}
+      />
     </DashboardLayout>;
 };
 export default Assets;

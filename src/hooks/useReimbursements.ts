@@ -276,3 +276,62 @@ export function useUpdateReimbursementStatus() {
     },
   });
 }
+
+/**
+ * Approve, reject or mark several claims paid at once. RLS and the guard
+ * trigger still decide per claim (a manager only reaches their own team), so
+ * the result says how many were actually updated. Each employee gets their
+ * usual email.
+ */
+export function useBulkUpdateReimbursementStatus() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      requestIds,
+      status,
+      reviewerId,
+      reviewNotes,
+    }: {
+      requestIds: string[];
+      status: "approved" | "rejected" | "paid";
+      reviewerId: string | null;
+      reviewNotes?: string;
+    }) => {
+      const now = new Date().toISOString();
+      const updatePayload =
+        status === "paid"
+          ? { status, paid_at: now, paid_by: reviewerId }
+          : { status, review_notes: reviewNotes?.trim() || null, reviewed_by: reviewerId, reviewed_at: now };
+      const fromStatus = status === "paid" ? "approved" : "pending";
+
+      const { data, error } = await supabase
+        .from("reimbursement_requests")
+        .update(updatePayload)
+        .in("id", requestIds)
+        .eq("status", fromStatus)
+        .select("id");
+
+      if (error) throw error;
+      const updatedIds = (data ?? []).map((row) => row.id);
+
+      // One email per claim, a few at a time so a long list doesn't flood the function
+      for (let i = 0; i < updatedIds.length; i += 5) {
+        await Promise.allSettled(
+          updatedIds.slice(i, i + 5).map((id) =>
+            supabase.functions.invoke("reimbursement-status-notification", { body: { request_id: id } }),
+          ),
+        );
+      }
+
+      return { updated: updatedIds.length, skipped: requestIds.length - updatedIds.length };
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["reimbursement-requests"] });
+      queryClient.invalidateQueries({ queryKey: ["reimbursement-stats"] });
+    },
+    onError: (error) => {
+      toast.error("Failed to update reimbursement requests: " + error.message);
+    },
+  });
+}

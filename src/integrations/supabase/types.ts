@@ -96,16 +96,199 @@ export type Database = {
           },
         ]
       }
+      asset_events: {
+        Row: {
+          amount: number | null
+          asset_id: string
+          created_at: string
+          created_by: string | null
+          employee_id: string | null
+          event: string
+          from_status: Database["public"]["Enums"]["asset_status"] | null
+          id: string
+          reason: string | null
+          to_status: Database["public"]["Enums"]["asset_status"] | null
+        }
+        Insert: {
+          amount?: number | null
+          asset_id: string
+          created_at?: string
+          created_by?: string | null
+          employee_id?: string | null
+          event: string
+          from_status?: Database["public"]["Enums"]["asset_status"] | null
+          id?: string
+          reason?: string | null
+          to_status?: Database["public"]["Enums"]["asset_status"] | null
+        }
+        Update: {
+          amount?: number | null
+          asset_id?: string
+          created_at?: string
+          created_by?: string | null
+          employee_id?: string | null
+          event?: string
+          from_status?: Database["public"]["Enums"]["asset_status"] | null
+          id?: string
+          reason?: string | null
+          to_status?: Database["public"]["Enums"]["asset_status"] | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "asset_events_asset_id_fkey"
+            columns: ["asset_id"]
+            isOneToOne: false
+            referencedRelation: "assets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "asset_events_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      asset_issues: {
+        Row: {
+          asset_id: string
+          created_at: string
+          created_by: string | null
+          description: string
+          employee_id: string | null
+          id: string
+          kind: string
+          resolution_notes: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          status: string
+        }
+        Insert: {
+          asset_id: string
+          created_at?: string
+          created_by?: string | null
+          description: string
+          employee_id?: string | null
+          id?: string
+          kind: string
+          resolution_notes?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          status?: string
+        }
+        Update: {
+          asset_id?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string
+          employee_id?: string | null
+          id?: string
+          kind?: string
+          resolution_notes?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "asset_issues_asset_id_fkey"
+            columns: ["asset_id"]
+            isOneToOne: false
+            referencedRelation: "assets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "asset_issues_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      asset_repairs: {
+        Row: {
+          actual_cost: number | null
+          asset_id: string
+          completed_by: string | null
+          created_at: string
+          created_by: string | null
+          estimated_cost: number | null
+          expected_return: string | null
+          id: string
+          issue_id: string | null
+          notes: string | null
+          outcome: string | null
+          problem: string
+          returned_date: string | null
+          sent_date: string
+          vendor: string | null
+        }
+        Insert: {
+          actual_cost?: number | null
+          asset_id: string
+          completed_by?: string | null
+          created_at?: string
+          created_by?: string | null
+          estimated_cost?: number | null
+          expected_return?: string | null
+          id?: string
+          issue_id?: string | null
+          notes?: string | null
+          outcome?: string | null
+          problem: string
+          returned_date?: string | null
+          sent_date?: string
+          vendor?: string | null
+        }
+        Update: {
+          actual_cost?: number | null
+          asset_id?: string
+          completed_by?: string | null
+          created_at?: string
+          created_by?: string | null
+          estimated_cost?: number | null
+          expected_return?: string | null
+          id?: string
+          issue_id?: string | null
+          notes?: string | null
+          outcome?: string | null
+          problem?: string
+          returned_date?: string | null
+          sent_date?: string
+          vendor?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "asset_repairs_asset_id_fkey"
+            columns: ["asset_id"]
+            isOneToOne: false
+            referencedRelation: "assets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "asset_repairs_issue_id_fkey"
+            columns: ["issue_id"]
+            isOneToOne: false
+            referencedRelation: "asset_issues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       assets: {
         Row: {
           asset_code: string
           category: string
           created_at: string
+          disposal_value: number | null
           id: string
           name: string
           notes: string | null
           purchase_cost: number | null
           purchase_date: string | null
+          retire_reason: string | null
+          retired_at: string | null
           serial_number: string | null
           status: Database["public"]["Enums"]["asset_status"]
           updated_at: string
@@ -116,11 +299,14 @@ export type Database = {
           asset_code: string
           category: string
           created_at?: string
+          disposal_value?: number | null
           id?: string
           name: string
           notes?: string | null
           purchase_cost?: number | null
           purchase_date?: string | null
+          retire_reason?: string | null
+          retired_at?: string | null
           serial_number?: string | null
           status?: Database["public"]["Enums"]["asset_status"]
           updated_at?: string
@@ -131,11 +317,14 @@ export type Database = {
           asset_code?: string
           category?: string
           created_at?: string
+          disposal_value?: number | null
           id?: string
           name?: string
           notes?: string | null
           purchase_cost?: number | null
           purchase_date?: string | null
+          retire_reason?: string | null
+          retired_at?: string | null
           serial_number?: string | null
           status?: Database["public"]["Enums"]["asset_status"]
           updated_at?: string
@@ -1896,6 +2085,37 @@ export type Database = {
       }
     }
     Functions: {
+      asset_close_issue: {
+        Args: { _issue_id: string; _notes?: string; _status: string }
+        Returns: undefined
+      }
+      asset_complete_repair: {
+        Args: { _actual_cost?: number; _notes?: string; _outcome: string; _repair_id: string }
+        Returns: undefined
+      }
+      asset_report_issue: {
+        Args: { _asset_id: string; _description: string; _kind: string }
+        Returns: string
+      }
+      asset_retire: {
+        Args: { _asset_id: string; _disposal_value?: number; _notes?: string; _reason: string; _retired_on?: string }
+        Returns: undefined
+      }
+      asset_send_for_repair: {
+        Args: {
+          _asset_id: string
+          _estimated_cost?: number
+          _expected_return?: string
+          _issue_id?: string
+          _problem: string
+          _vendor?: string
+        }
+        Returns: string
+      }
+      asset_set_condition: {
+        Args: { _asset_id: string; _reason: string; _status: Database["public"]["Enums"]["asset_status"] }
+        Returns: undefined
+      }
       can: {
         Args: {
           _level?: Database["public"]["Enums"]["permission_level"]
@@ -1926,7 +2146,13 @@ export type Database = {
         | "calendar"
         | "settings"
       app_role: "admin" | "hr" | "manager" | "employee"
-      asset_status: "available" | "assigned" | "maintenance" | "retired"
+      asset_status:
+        | "available"
+        | "assigned"
+        | "in_repair"
+        | "retired"
+        | "damaged"
+        | "lost"
       employee_status: "active" | "inactive" | "onboarding" | "offboarded"
       exit_reason:
         | "resignation"
@@ -2102,7 +2328,7 @@ export const Constants = {
         "settings",
       ],
       app_role: ["admin", "hr", "manager", "employee"],
-      asset_status: ["available", "assigned", "maintenance", "retired"],
+      asset_status: ["available", "assigned", "in_repair", "retired", "damaged", "lost"],
       employee_status: ["active", "inactive", "onboarding", "offboarded"],
       exit_reason: [
         "resignation",

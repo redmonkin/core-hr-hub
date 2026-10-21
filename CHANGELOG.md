@@ -6,6 +6,30 @@ When you update a self-hosted copy, read the **Upgrade notes** of every version 
 
 ## [Unreleased]
 
+### Assets: repairs, damage, loss and retirement
+
+- **New statuses**: In repair (was Maintenance), Damaged, Lost and Retired, each set from the asset's menu with a reason. Lost and retired assets are taken off whoever had them.
+- **Repairs**: Send for repair records the problem, vendor, expected return date and estimated cost; Back from repair records the actual cost and whether it was repaired (it goes back to whoever had it) or is beyond repair (marked damaged).
+- **Employees report problems** with their own assets from Profile → Assets. Asset managers are notified and see them under Assets → Problems reported, where they can send the asset for repair, resolve or dismiss; the employee is told the outcome.
+- **History**: every change is recorded (who, when, what and why), shown as a timeline with costs.
+- **Table view** with code, status, holder, cost, repair spend and warranty (expiring soon highlighted), alongside the cards. Status tiles filter the list; retired assets are hidden unless you ask for them. Warranty end date can be recorded.
+- **Reports**: repair spend this year and in total, a repairs list with costs, and the new statuses.
+
+### Upgrade notes (assets)
+
+- Apply `20261021100100_asset_lifecycle.sql` with the website update: it renames the Maintenance status to In repair.
+
+### Reimbursements, payroll lock, leave report and profile
+
+- **Approve, reject or mark paid in bulk**: tick claims in Reimbursements → Pending or Approved (or "Select all") and act on them together. A bar shows how many are selected and the total amount, and the confirmation lists every claim. Each employee still gets their own email, and you can't select your own claim.
+- **Leave balance report redesigned**: one column per leave type showing days used out of the allowance ("3 / 12"), days left, a usage bar (amber past 60%, red past 90%) and leave pending approval. It follows each person's leave eligibility, has search, department filter and sorting (most used, least left), and summary tiles. The PDF uses the same layout.
+- **Payroll is locked once processed**: a processed or paid record can't be edited or deleted (enforced in the database). Revert it to pending to correct it, then process it again.
+- **Profile**: the work schedule is now read-only and set by HR (saving a changed schedule used to fail), with "Contact HR" hints on name and schedule, and a new **Bank details** card showing bank name, account number (masked, tap to show) and IFSC.
+
+### Upgrade notes (payroll lock)
+
+- Apply `20261021100000_payroll_lock.sql`.
+
 ### Salary revisions (appraisals)
 
 - **Revise salary** from Payroll → Salary structure or Employees → Edit → Salary: type (annual appraisal, promotion, market correction, adjustment, other), effective date, reason, an optional linked performance review, and the new components. A quick "increase every earning by %" fills them in; old vs new and the % change are shown before saving.
