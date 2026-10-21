@@ -2,6 +2,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { cn } from "@/lib/utils";
 import { Check, X, Clock, UserCheck, Receipt, Banknote } from "lucide-react";
 import { ReimbursementRequest, EXPENSE_CATEGORIES } from "@/hooks/useReimbursements";
 import { formatCurrency } from "@/lib/currency";
@@ -14,17 +16,42 @@ interface ReimbursementCardProps {
   onReject?: (id: string) => void;
   onMarkPaid?: (id: string) => void;
   onViewReceipt?: (receiptUrl: string) => void;
+  /** Shown with a checkbox for bulk actions when set */
+  onSelectedChange?: (checked: boolean) => void;
+  selected?: boolean;
 }
 
 const categoryLabel = (category: string) =>
   EXPENSE_CATEGORIES.find((c) => c.value === category)?.label || category;
 
-export function ReimbursementCard({ request, onApprove, onReject, onMarkPaid, onViewReceipt }: ReimbursementCardProps) {
+export function ReimbursementCard({
+  request,
+  onApprove,
+  onReject,
+  onMarkPaid,
+  onViewReceipt,
+  onSelectedChange,
+  selected = false,
+}: ReimbursementCardProps) {
+  const selectable = !!onSelectedChange;
   return (
-    <Card className="overflow-hidden transition-all duration-300 hover:shadow-lg">
+    <Card
+      className={cn(
+        "overflow-hidden transition-all duration-300 hover:shadow-lg",
+        selected && "border-primary ring-1 ring-primary",
+      )}
+    >
       <CardContent className="p-4 sm:p-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex min-w-0 flex-1 items-start gap-3 sm:gap-4">
+            {selectable && (
+              <Checkbox
+                checked={selected}
+                onCheckedChange={(v) => onSelectedChange(v === true)}
+                aria-label={`Select ${request.employee.name}'s ${formatCurrency(request.amount, true)} claim`}
+                className="mt-3 h-5 w-5 shrink-0"
+              />
+            )}
             <Avatar className="h-10 w-10 shrink-0 sm:h-12 sm:w-12">
               <AvatarImage src={request.employee.avatar} />
               <AvatarFallback>
@@ -87,7 +114,7 @@ export function ReimbursementCard({ request, onApprove, onReject, onMarkPaid, on
               )}
             </div>
           </div>
-          <div className="flex shrink-0 flex-wrap items-center gap-2 pl-[52px] sm:pl-0">
+          <div className={cn("flex shrink-0 flex-wrap items-center gap-2 sm:pl-0", selectable ? "pl-[84px]" : "pl-[52px]")}>
             {request.status === "pending" && (onApprove || onReject) ? (
               <>
                 {onApprove && (

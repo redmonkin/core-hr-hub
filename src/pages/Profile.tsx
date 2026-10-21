@@ -28,6 +28,7 @@ import { LeaveBalanceCard } from "@/components/profile/LeaveBalanceCard";
 import { LeaveRequestForm } from "@/components/profile/LeaveRequestForm";
 import { LeaveRequestHistory } from "@/components/profile/LeaveRequestHistory";
 import { MyCompensation } from "@/components/payroll/SalaryRevisionsPanel";
+import { BankDetailsCard } from "@/components/profile/BankDetailsCard";
 import { PayslipViewer } from "@/components/profile/PayslipViewer";
 import { ResignationCard } from "@/components/profile/ResignationCard";
 import { TaxDocumentsViewer } from "@/components/profile/TaxDocumentsViewer";
@@ -64,10 +65,16 @@ interface ProfileForm {
   country: string;
   date_of_birth: string;
   gender: string;
-  working_hours_start: string;
-  working_hours_end: string;
-  working_days: number[];
 }
+
+const formFromEmployee = (employee: EmployeeProfile): ProfileForm => ({
+  phone: employee.phone || '',
+  address: employee.address || '',
+  city: employee.city || '',
+  country: employee.country || '',
+  date_of_birth: employee.date_of_birth || '',
+  gender: employee.gender || '',
+});
 
 const ALLOWED_TABS = ["profile", "leaves", "attendance", "assets", "reviews", "payslips", "documents"] as const;
 
@@ -93,9 +100,6 @@ const Profile = () => {
     country: '',
     date_of_birth: '',
     gender: '',
-    working_hours_start: '09:00',
-    working_hours_end: '18:00',
-    working_days: [1, 2, 3, 4, 5],
   });
 
   useEffect(() => {
@@ -177,23 +181,7 @@ const Profile = () => {
 
   useEffect(() => {
     if (employee) {
-      // Format time from "HH:MM:SS" to "HH:MM" for input
-      const formatTimeForInput = (time: string | null) => {
-        if (!time) return '';
-        return time.slice(0, 5);
-      };
-      
-      setFormData({
-        phone: employee.phone || '',
-        address: employee.address || '',
-        city: employee.city || '',
-        country: employee.country || '',
-        date_of_birth: employee.date_of_birth || '',
-        gender: employee.gender || '',
-        working_hours_start: formatTimeForInput(employee.working_hours_start) || '09:00',
-        working_hours_end: formatTimeForInput(employee.working_hours_end) || '18:00',
-        working_days: employee.working_days || [1, 2, 3, 4, 5],
-      });
+      setFormData(formFromEmployee(employee));
     }
   }, [employee]);
 
@@ -210,9 +198,6 @@ const Profile = () => {
           country: data.country.trim() || null,
           date_of_birth: data.date_of_birth || null,
           gender: data.gender || null,
-          working_hours_start: data.working_hours_start ? `${data.working_hours_start}:00` : null,
-          working_hours_end: data.working_hours_end ? `${data.working_hours_end}:00` : null,
-          working_days: data.working_days,
         })
         .eq('id', employee.id);
 
@@ -365,21 +350,7 @@ const Profile = () => {
                       <div className="flex shrink-0 gap-2">
                         <Button variant="outline" onClick={() => {
                           setIsEditing(false);
-                          const formatTimeForInput = (time: string | null) => {
-                            if (!time) return '';
-                            return time.slice(0, 5);
-                          };
-                          setFormData({
-                            phone: employee.phone || '',
-                            address: employee.address || '',
-                            city: employee.city || '',
-                            country: employee.country || '',
-                            date_of_birth: employee.date_of_birth || '',
-                            gender: employee.gender || '',
-                            working_hours_start: formatTimeForInput(employee.working_hours_start) || '09:00',
-                            working_hours_end: formatTimeForInput(employee.working_hours_end) || '18:00',
-                            working_days: employee.working_days || [1, 2, 3, 4, 5],
-                          });
+                          setFormData(formFromEmployee(employee));
                         }}>
                           Cancel
                         </Button>
@@ -401,6 +372,7 @@ const Profile = () => {
                         <Label htmlFor="profile-last-name">Last name</Label>
                         <Input id="profile-last-name" value={employee.last_name} readOnly className={READ_ONLY_FIELD} />
                       </div>
+                      <p className="-mt-2 text-xs text-muted-foreground sm:col-span-2">Contact HR to change your name</p>
                     </div>
 
                     <div className="space-y-2">
@@ -514,7 +486,9 @@ const Profile = () => {
                           <Clock className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
                           Working schedule
                         </h4>
-                        <p className="text-sm text-muted-foreground">Set your working hours and days for attendance reminders</p>
+                        <p className="text-sm text-muted-foreground">
+                          Set by HR and used for attendance reminders. Contact HR to change your hours or days.
+                        </p>
                       </div>
 
                       <div className="grid gap-4 sm:grid-cols-2">
@@ -523,10 +497,9 @@ const Profile = () => {
                           <Input
                             id="profile-start-time"
                             type="time"
-                            value={formData.working_hours_start}
-                            onChange={(e) => setFormData(prev => ({ ...prev, working_hours_start: e.target.value }))}
-                            disabled={!isEditing}
-                            className={`min-w-0 ${EDITABLE_FIELD}`}
+                            value={employee.working_hours_start?.slice(0, 5) || "09:00"}
+                            readOnly
+                            className={`min-w-0 ${READ_ONLY_FIELD}`}
                           />
                         </div>
                         <div className="min-w-0 space-y-2">
@@ -534,10 +507,9 @@ const Profile = () => {
                           <Input
                             id="profile-end-time"
                             type="time"
-                            value={formData.working_hours_end}
-                            onChange={(e) => setFormData(prev => ({ ...prev, working_hours_end: e.target.value }))}
-                            disabled={!isEditing}
-                            className={`min-w-0 ${EDITABLE_FIELD}`}
+                            value={employee.working_hours_end?.slice(0, 5) || "18:00"}
+                            readOnly
+                            className={`min-w-0 ${READ_ONLY_FIELD}`}
                           />
                         </div>
                       </div>
@@ -546,15 +518,16 @@ const Profile = () => {
                         <Label id="profile-working-days-label">Working days</Label>
                         <WorkingDaysPicker
                           labelledBy="profile-working-days-label"
-                          value={formData.working_days}
-                          readOnly={!isEditing}
-                          onChange={(days) => setFormData(prev => ({ ...prev, working_days: days }))}
+                          value={employee.working_days || [1, 2, 3, 4, 5]}
+                          readOnly
+                          onChange={() => undefined}
                         />
                       </div>
                     </div>
                   </CardContent>
                 </Card>
               </div>
+              <BankDetailsCard employeeId={employee.id} />
               <ResignationCard employeeId={employee.id} />
             </TabsContent>
 

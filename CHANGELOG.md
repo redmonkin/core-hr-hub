@@ -6,6 +6,12 @@ When you update a self-hosted copy, read the **Upgrade notes** of every version 
 
 ## [Unreleased]
 
+### Reimbursements, leave report and profile
+
+- **Approve, reject or mark paid in bulk**: tick claims in Reimbursements → Pending or Approved (or "Select all") and act on them together. A bar shows how many are selected and the total amount, and the confirmation lists every claim. Each employee still gets their own email, and you can't select your own claim.
+- **Leave balance report redesigned**: one column per leave type showing days used out of the allowance ("3 / 12"), days left, a usage bar (amber past 60%, red past 90%) and leave pending approval. It follows each person's leave eligibility, has search, department filter and sorting (most used, least left), and summary tiles. The PDF uses the same layout.
+- **Profile**: the work schedule is now read-only and set by HR (saving a changed schedule used to fail), with "Contact HR" hints on name and schedule, and a new **Bank details** card showing bank name, account number (masked, tap to show) and IFSC.
+
 ### Salary revisions (appraisals)
 
 - **Revise salary** from Payroll → Salary structure or Employees → Edit → Salary: type (annual appraisal, promotion, market correction, adjustment, other), effective date, reason, an optional linked performance review, and the new components. A quick "increase every earning by %" fills them in; old vs new and the % change are shown before saving.

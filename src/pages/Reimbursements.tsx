@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Receipt, Plus, Clock, CheckCircle, XCircle, Banknote, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
@@ -19,6 +20,7 @@ import {
   useReimbursementRequests,
   useReimbursementStats,
   useUpdateReimbursementStatus,
+  useBulkUpdateReimbursementStatus,
   ReimbursementRequest,
 } from "@/hooks/useReimbursements";
 import { usePermissions } from "@/hooks/usePermissions";
@@ -33,6 +35,12 @@ const Reimbursements = () => {
   const [selectedRequest, setSelectedRequest] = useState<ReimbursementRequest | null>(null);
   const [reviewNotes, setReviewNotes] = useState("");
   const [actionType, setActionType] = useState<"approve" | "reject" | "paid" | null>(null);
+
+  // Bulk actions: claims ticked on the current tab
+  const [activeTab, setActiveTab] = useState("pending");
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkAction, setBulkAction] = useState<"approve" | "reject" | "paid" | null>(null);
+  const [bulkNotes, setBulkNotes] = useState("");
 
   // Managers approve their reports (RLS limits them to their team);
   // reimbursements:manage approves anyone's and marks claims paid
@@ -54,6 +62,7 @@ const Reimbursements = () => {
   const { data: requests = [], isLoading } = useReimbursementRequests();
   const { data: stats } = useReimbursementStats();
   const updateStatusMutation = useUpdateReimbursementStatus();
+  const bulkUpdateMutation = useBulkUpdateReimbursementStatus();
 
   const getDocumentUrl = async (filePath: string) => {
     const { data, error } = await supabase.storage
@@ -135,6 +144,60 @@ const Reimbursements = () => {
   const approvedRequests = requests.filter((r) => r.status === "approved");
   const processedRequests = requests.filter((r) => r.status === "rejected" || r.status === "paid");
 
+  // Nobody approves their own claim; only reimbursements:manage marks claims paid
+  const approvableIds = new Set(
+    canApprove ? pendingRequests.filter((r) => r.employeeId !== myEmployeeId).map((r) => r.id) : [],
+  );
+  const payableIds = new Set(canMarkPaid ? approvedRequests.map((r) => r.id) : []);
+  const selectableIds = activeTab === "pending" ? approvableIds : activeTab === "approved" ? payableIds : new Set<string>();
+  const selected = requests.filter((r) => selectedIds.has(r.id) && selectableIds.has(r.id));
+  const selectedTotal = selected.reduce((sum, r) => sum + r.amount, 0);
+
+  const toggleSelected = (id: string, checked: boolean) =>
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (checked) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  const allSelected = selectableIds.size > 0 && selected.length === selectableIds.size;
+  const toggleAll = (checked: boolean) => setSelectedIds(checked ? new Set(selectableIds) : new Set());
+
+  const handleTabChange = (tab: string) => {
+    setActiveTab(tab);
+    setSelectedIds(new Set());
+  };
+
+  const confirmBulkAction = async () => {
+    if (!bulkAction || selected.length === 0) return;
+    const status = bulkAction === "approve" ? "approved" : bulkAction === "reject" ? "rejected" : "paid";
+    const result = await bulkUpdateMutation.mutateAsync({
+      requestIds: selected.map((r) => r.id),
+      status,
+      reviewerId: myEmployeeId ?? null,
+      reviewNotes: bulkNotes,
+    });
+    const verb = status === "approved" ? "approved" : status === "rejected" ? "rejected" : "marked as paid";
+    toast({
+      title: `${result.updated} ${result.updated === 1 ? "claim" : "claims"} ${verb}`,
+      description:
+        result.skipped > 0
+          ? `${result.skipped} couldn't be updated: they may have changed in the meantime or aren't yours to review.`
+          : "Each employee has been emailed.",
+    });
+    setBulkAction(null);
+    setBulkNotes("");
+    setSelectedIds(new Set());
+  };
+
+  const selectAllRow = (label: string) =>
+    selectableIds.size > 1 ? (
+      <label className="flex w-fit cursor-pointer items-center gap-3 px-4 text-sm text-muted-foreground sm:px-6">
+        <Checkbox checked={allSelected} onCheckedChange={(v) => toggleAll(v === true)} className="h-5 w-5" />
+        {label} ({selectableIds.size})
+      </label>
+    ) : null;
+
   const reimbursementStats = [
     { label: "Pending", value: stats?.pending || 0, icon: <Clock className="h-5 w-5" />, color: "text-amber-600" },
     { label: "Approved", value: stats?.approved || 0, icon: <CheckCircle className="h-5 w-5" />, color: "text-emerald-600" },
@@ -196,7 +259,7 @@ const Reimbursements = () => {
           ))}
         </div>
 
-        <Tabs defaultValue="pending">
+        <Tabs value={activeTab} onValueChange={handleTabChange}>
           <TabsList>
             <TabsTrigger value="pending">
               Pending
@@ -231,19 +294,23 @@ const Reimbursements = () => {
                 </CardContent>
               </Card>
             ) : (
-              pendingRequests.map((request) => {
-                const isOwnRequest = myEmployeeId && request.employeeId === myEmployeeId;
-                const canApproveThisRequest = canApprove && !isOwnRequest;
-                return (
-                  <ReimbursementCard
-                    key={request.id}
-                    request={request}
-                    onApprove={canApproveThisRequest ? handleApprove : undefined}
-                    onReject={canApproveThisRequest ? handleReject : undefined}
-                    onViewReceipt={handleViewReceipt}
-                  />
-                );
-              })
+              <>
+                {selectAllRow("Select all you can approve")}
+                {pendingRequests.map((request) => {
+                  const canApproveThisRequest = approvableIds.has(request.id);
+                  return (
+                    <ReimbursementCard
+                      key={request.id}
+                      request={request}
+                      onApprove={canApproveThisRequest ? handleApprove : undefined}
+                      onReject={canApproveThisRequest ? handleReject : undefined}
+                      onViewReceipt={handleViewReceipt}
+                      selected={selectedIds.has(request.id)}
+                      onSelectedChange={canApproveThisRequest ? (c) => toggleSelected(request.id, c) : undefined}
+                    />
+                  );
+                })}
+              </>
             )}
           </TabsContent>
 
@@ -264,14 +331,19 @@ const Reimbursements = () => {
                   </CardContent>
                 </Card>
               ) : (
-                approvedRequests.map((request) => (
-                  <ReimbursementCard
-                    key={request.id}
-                    request={request}
-                    onMarkPaid={canMarkPaid ? handleMarkPaid : undefined}
-                    onViewReceipt={handleViewReceipt}
-                  />
-                ))
+                <>
+                  {selectAllRow("Select all")}
+                  {approvedRequests.map((request) => (
+                    <ReimbursementCard
+                      key={request.id}
+                      request={request}
+                      onMarkPaid={canMarkPaid ? handleMarkPaid : undefined}
+                      onViewReceipt={handleViewReceipt}
+                      selected={selectedIds.has(request.id)}
+                      onSelectedChange={canMarkPaid ? (c) => toggleSelected(request.id, c) : undefined}
+                    />
+                  ))}
+                </>
               )}
             </TabsContent>
           )}
@@ -298,6 +370,117 @@ const Reimbursements = () => {
             )}
           </TabsContent>
         </Tabs>
+
+        {selected.length > 0 && (
+          <div
+            role="region"
+            aria-label="Bulk actions"
+            className="sticky bottom-[calc(1rem+env(safe-area-inset-bottom))] z-20 flex flex-col gap-3 rounded-xl border bg-card p-4 shadow-lg sm:flex-row sm:items-center sm:justify-between"
+          >
+            <p className="text-sm">
+              <span className="font-semibold text-foreground">{selected.length} selected</span>
+              <span className="text-muted-foreground"> · {formatCurrency(selectedTotal, true)}</span>
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <Button variant="ghost" onClick={() => setSelectedIds(new Set())}>
+                Clear
+              </Button>
+              {activeTab === "pending" ? (
+                <>
+                  <Button
+                    variant="outline"
+                    className="border-destructive/30 text-red-700 hover:bg-destructive/10 dark:text-red-400"
+                    onClick={() => setBulkAction("reject")}
+                  >
+                    <XCircle className="mr-2 h-4 w-4" />
+                    Reject
+                  </Button>
+                  <Button onClick={() => setBulkAction("approve")}>
+                    <CheckCircle className="mr-2 h-4 w-4" />
+                    Approve {selected.length}
+                  </Button>
+                </>
+              ) : (
+                <Button onClick={() => setBulkAction("paid")}>
+                  <Banknote className="mr-2 h-4 w-4" />
+                  Mark {selected.length} as paid
+                </Button>
+              )}
+            </div>
+          </div>
+        )}
+
+        <Dialog
+          open={!!bulkAction}
+          onOpenChange={(open) => {
+            if (!open) {
+              setBulkAction(null);
+              setBulkNotes("");
+            }
+          }}
+        >
+          <DialogContent className="max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>
+                {bulkAction === "approve"
+                  ? `Approve ${selected.length} ${selected.length === 1 ? "claim" : "claims"}?`
+                  : bulkAction === "reject"
+                  ? `Reject ${selected.length} ${selected.length === 1 ? "claim" : "claims"}?`
+                  : `Mark ${selected.length} ${selected.length === 1 ? "claim" : "claims"} as paid?`}
+              </DialogTitle>
+              <DialogDescription>
+                {bulkAction === "paid"
+                  ? `Confirm these have been paid out, ${formatCurrency(selectedTotal, true)} in total.`
+                  : `${formatCurrency(selectedTotal, true)} in total. Each employee is emailed the decision.`}
+              </DialogDescription>
+            </DialogHeader>
+
+            <ul className="max-h-56 divide-y overflow-y-auto rounded-lg border text-sm">
+              {selected.map((r) => (
+                <li key={r.id} className="flex items-center justify-between gap-3 px-3 py-2">
+                  <span className="min-w-0 truncate">
+                    {r.employee.name}
+                    <span className="text-muted-foreground"> · {r.expenseDate}</span>
+                  </span>
+                  <span className="shrink-0 tabular-nums">{formatCurrency(r.amount, true)}</span>
+                </li>
+              ))}
+            </ul>
+
+            {bulkAction !== "paid" && (
+              <div className="space-y-2">
+                <Label htmlFor="reimb-bulk-notes">Note to the employees (optional)</Label>
+                <Textarea
+                  id="reimb-bulk-notes"
+                  value={bulkNotes}
+                  onChange={(e) => setBulkNotes(e.target.value)}
+                  placeholder="Sent with every selected claim"
+                  rows={3}
+                />
+              </div>
+            )}
+
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setBulkAction(null);
+                  setBulkNotes("");
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={confirmBulkAction}
+                disabled={bulkUpdateMutation.isPending}
+                variant={bulkAction === "reject" ? "destructive" : "default"}
+              >
+                {bulkUpdateMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {bulkAction === "approve" ? "Approve" : bulkAction === "reject" ? "Reject" : "Mark as paid"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         <Dialog
           open={!!selectedRequest && !!actionType}
