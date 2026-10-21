@@ -6,6 +6,19 @@ When you update a self-hosted copy, read the **Upgrade notes** of every version 
 
 ## [Unreleased]
 
+### Assets: repairs, damage, loss and retirement
+
+- **New statuses**: In repair (was Maintenance), Damaged, Lost and Retired, each set from the asset's menu with a reason. Lost and retired assets are taken off whoever had them.
+- **Repairs**: Send for repair records the problem, vendor, expected return date and estimated cost; Back from repair records the actual cost and whether it was repaired (it goes back to whoever had it) or is beyond repair (marked damaged).
+- **Employees report problems** with their own assets from Profile → Assets. Asset managers are notified and see them under Assets → Problems reported, where they can send the asset for repair, resolve or dismiss; the employee is told the outcome.
+- **History**: every change is recorded (who, when, what and why), shown as a timeline with costs.
+- **Table view** with code, status, holder, cost, repair spend and warranty (expiring soon highlighted), alongside the cards. Status tiles filter the list; retired assets are hidden unless you ask for them. Warranty end date can be recorded.
+- **Reports**: repair spend this year and in total, a repairs list with costs, and the new statuses.
+
+### Upgrade notes (assets)
+
+- Apply `20261021100100_asset_lifecycle.sql` with the website update: it renames the Maintenance status to In repair.
+
 ### Reimbursements, payroll lock, leave report and profile
 
 - **Approve, reject or mark paid in bulk**: tick claims in Reimbursements → Pending or Approved (or "Select all") and act on them together. A bar shows how many are selected and the total amount, and the confirmation lists every claim. Each employee still gets their own email, and you can't select your own claim.

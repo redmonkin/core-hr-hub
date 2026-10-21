@@ -1,30 +1,20 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Laptop, Monitor, Smartphone, Tablet, Headphones, Package, PcCase, MoreVertical, Edit, Trash2, UserPlus, RotateCcw, History } from "lucide-react";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import type { Asset, AssetType } from "@/hooks/useAssets";
-import { statusBadgeClass, formatStatus } from "@/lib/statusStyles";
+import { format, parseISO } from "date-fns";
+import { Laptop, Monitor, Smartphone, Tablet, Headphones, Package, PcCase, AlertTriangle } from "lucide-react";
+import { ASSET_STATUS_LABELS, assetStatusTone, type Asset, type AssetType } from "@/hooks/useAssets";
+import { formatCurrency } from "@/lib/currency";
+import { statusBadgeClass } from "@/lib/statusStyles";
+import { AssetActionsMenu, type AssetAction } from "./AssetActionsMenu";
 
 export type { Asset };
 
 interface AssetCardProps {
   asset: Asset;
-  onAssign?: (asset: Asset) => void;
-  onReturn?: (asset: Asset) => void;
-  onEdit?: (asset: Asset) => void;
-  onDelete?: (asset: Asset) => void;
-  onViewHistory?: (asset: Asset) => void;
-  showAdminActions?: boolean;
+  onAction: (action: AssetAction, asset: Asset) => void;
+  canManage: boolean;
 }
-
 const typeIcons: Record<AssetType, JSX.Element> = {
   laptop: <Laptop className="h-6 w-6" aria-hidden="true" />,
   desktop: <PcCase className="h-6 w-6" aria-hidden="true" />,
@@ -35,7 +25,7 @@ const typeIcons: Record<AssetType, JSX.Element> = {
   other: <Package className="h-6 w-6" aria-hidden="true" />,
 };
 
-export function AssetCard({ asset, onAssign, onReturn, onEdit, onDelete, onViewHistory, showAdminActions = true }: AssetCardProps) {
+export function AssetCard({ asset, onAction, canManage }: AssetCardProps) {
   return (
     <Card className="overflow-hidden transition-all duration-300 hover:shadow-lg">
       <CardContent className="p-4 sm:p-6">
@@ -50,56 +40,20 @@ export function AssetCard({ asset, onAssign, onReturn, onEdit, onDelete, onViewH
             <div className="min-w-0">
               <h3 className="break-words font-semibold text-foreground">{asset.name}</h3>
               <p className="truncate text-sm text-muted-foreground">
-                {asset.serialNumber ? `SN: ${asset.serialNumber}` : "No serial number"}
+                {asset.assetCode}
+                {asset.serialNumber ? ` · SN ${asset.serialNumber}` : ""}
               </p>
             </div>
           </div>
-          {showAdminActions && (
-            <DropdownMenu modal={false}>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="-mr-2 -mt-2 h-10 w-10 shrink-0 sm:h-8 sm:w-8"
-                  aria-label={`Actions for ${asset.name}`}
-                  title="Asset actions"
-                >
-                  <MoreVertical className="h-4 w-4" aria-hidden="true" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => onEdit?.(asset)}>
-                  <Edit className="mr-2 h-4 w-4" />
-                  Edit asset
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => onViewHistory?.(asset)}>
-                  <History className="mr-2 h-4 w-4" />
-                  View history
-                </DropdownMenuItem>
-                {asset.status === "available" && (
-                  <DropdownMenuItem onClick={() => onAssign?.(asset)}>
-                    <UserPlus className="mr-2 h-4 w-4" />
-                    Assign to employee
-                  </DropdownMenuItem>
-                )}
-                {asset.status === "assigned" && (
-                  <DropdownMenuItem onClick={() => onReturn?.(asset)}>
-                    <RotateCcw className="mr-2 h-4 w-4" />
-                    Mark as returned
-                  </DropdownMenuItem>
-                )}
-                <DropdownMenuSeparator />
-                <DropdownMenuItem 
-                  onClick={() => onDelete?.(asset)}
-                  className="text-destructive focus:text-destructive"
-                >
-                  <Trash2 className="mr-2 h-4 w-4" />
-                  Delete asset
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
+          <AssetActionsMenu asset={asset} canManage={canManage} onAction={onAction} triggerClassName="-mr-2 -mt-2 h-10 w-10 shrink-0 sm:h-8 sm:w-8" />
         </div>
+
+        {asset.openRepair && (
+          <p className="mt-3 rounded-lg bg-amber-50 p-2 text-xs text-amber-900 dark:bg-amber-950 dark:text-amber-200">
+            In repair: {asset.openRepair.problem}
+            {asset.openRepair.expectedReturn && ` · back ${format(parseISO(asset.openRepair.expectedReturn), "MMM d")}`}
+          </p>
+        )}
 
         {asset.notes && (
           <p className="mt-3 text-sm text-muted-foreground line-clamp-2">{asset.notes}</p>
@@ -112,14 +66,25 @@ export function AssetCard({ asset, onAssign, onReturn, onEdit, onDelete, onViewH
           </div>
           <div className="space-y-1 text-right">
             <p className="text-xs text-muted-foreground">Cost</p>
-            <p className="text-sm font-medium text-foreground">₹{asset.cost.toLocaleString('en-IN')}</p>
+            <p className="text-sm font-medium text-foreground">{formatCurrency(asset.cost)}</p>
+            {asset.repairCount > 0 && (
+              <p className="text-xs text-muted-foreground">+ {formatCurrency(asset.repairSpend)} repairs</p>
+            )}
           </div>
         </div>
 
         <div className="mt-4 flex items-center justify-between border-t border-border pt-4">
-          <Badge variant="outline" className={statusBadgeClass(asset.status)}>
-            {formatStatus(asset.status)}
-          </Badge>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <Badge variant="outline" className={statusBadgeClass(assetStatusTone(asset.status))}>
+              {ASSET_STATUS_LABELS[asset.status]}
+            </Badge>
+            {asset.openIssues > 0 && (
+              <span className="inline-flex items-center gap-1 text-xs text-amber-700 dark:text-amber-400">
+                <AlertTriangle className="h-3 w-3" aria-hidden="true" />
+                {asset.openIssues} reported
+              </span>
+            )}
+          </div>
           {asset.assignedTo && (
             <div className="flex min-w-0 items-center gap-2">
               <Avatar className="h-6 w-6">

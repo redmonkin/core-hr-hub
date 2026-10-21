@@ -14,6 +14,21 @@ export interface AssetReportRecord {
   warrantyEndDate: string;
   vendor: string;
   assignedTo?: string;
+  repairSpend: number;
+}
+
+export interface AssetRepairRecord {
+  id: string;
+  assetName: string;
+  assetCode: string;
+  problem: string;
+  vendor: string | null;
+  sentDate: string;
+  returnedDate: string | null;
+  outcome: string | null;
+  cost: number | null;
+  /** Estimate while it's still out for repair */
+  estimatedCost: number | null;
 }
 
 export interface AssetReport {
@@ -22,6 +37,9 @@ export interface AssetReport {
   byStatus: { status: string; count: number }[];
   byCategory: { category: string; count: number }[];
   records: AssetReportRecord[];
+  repairs: AssetRepairRecord[];
+  repairSpendTotal: number;
+  repairSpendThisYear: number;
 }
 
 export function useAssetReport() {
@@ -56,6 +74,39 @@ export function useAssetReport() {
           return [a.asset_id, emp ? `${emp.first_name} ${emp.last_name}` : ""];
         })
       );
+
+      const { data: repairRows, error: repairError } = await supabase
+        .from("asset_repairs")
+        .select("id, asset_id, problem, vendor, sent_date, returned_date, outcome, actual_cost, estimated_cost, asset:assets(name, asset_code)")
+        .order("sent_date", { ascending: false });
+      if (repairError) throw repairError;
+
+      const thisYear = String(new Date().getFullYear());
+      const spendByAsset = new Map<string, number>();
+      let repairSpendTotal = 0;
+      let repairSpendThisYear = 0;
+      const repairs: AssetRepairRecord[] = (repairRows || []).map((r) => {
+        const cost = r.actual_cost === null ? null : Number(r.actual_cost);
+        if (cost) {
+          repairSpendTotal += cost;
+          // Counted in the year it came back
+          if ((r.returned_date ?? "").startsWith(thisYear)) repairSpendThisYear += cost;
+          spendByAsset.set(r.asset_id, (spendByAsset.get(r.asset_id) ?? 0) + cost);
+        }
+        const asset = r.asset as { name: string; asset_code: string } | null;
+        return {
+          id: r.id,
+          assetName: asset?.name ?? "Asset",
+          assetCode: asset?.asset_code ?? "",
+          problem: r.problem,
+          vendor: r.vendor,
+          sentDate: r.sent_date,
+          returnedDate: r.returned_date,
+          outcome: r.outcome,
+          cost,
+          estimatedCost: r.estimated_cost === null ? null : Number(r.estimated_cost),
+        };
+      });
 
       // Calculate stats
       const totalAssets = assets?.length || 0;
@@ -100,6 +151,7 @@ export function useAssetReport() {
           : "-",
         vendor: asset.vendor || "-",
         assignedTo: assignmentMap.get(asset.id) || "-",
+        repairSpend: spendByAsset.get(asset.id) ?? 0,
       }));
 
       return {
@@ -108,6 +160,9 @@ export function useAssetReport() {
         byStatus,
         byCategory,
         records,
+        repairs,
+        repairSpendTotal,
+        repairSpendThisYear,
       };
     },
   });
