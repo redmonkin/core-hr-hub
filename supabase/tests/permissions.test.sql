@@ -767,6 +767,24 @@ SELECT tests.after('employees see their revision once it is agreed', 'hr',
   $$(SELECT n = 1 FROM seen)$$);
 
 -- ===========================================================================
+-- Payroll lock
+-- ===========================================================================
+INSERT INTO public.payroll_records (id, employee_id, month, year, basic_salary, net_salary, status) VALUES
+  ('b0000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-00000000000b', 1, 2025, 20000, 20000, 'processed');
+
+SELECT tests.fails('processed payroll can''t be edited', 'hr',
+  $$UPDATE payroll_records SET net_salary = 1 WHERE id = 'b0000000-0000-0000-0000-000000000001'$$, 'locked');
+SELECT tests.fails('processed payroll can''t be deleted', 'hr',
+  $$DELETE FROM payroll_records WHERE id = 'b0000000-0000-0000-0000-000000000001'$$, 'Revert it to pending');
+SELECT tests.after('processed payroll can be marked paid', 'hr',
+  $$UPDATE payroll_records SET status = 'paid', paid_at = now() WHERE id = 'b0000000-0000-0000-0000-000000000001'$$,
+  $$(SELECT status = 'paid' FROM payroll_records WHERE id = 'b0000000-0000-0000-0000-000000000001')$$);
+SELECT tests.after('reverted payroll can be edited again', 'hr',
+  $$UPDATE payroll_records SET status = 'draft', paid_at = NULL WHERE id = 'b0000000-0000-0000-0000-000000000001';
+    UPDATE payroll_records SET net_salary = 19000 WHERE id = 'b0000000-0000-0000-0000-000000000001'$$,
+  $$(SELECT net_salary = 19000 FROM payroll_records WHERE id = 'b0000000-0000-0000-0000-000000000001')$$);
+
+-- ===========================================================================
 -- Blocked users
 -- ===========================================================================
 SELECT tests.rows('blocked users cannot read their own record', 'erin',

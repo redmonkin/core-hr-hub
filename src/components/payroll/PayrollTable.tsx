@@ -327,10 +327,20 @@ export function PayrollTable({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => onEditDetails?.(record)}>
-              <Pencil className="mr-2 h-4 w-4" aria-hidden="true" />
-              Edit payroll details
-            </DropdownMenuItem>
+            {record.status === "pending" ? (
+              <DropdownMenuItem onClick={() => onEditDetails?.(record)}>
+                <Pencil className="mr-2 h-4 w-4" aria-hidden="true" />
+                Edit payroll details
+              </DropdownMenuItem>
+            ) : (
+              <DropdownMenuItem disabled className="flex-col items-start gap-0.5">
+                <span className="flex items-center">
+                  <Pencil className="mr-2 h-4 w-4" aria-hidden="true" />
+                  Edit payroll details
+                </span>
+                <span className="pl-6 text-xs">Locked. Revert to pending to edit.</span>
+              </DropdownMenuItem>
+            )}
             <DropdownMenuSeparator />
             {record.status === "pending" && (
               <DropdownMenuItem onClick={() => onMarkProcessed?.(record)}>
