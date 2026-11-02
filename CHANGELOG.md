@@ -6,6 +6,9 @@ When you update a self-hosted copy, read the **Upgrade notes** of every version 
 
 ## [Unreleased]
 
+### Security and dependencies
+
+- Updated the app's libraries (Radix UI, Supabase client, React Query, React Router, jsPDF and others) and their sub-dependencies. This fixes a critical jsPDF issue in PDF generation and known issues in DOMPurify, PostCSS and React Router.
 ### Assets: repairs, damage, loss and retirement
 
 - **New statuses**: In repair (was Maintenance), Damaged, Lost and Retired, each set from the asset's menu with a reason. Lost and retired assets are taken off whoever had them.

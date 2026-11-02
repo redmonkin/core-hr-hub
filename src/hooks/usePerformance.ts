@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import type { TablesUpdate } from "@/integrations/supabase/types";
 import { toast } from "sonner";
 
 export interface Goal {
@@ -89,7 +90,7 @@ export function useUpdateGoal() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ id, employeeId, ...updates }: { id: string; employeeId: string; [key: string]: unknown }) => {
+    mutationFn: async ({ id, employeeId, ...updates }: { id: string; employeeId: string } & TablesUpdate<"goals">) => {
       const { error } = await supabase
         .from("goals")
         .update(updates)
