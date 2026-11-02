@@ -23,9 +23,18 @@ TabsList.displayName = TabsPrimitive.List.displayName;
 const TabsTrigger = React.forwardRef<
   React.ElementRef<typeof TabsPrimitive.Trigger>,
   React.ComponentPropsWithoutRef<typeof TabsPrimitive.Trigger>
->(({ className, ...props }, ref) => (
+>(({ className, onMouseDown, ...props }, ref) => (
   <TabsPrimitive.Trigger
     ref={ref}
+    onMouseDown={(event) => {
+      onMouseDown?.(event);
+      // Radix focuses the tab from script on mouse down, which makes browsers draw
+      // the keyboard focus ring after a click. Focus it first without the ring;
+      // keyboard focus still shows it.
+      if (!event.defaultPrevented && event.button === 0 && !event.ctrlKey && !props.disabled) {
+        event.currentTarget.focus({ focusVisible: false } as FocusOptions);
+      }
+    }}
     className={cn(
       "inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium ring-offset-background transition-all data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
       className,
